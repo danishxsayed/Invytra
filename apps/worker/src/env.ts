@@ -24,6 +24,8 @@ const envSchema = z.object({
     .transform((v) => v !== "false"),
   /** DEV ONLY: allow accounts without a proxy. Never enable on a server. */
   ALLOW_NO_PROXY: bool,
+  /** DEV ONLY: run actions outside the account's working hours (limits still apply). */
+  IGNORE_WORKING_HOURS: bool,
 });
 
 export type Env = z.infer<typeof envSchema>;

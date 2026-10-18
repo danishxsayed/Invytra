@@ -19,7 +19,7 @@ restricted. No UI, no billing, no multi-tenancy.
 - [x] Step 1 — repo scaffold (2026-10-18)
 - [x] Step 2 — Prisma schema + initial migration, limits/working-hours policy with tests (2026-10-18)
 - [x] Step 3 — browser session manager: proxy launch, encrypted session save/restore, checkpoint/captcha/restriction detection, per-account Redis lock, `pnpm account:login` / `pnpm account:check` (2026-10-18)
-- [ ] Step 4 — LinkedIn actions
+- [x] Step 4 — LinkedIn actions: visit, status, invite (+note, More-menu fallback, email/weekly-limit handling), message, inbox sync; limit checks + `actions` log; `pnpm linkedin` CLI; `pnpm account:probe` (2026-10-18) — **selectors still to be confirmed against live LinkedIn with the probe**
 - [ ] Step 5 — job queue + scheduler (policy checks ready in `@invytra/shared`)
 - [ ] Step 6 — PoC CLI
 
@@ -84,7 +84,6 @@ personalization, multi-tenant workspaces.
 
 ## Suggested first prompt for Claude Code
 
-> Read CLAUDE.md and docs/PHASE-0-POC.md. Steps 1–3 are done. Do Step 4 only:
-> the LinkedIn actions in apps/worker/src/linkedin, each run inside
-> withAccountSession, with all selectors in selectors.ts. Stop and show me
-> before moving to Step 5.
+> Read CLAUDE.md and docs/PHASE-0-POC.md. Steps 1–4 are done. Do Step 5 only:
+> the BullMQ queue and scheduler in apps/worker/src/queue, reusing runAction
+> (limits + logging) and withAccountSession. Stop and show me before Step 6.

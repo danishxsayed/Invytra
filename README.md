@@ -43,6 +43,16 @@ docs/             specs
 | `pnpm test` | run all tests (unit + fake-LinkedIn browser tests) |
 | `pnpm account:login <label>` | open a browser, log in to LinkedIn by hand, save the encrypted session |
 | `pnpm account:check <label>` | check a saved session still works (stops the account on a checkpoint) |
+| `pnpm account:probe <label> <profile-url> …` | read-only capture of real LinkedIn pages into `.data/probe/` to verify selectors |
+| `pnpm linkedin <label> visit <url>` | visit a profile (scrolls like a person) |
+| `pnpm linkedin <label> status <url>` | connected / pending / not connected |
+| `pnpm linkedin <label> invite <url> ["note"]` | send a connection request (note ≤ 300 chars) |
+| `pnpm linkedin <label> message <url> "text"` | message a 1st-degree connection |
+| `pnpm linkedin <label> inbox` | read conversations and save new replies |
+| `pnpm linkedin <label> usage` | today's counts against the account's limits |
+
+Every `pnpm linkedin` command checks working hours and daily/weekly limits first and is
+logged in the `actions` table (SUCCEEDED / SKIPPED / FAILED, with duration and errors).
 | `pnpm typecheck` | type-check every package |
 
 ## LinkedIn test accounts

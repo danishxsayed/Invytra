@@ -17,7 +17,9 @@
     "db:deploy": "pnpm --filter @invytra/db migrate:deploy",
     "browsers:install": "pnpm --filter @invytra/worker browsers:install",
     "account:login": "pnpm --filter @invytra/worker account:login",
-    "account:check": "pnpm --filter @invytra/worker account:check"
+    "account:check": "pnpm --filter @invytra/worker account:check",
+    "linkedin": "pnpm --filter @invytra/worker linkedin",
+    "account:probe": "pnpm --filter @invytra/worker account:probe"
   },
   "devDependencies": {
     "turbo": "2.3.3",
