@@ -103,18 +103,22 @@ async function main() {
         await humanPause(page, 5000, 7000);
         // Save first, check health after — so a stop still leaves evidence behind.
         await save("messaging-main.aria.yml", () => page.locator("main").first().ariaSnapshot({ timeout: 10_000 }));
-        await save("messaging-threads.html", () =>
-          page.evaluate(() =>
-            Array.from(document.querySelectorAll('a[href*="/messaging/thread/"]'))
-              .slice(0, 3)
-              .map((a) => (a.closest("li") ?? a).outerHTML)
-              .join("\n\n<!-- next -->\n\n"),
-          ),
+        await save("messaging-list.html", () =>
+          page
+            .getByRole("list", { name: SELECTORS.inbox.conversationList })
+            .first()
+            .locator(":scope > li")
+            .evaluateAll((items) => items.slice(0, 3).map((li) => li.outerHTML).join("\n\n<!-- next -->\n\n"), undefined),
         );
-        const threadCount = await page.locator(SELECTORS.inbox.threadLink).count().catch(() => -1);
-        await writeFile(join(outDir, "messaging-result.json"), JSON.stringify({ threadLinksFound: threadCount }, null, 2));
+        const threadCount = await page
+          .getByRole("list", { name: SELECTORS.inbox.conversationList })
+          .first()
+          .locator(":scope > li")
+          .count()
+          .catch(() => -1);
+        await writeFile(join(outDir, "messaging-result.json"), JSON.stringify({ conversationsFound: threadCount }, null, 2));
         await safeScreenshot(page, join(outDir, "messaging.png"));
-        console.log(`  messaging: ${threadCount} conversation links found`);
+        console.log(`  messaging: ${threadCount} conversations found`);
         await assertHealthy();
       },
       rt.deps,

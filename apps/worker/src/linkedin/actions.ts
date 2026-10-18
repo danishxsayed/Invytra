@@ -4,6 +4,7 @@ import type { SessionTaskContext } from "../browser/types.js";
 import { humanBrowse, humanClick, humanPause, humanType } from "./human.js";
 import {
   connectControl,
+  connectMenuItem,
   control,
   normalizeProfileUrl,
   readProfile,
@@ -76,7 +77,7 @@ export async function sendConnectionRequest(
     if ((await more.count()) === 0) return { outcome: "SKIPPED", reason: "CONNECT_NOT_AVAILABLE", data };
     await humanClick(page, more);
     await humanPause(page, 500, 1200);
-    connect = connectControl(page, info.name);
+    connect = connectControl(page, info.name).or(connectMenuItem(page, info.name));
     if ((await connect.count()) === 0) {
       await page.keyboard.press("Escape");
       return { outcome: "SKIPPED", reason: "CONNECT_NOT_AVAILABLE", data };
@@ -152,8 +153,8 @@ export async function sendMessage(
 }
 
 export interface InboxThread {
+  /** LinkedIn's 2026 inbox has no thread links, so threads are keyed by participant name. */
   threadId: string;
-  threadUrl: string;
   name: string;
   snippet: string;
   timeText: string;
@@ -166,50 +167,46 @@ export interface InboxThread {
 export async function fetchInbox(ctx: SessionTaskContext, limit = 20): Promise<ActionOutcome<{ threads: InboxThread[] }>> {
   const { page } = ctx;
   await page.goto(new URL(SELECTORS.inbox.path, ctx.baseUrl).toString(), { waitUntil: "domcontentloaded" });
-  await humanPause(page, 2000, 4000);
+  await humanPause(page, 2500, 4500);
   await ctx.assertHealthy();
 
-  const links = page.locator(SELECTORS.inbox.threadLink);
+  const list = page.getByRole("list", { name: SELECTORS.inbox.conversationList }).first();
   try {
-    await links.first().waitFor({ state: "attached", timeout: 15_000 });
+    await list.waitFor({ state: "attached", timeout: 15_000 });
   } catch {
     return { outcome: "DONE", data: { threads: [] } };
   }
 
-  const raw = await links.evaluateAll(
-    (anchors, sel) =>
-      // No named helper functions in here: this runs inside the browser page, and tsx
-      // wraps named functions with a `__name` helper the page does not have.
-      anchors.map((a) => {
-        const item = a.closest("li") ?? a;
+  // No named helper functions in here: this runs inside the browser page, and tsx
+  // wraps named functions with a `__name` helper the page does not have.
+  const raw = await list.locator(":scope > li").evaluateAll(
+    (items, sel) =>
+      items.map((item) => {
         const [name, snippet, timeText] = [sel.participantName, sel.snippet, sel.timestamp].map((s) =>
           (item.querySelector(s)?.textContent ?? "").replace(/\s+/g, " ").trim(),
         );
         return {
-          href: (a as HTMLAnchorElement).href,
           name: name ?? "",
           snippet: snippet ?? "",
           timeText: timeText ?? "",
-          unread: item.matches(sel.unreadMarker) || Boolean(item.querySelector(sel.unreadMarker)),
+          text: ((item as HTMLElement).innerText ?? item.textContent ?? "").replace(/\s+/g, " "),
         };
       }),
-    SELECTORS.inbox,
+    { participantName: SELECTORS.inbox.participantName, snippet: SELECTORS.inbox.snippet, timestamp: SELECTORS.inbox.timestamp },
   );
 
-  const seen = new Set<string>();
   const threads: InboxThread[] = [];
+  const seen = new Set<string>();
   for (const r of raw) {
-    const threadId = /\/messaging\/thread\/([^/?#]+)/.exec(r.href)?.[1];
-    if (!threadId || seen.has(threadId)) continue;
-    seen.add(threadId);
+    if (!r.name || SELECTORS.inbox.sponsoredPrefix.test(r.snippet) || seen.has(r.name)) continue;
+    seen.add(r.name);
     threads.push({
-      threadId,
-      threadUrl: r.href,
+      threadId: r.name,
       name: r.name,
       snippet: r.snippet,
       timeText: r.timeText,
-      unread: r.unread,
-      messageKey: `${threadId}:${createHash("sha1").update(r.snippet).digest("hex").slice(0, 16)}`,
+      unread: SELECTORS.inbox.unreadText.test(r.text),
+      messageKey: `${createHash("sha1").update(`${r.name}\n${r.snippet}`).digest("hex").slice(0, 24)}`,
     });
     if (threads.length >= limit) break;
   }

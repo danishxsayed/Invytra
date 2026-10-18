@@ -134,13 +134,14 @@ describe("LinkedIn actions (fake site)", { timeout: 60_000 }, () => {
     expect(state.messages).toHaveLength(1);
   });
 
-  it("reads the inbox, de-duplicates threads and flags unread", async () => {
+  it("reads the 2026 inbox list: skips sponsored, de-duplicates, flags unread", async () => {
     const r = await run((ctx) => fetchInbox(ctx));
     expect(r.outcome).toBe("DONE");
     const threads = r.outcome === "DONE" ? r.data.threads : [];
-    expect(threads.map((t) => t.threadId)).toEqual(["T1", "T2", "T3"]);
-    expect(threads[0]).toMatchObject({ name: "Carol White", snippet: "Sure, let's talk Tuesday", unread: true });
+    expect(threads.map((t) => t.name)).toEqual(["Carol White", "Alice Smith", "Bob Jones"]);
+    expect(threads[0]).toMatchObject({ snippet: "Carol: Sure, let's talk Tuesday", unread: true, timeText: "2h" });
     expect(threads[1]!.unread).toBe(false);
     expect(threads.filter((t) => !isOwnMessage(t.snippet)).map((t) => t.name)).toEqual(["Carol White", "Bob Jones"]);
+    expect(new Set(threads.map((t) => t.messageKey)).size).toBe(3);
   });
 });

@@ -51,8 +51,9 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
     actions = `${link('id="msg"', "Message")}${moreBtn()}`;
   } else if (p.kind === "more") {
     actions = `<button aria-label="Follow ${p.name}">Follow</button>${moreBtn('id="more"')}
-      <div id="menu" role="menu" hidden><div role="button" tabindex="0" id="connect" ${invite}>Connect</div>
-      <div role="button" tabindex="0">Save to PDF</div></div>`;
+      <div id="menu" role="menu" hidden><div role="menuitem" tabindex="0">Send profile in a message</div>
+      <div role="menuitem" tabindex="0" id="connect" ${invite}>Connect</div>
+      <div role="menuitem" tabindex="0">Save to PDF</div></div>`;
   } else {
     actions = `${link(`id="connect" ${invite}`, "Connect")}${link('id="msg-nc"', "Message")}${moreBtn()}`;
   }
@@ -103,11 +104,13 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
 
 const inboxHtml = page(
   "Messaging | LinkedIn",
-  `${HIDDEN_CAPTCHA}<main><ul>
-    <li class="msg-conversation-card__convo-item--unread"><a href="/messaging/thread/T1/"><h3>Carol White</h3><p>Sure, let's talk Tuesday</p><time>2h</time></a></li>
-    <li><a href="/messaging/thread/T2/"><h3>Alice Smith</h3><p>You: Thanks for connecting!</p><time>Oct 12</time></a></li>
-    <li><a href="/messaging/thread/T3/"><h3>Bob Jones</h3><p>Not interested, thanks</p><time>Oct 10</time></a></li>
-    <li><a href="/messaging/thread/T1/?x=dup"><h3>Carol White</h3><p>dup link</p></a></li>
+  `${HIDDEN_CAPTCHA}<main><h1>Messaging</h1><h2>Conversation List</h2><ul aria-label="Conversation List">
+    <li></li>
+    <li><h3>Ashlyn Gonzales, MS</h3><time>9:07 PM</time><p>Sponsored Free Gift After Tour</p></li>
+    <li><h3>Carol White</h3><time>2h</time><p>Carol: Sure, let's talk Tuesday</p><span>1 new notification . Press return to go to conversation details</span></li>
+    <li><h3>Alice Smith</h3><time>Oct 12</time><p>You: Thanks for connecting!</p></li>
+    <li><h3>Bob Jones</h3><time>Oct 10</time><p>Bob: Not interested, thanks</p></li>
+    <li><h3>Carol White</h3><time>Oct 1</time><p>older duplicate</p></li>
   </ul></main>`,
 );
 

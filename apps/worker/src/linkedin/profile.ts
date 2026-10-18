@@ -81,5 +81,14 @@ export async function readProfile(page: Page): Promise<ProfileInfo> {
 export function connectControl(page: Page, name: string): Locator {
   const card = topCard(page);
   const forThisPerson = new RegExp(`^Invite ${escapeRegex(name)} to connect$`, "i");
-  return visible(card.getByLabel(forThisPerson)).or(control(card, SELECTORS.profile.connectText));
+  return visible(card.getByLabel(forThisPerson))
+    .or(control(card, SELECTORS.profile.connectText))
+    .or(visible(card.getByRole("menuitem", { name: forThisPerson })))
+    .or(visible(card.getByRole("menuitem", { name: SELECTORS.profile.connectText })));
+}
+
+/** After opening "More": a Connect menu item for THIS person anywhere on the page (menus may render outside the card). */
+export function connectMenuItem(page: Page, name: string): Locator {
+  const forThisPerson = new RegExp(`^Invite ${escapeRegex(name)} to connect$`, "i");
+  return visible(page.getByRole("menuitem", { name: forThisPerson }));
 }

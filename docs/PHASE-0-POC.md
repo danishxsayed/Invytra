@@ -19,7 +19,7 @@ restricted. No UI, no billing, no multi-tenancy.
 - [x] Step 1 — repo scaffold (2026-10-18)
 - [x] Step 2 — Prisma schema + initial migration, limits/working-hours policy with tests (2026-10-18)
 - [x] Step 3 — browser session manager: proxy launch, encrypted session save/restore, checkpoint/captcha/restriction detection, per-account Redis lock, `pnpm account:login` / `pnpm account:check` (2026-10-18)
-- [x] Step 4 — LinkedIn actions: visit, status, invite (+note, More-menu fallback, email/weekly-limit handling), message, inbox sync; limit checks + `actions` log; `pnpm linkedin` CLI; `pnpm account:probe` (2026-10-18) — **selectors still to be confirmed against live LinkedIn with the probe**
+- [x] Step 4 — LinkedIn actions: visit, status, invite (+note, More-menu fallback, email/weekly-limit handling), message, inbox sync; limit checks + `actions` log; `pnpm linkedin` CLI; `pnpm account:probe` (2026-10-18) — profile + inbox selectors confirmed against live LinkedIn (2026 layout) with the probe; invite modal and message overlay still to confirm on first real send
 - [ ] Step 5 — job queue + scheduler (policy checks ready in `@invytra/shared`)
 - [ ] Step 6 — PoC CLI
 

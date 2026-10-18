@@ -88,11 +88,13 @@ export const SELECTORS = {
   },
   inbox: {
     path: "/messaging/",
-    threadLink: 'a[href*="/messaging/thread/"]',
-    /** Inside a conversation list item */
+    /** 2026 layout: <ul aria-label="Conversation List"> with one <li> per conversation. */
+    conversationList: /^Conversation List$/i,
     participantName: "h3",
     snippet: "p",
     timestamp: "time",
-    unreadMarker: '[class*="unread"], [aria-label*="unread" i]',
+    /** Text inside an item that marks it unread, e.g. "1 new notification". */
+    unreadText: /\bnew (notification|message)s?\b|\bunread\b/i,
+    sponsoredPrefix: /^Sponsored\b/i,
   },
 } as const;
