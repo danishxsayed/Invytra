@@ -18,7 +18,7 @@ cp .env.example .env
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 pnpm db:up                                   # start Postgres + Redis
-pnpm --filter @invytra/db exec prisma migrate deploy   # create tables
+pnpm db:deploy                               # create tables
 pnpm build
 pnpm test
 ```

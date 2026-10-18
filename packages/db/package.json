@@ -5,13 +5,20 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "generate": "prisma generate",
-    "migrate": "prisma migrate dev",
-    "studio": "prisma studio",
+    "migrate": "node --env-file=../../.env ./node_modules/prisma/build/index.js migrate dev",
+    "studio": "node --env-file=../../.env ./node_modules/prisma/build/index.js studio",
     "build": "prisma generate && tsc -p tsconfig.json",
-    "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit"
+    "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
+    "prisma": "node --env-file=../../.env ./node_modules/prisma/build/index.js",
+    "migrate:deploy": "node --env-file=../../.env ./node_modules/prisma/build/index.js migrate deploy"
   },
   "dependencies": {
     "@prisma/client": "6.1.0"
