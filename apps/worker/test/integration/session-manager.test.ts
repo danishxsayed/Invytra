@@ -15,6 +15,7 @@ import {
   AccountNeedsAttentionError,
   AccountUnavailableError,
   SessionRequiredError,
+  evidenceOf,
 } from "../../src/browser/errors.js";
 import { withAccountSession, type SessionManagerDeps } from "../../src/browser/session-manager.js";
 import type { BrowserAccount, StorageState } from "../../src/browser/types.js";
@@ -202,11 +203,17 @@ describe("withAccountSession", { timeout: 60_000 }, () => {
     expect(err.pageState).toBe("CHECKPOINT");
   });
 
-  it("rethrows ordinary task errors without stopping the account", async () => {
-    await expect(
-      withAccountSession(h.account.id, async () => Promise.reject(new Error("boom")), h.deps),
-    ).rejects.toThrow("boom");
+  it("rethrows ordinary task errors without stopping the account, with evidence saved", async () => {
+    const err = await withAccountSession(h.account.id, async () => Promise.reject(new Error("boom")), h.deps).catch(
+      (e) => e,
+    );
+    expect(err.message).toBe("boom");
     expect(h.account.status).toBe("ACTIVE");
+    const ev = evidenceOf(err)!;
+    expect(ev.screenshotPath && existsSync(ev.screenshotPath)).toBe(true);
+    for (const f of ["url.txt", "main.aria.yml", "body.aria.yml", "overlays.html"]) {
+      expect(existsSync(join(ev.evidenceDir!, f))).toBe(true);
+    }
   });
 
   it("blocks a second session on the same account while one is running", async () => {

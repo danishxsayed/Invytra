@@ -106,6 +106,18 @@ describe("LinkedIn actions (fake site)", { timeout: 60_000 }, () => {
     expect(state.invites.at(-1)).toEqual({ slug: "bob", note: null });
   });
 
+  it("handles LinkedIn sending the invite with no dialog", async () => {
+    const r = await run((ctx) => sendConnectionRequest(ctx, url("ivan"), "a note LinkedIn never asked for"));
+    expect(r).toMatchObject({ outcome: "DONE", data: { name: "Ivan Instant", withNote: false } });
+    expect(state.invites.at(-1)).toEqual({ slug: "ivan", note: null });
+  });
+
+  it("handles a native <dialog> invite pop-up with a note", async () => {
+    const r = await run((ctx) => sendConnectionRequest(ctx, url("nina"), "Hi Nina"));
+    expect(r).toMatchObject({ outcome: "DONE", data: { withNote: true } });
+    expect(state.invites.at(-1)).toEqual({ slug: "nina", note: "Hi Nina" });
+  });
+
   it("does not invite existing connections", async () => {
     expect(await run((ctx) => sendConnectionRequest(ctx, url("carol")))).toMatchObject({ outcome: "SKIPPED", reason: "CONNECTED" });
   });

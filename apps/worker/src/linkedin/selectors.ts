@@ -74,9 +74,10 @@ export const SELECTORS = {
     firstDegree: /·\s*1st\b/,
   },
   invite: {
-    dialog: '[role="dialog"]',
+    /** ARIA dialogs, alert dialogs, and native <dialog> elements (no explicit role attribute). */
+    dialog: '[role="dialog"], [role="alertdialog"], dialog[open]',
     addNoteButton: /^Add a note$/i,
-    noteTextarea: 'textarea[name="message"], [role="dialog"] textarea',
+    noteTextarea: 'textarea, [role="textbox"][contenteditable="true"]',
     sendButton: /^Send( invitation| now)?$/i,
     sendWithoutNoteButton: /^Send without a note$/i,
   },

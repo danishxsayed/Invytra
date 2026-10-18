@@ -84,29 +84,46 @@ export async function sendConnectionRequest(
     }
   }
   await humanClick(page, connect.first());
-  await humanPause(page, 800, 1800);
 
-  if (await pageMentions(ctx, INVITE_BLOCK_MARKERS.weeklyLimit)) throw new InviteLimitReachedError();
-  if (await pageMentions(ctx, INVITE_BLOCK_MARKERS.emailRequired)) {
-    await page.keyboard.press("Escape");
-    return { outcome: "SKIPPED", reason: "EMAIL_REQUIRED", data };
-  }
-
+  // After Connect, LinkedIn shows a dialog — or (on some accounts) sends straight away.
   const dialog = page.locator(SELECTORS.invite.dialog).filter({ visible: true }).last();
-  await dialog.waitFor({ state: "visible", timeout: 10_000 });
-
-  if (trimmedNote) {
-    await humanClick(page, dialog.getByRole("button", { name: SELECTORS.invite.addNoteButton }));
-    await humanPause(page, 500, 1200);
-    await humanType(page, dialog.locator(SELECTORS.invite.noteTextarea).first(), trimmedNote);
-    await humanPause(page, 600, 1500);
-    await humanClick(page, dialog.getByRole("button", { name: SELECTORS.invite.sendButton }).first());
-  } else {
-    const withoutNote = dialog.getByRole("button", { name: SELECTORS.invite.sendWithoutNoteButton });
-    const send = (await withoutNote.count()) > 0 ? withoutNote : dialog.getByRole("button", { name: SELECTORS.invite.sendButton });
-    await humanClick(page, send.first());
+  const deadline = Date.now() + 12_000;
+  let sentWithoutDialog = false;
+  for (;;) {
+    if (await pageMentions(ctx, INVITE_BLOCK_MARKERS.weeklyLimit)) throw new InviteLimitReachedError();
+    if (await pageMentions(ctx, INVITE_BLOCK_MARKERS.emailRequired)) {
+      await page.keyboard.press("Escape");
+      return { outcome: "SKIPPED", reason: "EMAIL_REQUIRED", data };
+    }
+    if ((await dialog.count()) > 0) break;
+    if ((await readProfile(page)).status === "PENDING") {
+      sentWithoutDialog = true;
+      break;
+    }
+    if (Date.now() > deadline) throw new Error("No invitation dialog appeared after clicking Connect");
+    await page.waitForTimeout(500);
   }
-  await humanPause(page, 1500, 3000);
+
+  if (sentWithoutDialog) data.withNote = false; // LinkedIn sent it without offering a note
+  if (!sentWithoutDialog) {
+    await humanPause(page, 600, 1400);
+    const button = (name: RegExp) =>
+      dialog.getByRole("button", { name }).or(dialog.getByRole("link", { name })).filter({ visible: true });
+    if (trimmedNote) {
+      await humanClick(page, button(SELECTORS.invite.addNoteButton).first());
+      await humanPause(page, 500, 1200);
+      const box = page.locator(SELECTORS.invite.dialog).filter({ visible: true }).last()
+        .locator(SELECTORS.invite.noteTextarea).filter({ visible: true }).first();
+      await humanType(page, box, trimmedNote);
+      await humanPause(page, 600, 1500);
+      await humanClick(page, button(SELECTORS.invite.sendButton).first());
+    } else {
+      const withoutNote = button(SELECTORS.invite.sendWithoutNoteButton);
+      const send = (await withoutNote.count()) > 0 ? withoutNote : button(SELECTORS.invite.sendButton);
+      await humanClick(page, send.first());
+    }
+    await humanPause(page, 1500, 3000);
+  }
 
   if (await pageMentions(ctx, INVITE_BLOCK_MARKERS.weeklyLimit)) throw new InviteLimitReachedError();
   await ctx.assertHealthy();

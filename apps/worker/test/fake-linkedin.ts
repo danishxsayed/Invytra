@@ -4,7 +4,7 @@
  */
 import { createServer, type Server } from "node:http";
 
-type Kind = "open" | "more" | "connected" | "pending" | "email" | "limit";
+type Kind = "open" | "more" | "connected" | "pending" | "email" | "limit" | "instant" | "native";
 const HIDDEN_CAPTCHA = '<iframe src="/captcha-widget" title="captcha" style="display:none"></iframe>';
 
 interface Person {
@@ -21,6 +21,8 @@ export const PEOPLE: Record<string, Person> = {
   erin: { name: "Erin Green", headline: "Designer", kind: "email" },
   frank: { name: "Frank Black", headline: "Recruiter", kind: "limit" },
   olga: { name: "Olga Old", headline: "Old layout person", kind: "open" },
+  ivan: { name: "Ivan Instant", headline: "Sends with no dialog", kind: "instant" },
+  nina: { name: "Nina Native", headline: "Native dialog element", kind: "native" },
 };
 
 /** Profiles rendered with LinkedIn's pre-2026 layout (h1, buttons, first <section>). */
@@ -85,12 +87,14 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
         if(kind==='limit'){root.innerHTML='<div role="dialog"><p>You’ve reached the weekly invitation limit</p><button>Got it</button></div>';return;}
         if(kind==='email'){root.innerHTML='<div role="dialog"><p>To verify this member knows you, please enter their email to connect.</p><input type="email"></div>';
           document.addEventListener('keydown',e=>{if(e.key==='Escape')root.innerHTML='';});return;}
-        root.innerHTML='<div role="dialog"><p>Add a note to your invitation?</p><button id="add">Add a note</button><button id="plain" aria-label="Send without a note">Send without a note</button></div>';
         const send=async(note)=>{await fetch('/api/invite/'+slug,{method:'POST',body:JSON.stringify({note})});
           root.innerHTML='';const lbl='aria-label="Pending, click to withdraw invitation sent to '+name+'"';
           document.querySelector('.actions').innerHTML= old ? '<button '+lbl+'>Pending</button>' : '<a href="#" '+lbl+'>Pending</a>';};
+        if(kind==='instant'){send(null);return;}
+        const wrap = kind==='native' ? ['<dialog open>','</dialog>'] : ['<div role="dialog">','</div>'];
+        root.innerHTML=wrap[0]+'<p>Add a note to your invitation?</p><button id="add">Add a note</button><button id="plain" aria-label="Send without a note">Send without a note</button>'+wrap[1];
         document.getElementById('plain').onclick=()=>send(null);
-        document.getElementById('add').onclick=()=>{root.querySelector('[role=dialog]').innerHTML=
+        document.getElementById('add').onclick=()=>{root.querySelector('[role=dialog], dialog').innerHTML=
           '<textarea name="message" maxlength="300"></textarea><button id="s" aria-label="Send invitation">Send</button>';
           document.getElementById('s').onclick=()=>send(root.querySelector('textarea').value);};
       };

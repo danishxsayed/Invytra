@@ -9,7 +9,7 @@ import {
   type UsageCounts,
   type WorkingHours,
 } from "@invytra/shared";
-import { AccountNeedsAttentionError } from "../browser/errors.js";
+import { AccountNeedsAttentionError, evidenceOf } from "../browser/errors.js";
 import { withAccountSession, type SessionManagerDeps } from "../browser/session-manager.js";
 import type { SessionTaskContext } from "../browser/types.js";
 import { InviteLimitReachedError, type ActionOutcome } from "../linkedin/actions.js";
@@ -29,6 +29,7 @@ export interface RunActionInput {
 export type RunActionResult<T> =
   | { status: "SUCCEEDED"; actionId: string; data: T; durationMs: number }
   | { status: "SKIPPED"; actionId: string; reason: string; data?: T }
+  /** screenshotPath: the screenshot for account stops, or the evidence folder for other failures. */
   | { status: "FAILED"; actionId: string; error: string; screenshotPath: string | null };
 
 /**
@@ -139,7 +140,9 @@ export async function runAction<T>(
         : err instanceof Error
           ? err.message
           : String(err);
-    const screenshotPath = err instanceof AccountNeedsAttentionError ? err.screenshotPath : null;
+    const evidence = evidenceOf(err);
+    const screenshotPath =
+      err instanceof AccountNeedsAttentionError ? err.screenshotPath : (evidence?.evidenceDir ?? null);
     await prisma.action.update({
       where: { id: action.id },
       data: { status: "FAILED", error, screenshotPath, executedAt: new Date(), durationMs: Date.now() - started },

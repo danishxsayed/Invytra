@@ -33,3 +33,18 @@ export class AccountNeedsAttentionError extends Error {
     this.name = "AccountNeedsAttentionError";
   }
 }
+
+/** Attached to a task error: where the failure evidence (screenshot, page structure) was saved. */
+export interface FailureEvidence {
+  screenshotPath: string | null;
+  evidenceDir: string | null;
+}
+
+export function attachEvidence(err: unknown, evidence: FailureEvidence): unknown {
+  if (err && typeof err === "object") Object.assign(err, { evidence });
+  return err;
+}
+
+export function evidenceOf(err: unknown): FailureEvidence | null {
+  return (err as { evidence?: FailureEvidence } | null)?.evidence ?? null;
+}

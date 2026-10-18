@@ -119,7 +119,7 @@ async function main() {
       }
     } else {
       console.error(`✖ Failed: ${result.error}`);
-      if (result.screenshotPath) console.error(`  Screenshot: ${result.screenshotPath}`);
+      if (result.screenshotPath) console.error(`  Evidence saved: ${result.screenshotPath}`);
       process.exitCode = 1;
     }
   } finally {
