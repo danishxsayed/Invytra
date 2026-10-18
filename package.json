@@ -1,0 +1,20 @@
+{
+  "name": "invytra",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @invytra/db generate",
+    "db:migrate": "pnpm --filter @invytra/db migrate",
+    "db:studio": "pnpm --filter @invytra/db studio"
+  },
+  "devDependencies": {
+    "turbo": "2.3.3",
+    "typescript": "5.7.2"
+  }
+}

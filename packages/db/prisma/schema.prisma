@@ -1,0 +1,102 @@
+// Invytra — Phase 0 schema.
+// Only what the proof of concept needs. Users, workspaces, campaigns and leads
+// arrive in Phase 1.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountStatus {
+  ACTIVE
+  PAUSED
+  NEEDS_ATTENTION // checkpoint, captcha, restriction or invalid session — a human must look
+  DISCONNECTED
+}
+
+enum ActionType {
+  PROFILE_VISIT
+  CONNECTION_REQUEST
+  CHECK_CONNECTION
+  MESSAGE
+  INBOX_SYNC
+}
+
+enum ActionStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED // blocked by limits/hours and not retried
+}
+
+model LinkedinAccount {
+  id                String        @id @default(cuid())
+  label             String        @unique
+  email             String?
+  proxyUrl          String        @map("proxy_url")
+  timezone          String        @default("Asia/Kolkata")
+  status            AccountStatus @default(ACTIVE)
+  /// AES-256-GCM encrypted Playwright storage state. Never log this.
+  encryptedSession  Bytes?        @map("encrypted_session")
+  sessionUpdatedAt  DateTime?     @map("session_updated_at")
+  /// { days: number[], startHour: number, endHour: number } — validated by @invytra/shared
+  workingHours      Json          @map("working_hours")
+  /// Limits object — validated by @invytra/shared limitsSchema
+  limits            Json
+  statusReason      String?       @map("status_reason")
+  lastActiveAt      DateTime?     @map("last_active_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  actions  Action[]
+  messages InboxMessage[]
+
+  @@map("linkedin_accounts")
+}
+
+model Action {
+  id             String       @id @default(cuid())
+  accountId      String       @map("account_id")
+  type           ActionType
+  targetUrl      String?      @map("target_url")
+  /// Action input, e.g. { note } for invites or { text } for messages
+  payload        Json?
+  status         ActionStatus @default(QUEUED)
+  error          String?
+  screenshotPath String?      @map("screenshot_path")
+  attempts       Int          @default(0)
+  scheduledAt    DateTime     @default(now()) @map("scheduled_at")
+  executedAt     DateTime?    @map("executed_at")
+  durationMs     Int?         @map("duration_ms")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  account LinkedinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  // Daily/weekly limit counting: actions per account, type and time window
+  @@index([accountId, type, status, executedAt])
+  @@index([status, scheduledAt])
+  @@map("actions")
+}
+
+/// Replies fetched by INBOX_SYNC. Deduplicated per account by LinkedIn message id.
+model InboxMessage {
+  id                String   @id @default(cuid())
+  accountId         String   @map("account_id")
+  linkedinMessageId String   @map("linkedin_message_id")
+  fromName          String   @map("from_name")
+  fromProfileUrl    String?  @map("from_profile_url")
+  text              String
+  sentAt            DateTime @map("sent_at")
+  fetchedAt         DateTime @default(now()) @map("fetched_at")
+
+  account LinkedinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, linkedinMessageId])
+  @@index([accountId, sentAt])
+  @@map("inbox_messages")
+}
