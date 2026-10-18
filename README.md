@@ -17,7 +17,8 @@ cp .env.example .env
 # generate the session encryption key and paste it into .env:
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
-pnpm db:up                                   # start Postgres + Redis
+pnpm browsers:install                        # download Chromium for Playwright
+pnpm db:up                                   # start Postgres + Redis (or Homebrew services)
 pnpm db:deploy                               # create tables
 pnpm build
 pnpm test
@@ -39,5 +40,18 @@ docs/             specs
 | `pnpm db:up` / `pnpm db:down` | start / stop Postgres and Redis |
 | `pnpm db:migrate` | create a new migration after editing `schema.prisma` |
 | `pnpm db:studio` | browse the database |
-| `pnpm test` | run all unit tests |
+| `pnpm test` | run all tests (unit + fake-LinkedIn browser tests) |
+| `pnpm login <label>` | open a browser, log in to LinkedIn by hand, save the encrypted session |
+| `pnpm check-session <label>` | check a saved session still works (stops the account on a checkpoint) |
 | `pnpm typecheck` | type-check every package |
+
+## LinkedIn test accounts
+
+1. Add the account to `.env` as `ACCOUNT_1_LABEL`, `ACCOUNT_1_PROXY_URL`, `ACCOUNT_1_TIMEZONE`.
+2. `pnpm login test-1` — a browser opens through the account's proxy. Log in by hand,
+   including any 2FA. Invytra never types passwords.
+3. `pnpm check-session test-1` — should print "Session OK".
+
+If LinkedIn shows a checkpoint, captcha, restriction or login page, the account is set to
+`NEEDS_ATTENTION` and a screenshot is saved in `.data/screenshots/`. Resolve it by hand,
+then run `pnpm login <label>` again to reactivate the account.

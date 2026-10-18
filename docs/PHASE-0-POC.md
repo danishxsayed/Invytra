@@ -18,7 +18,7 @@ restricted. No UI, no billing, no multi-tenancy.
 
 - [x] Step 1 — repo scaffold (2026-10-18)
 - [x] Step 2 — Prisma schema + initial migration, limits/working-hours policy with tests (2026-10-18)
-- [ ] Step 3 — browser session manager (session encryption helper already done: `apps/worker/src/browser/session-crypto.ts`)
+- [x] Step 3 — browser session manager: proxy launch, encrypted session save/restore, checkpoint/captcha/restriction detection, per-account Redis lock, `pnpm login` / `pnpm check-session` (2026-10-18)
 - [ ] Step 4 — LinkedIn actions
 - [ ] Step 5 — job queue + scheduler (policy checks ready in `@invytra/shared`)
 - [ ] Step 6 — PoC CLI
@@ -84,6 +84,7 @@ personalization, multi-tenant workspaces.
 
 ## Suggested first prompt for Claude Code
 
-> Read CLAUDE.md and docs/PHASE-0-POC.md. Steps 1 and 2 are done. Do Step 3 only:
-> the browser session manager in apps/worker/src/browser, using the existing
-> session-crypto helper. Stop and show me before moving to Step 4.
+> Read CLAUDE.md and docs/PHASE-0-POC.md. Steps 1–3 are done. Do Step 4 only:
+> the LinkedIn actions in apps/worker/src/linkedin, each run inside
+> withAccountSession, with all selectors in selectors.ts. Stop and show me
+> before moving to Step 5.

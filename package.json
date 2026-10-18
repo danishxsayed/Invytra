@@ -14,7 +14,10 @@
     "db:generate": "pnpm --filter @invytra/db generate",
     "db:migrate": "pnpm --filter @invytra/db migrate",
     "db:studio": "pnpm --filter @invytra/db studio",
-    "db:deploy": "pnpm --filter @invytra/db migrate:deploy"
+    "db:deploy": "pnpm --filter @invytra/db migrate:deploy",
+    "login": "pnpm --filter @invytra/worker login",
+    "check-session": "pnpm --filter @invytra/worker check-session",
+    "browsers:install": "pnpm --filter @invytra/worker browsers:install"
   },
   "devDependencies": {
     "turbo": "2.3.3",

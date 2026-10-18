@@ -4,6 +4,11 @@ import { z } from "zod";
 
 config({ path: resolve(import.meta.dirname, "../../../.env") });
 
+const bool = z
+  .enum(["true", "false", ""])
+  .default("")
+  .transform((v) => v === "true");
+
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
@@ -11,6 +16,14 @@ const envSchema = z.object({
     .string()
     .refine((v) => Buffer.from(v, "base64").length === 32, "must be 32 bytes, base64-encoded"),
   DATA_DIR: z.string().default("./.data"),
+  LINKEDIN_BASE_URL: z.string().url().default("https://www.linkedin.com"),
+  /** Set to "false" to watch the browser while developing. */
+  HEADLESS: z
+    .enum(["true", "false", ""])
+    .default("")
+    .transform((v) => v !== "false"),
+  /** DEV ONLY: allow accounts without a proxy. Never enable on a server. */
+  ALLOW_NO_PROXY: bool,
 });
 
 export type Env = z.infer<typeof envSchema>;
