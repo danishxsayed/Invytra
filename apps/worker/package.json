@@ -7,9 +7,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "login": "tsx src/scripts/login.ts",
-    "check-session": "tsx src/scripts/check-session.ts",
-    "browsers:install": "playwright install chromium"
+    "browsers:install": "playwright install chromium",
+    "account:login": "tsx src/scripts/login.ts",
+    "account:check": "tsx src/scripts/check-session.ts"
   },
   "dependencies": {
     "@invytra/db": "workspace:*",

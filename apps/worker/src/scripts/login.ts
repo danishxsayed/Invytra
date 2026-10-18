@@ -3,7 +3,7 @@
  * account's proxy; a team member logs in by hand (including 2FA); the session
  * is then encrypted and saved. Invytra never types passwords itself.
  *
- *   pnpm login <label>
+ *   pnpm account:login <label>
  */
 import { contextOptionsFor, launchBrowser, realUserAgent } from "../browser/launch.js";
 import { redactProxyUrl } from "../browser/proxy.js";
@@ -13,7 +13,7 @@ const LOGIN_TIMEOUT_MS = 10 * 60_000;
 
 async function main() {
   const label = process.argv[2];
-  if (!label) throw new Error("Usage: pnpm login <account-label>");
+  if (!label) throw new Error("Usage: pnpm account:login <account-label>");
 
   const rt = await createRuntime();
   try {

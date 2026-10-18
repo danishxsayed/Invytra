@@ -2,7 +2,7 @@
  * Opens the saved session for an account headlessly, loads the feed and
  * reports whether LinkedIn still accepts it.
  *
- *   pnpm check-session <label>
+ *   pnpm account:check <label>
  */
 import { AccountNeedsAttentionError } from "../browser/errors.js";
 import { withAccountSession } from "../browser/session-manager.js";
@@ -10,7 +10,7 @@ import { createRuntime } from "../runtime.js";
 
 async function main() {
   const label = process.argv[2];
-  if (!label) throw new Error("Usage: pnpm check-session <account-label>");
+  if (!label) throw new Error("Usage: pnpm account:check <account-label>");
 
   const rt = await createRuntime();
   try {

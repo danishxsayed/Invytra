@@ -17,7 +17,7 @@ export class AccountUnavailableError extends Error {
 /** No saved session — a team member must run the login script. */
 export class SessionRequiredError extends Error {
   constructor(accountId: string) {
-    super(`Account ${accountId} has no saved session. Run: pnpm login <label>`);
+    super(`Account ${accountId} has no saved session. Run: pnpm account:login <label>`);
     this.name = "SessionRequiredError";
   }
 }
