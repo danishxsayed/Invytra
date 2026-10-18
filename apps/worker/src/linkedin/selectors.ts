@@ -52,20 +52,26 @@ export const INVITE_BLOCK_MARKERS = {
  */
 export const SELECTORS = {
   profile: {
-    /** The profile header card: first section inside <main>. Scoping avoids "People also viewed". */
-    topCard: "main section:first-of-type",
-    name: "h1",
-    headline: "h1 ~ div, .text-body-medium",
-    /** Connect is a direct button, or hidden under "More actions". */
-    connectButton: /^Invite .+ to connect$/i,
-    connectButtonText: /^Connect$/i,
-    moreButton: /^More actions$/i,
+    /**
+     * The profile header card. 2026 layout: a component whose key ends in "Topcard".
+     * Older layout fallback: the first <section> in <main>.
+     * Scoping avoids "People also viewed" / "More profiles for you".
+     */
+    topCard: '[componentkey$="Topcard"]',
+    topCardFallback: "main section:first-of-type",
+    /** h2 in the 2026 layout, h1 before. */
+    name: "h1, h2",
+    /** Old layout only; the 2026 layout headline is the first plain paragraph after the name. */
+    headline: ".text-body-medium",
+    /** Connect is a link (2026) or button (older), or hidden under "More". Checked against the name. */
+    connectText: /^Connect$/i,
+    moreButton: /^More( actions)?$/i,
     /** Shown after an invite was sent. */
-    pendingButton: /^Pending, click to withdraw invitation/i,
-    pendingButtonText: /^Pending$/i,
-    messageButton: /^Message\b/i,
-    /** 1st-degree marker next to the name ("· 1st"). */
-    firstDegree: /\b1st\b/,
+    pendingLabel: /^Pending, click to withdraw invitation/i,
+    pendingText: /^Pending$/i,
+    messageControl: /^Message\b/i,
+    /** Connection degree line, e.g. "· 1st" / "· 2nd". */
+    firstDegree: /·\s*1st\b/,
   },
   invite: {
     dialog: '[role="dialog"]',

@@ -46,14 +46,15 @@ export interface InspectablePage {
   url(): string;
   title(): Promise<string>;
   evaluate<R>(fn: () => R): Promise<R>;
-  locator(selector: string): { count(): Promise<number> };
+  locator(selector: string): { filter(opts: { visible: boolean }): { count(): Promise<number> } };
 }
 
 export async function snapshotPage(page: InspectablePage): Promise<PageSnapshot> {
   const [title, bodyText, captchaCounts] = await Promise.all([
     page.title().catch(() => ""),
     page.evaluate(() => document.body?.innerText ?? "").catch(() => ""),
-    Promise.all(CAPTCHA_SELECTORS.map((s) => page.locator(s).count().catch(() => 0))),
+    // Only VISIBLE captcha widgets count: LinkedIn loads hidden anti-bot iframes on normal pages.
+    Promise.all(CAPTCHA_SELECTORS.map((s) => page.locator(s).filter({ visible: true }).count().catch(() => 0))),
   ]);
   return { url: page.url(), title, bodyText, hasCaptchaElement: captchaCounts.some((c) => c > 0) };
 }

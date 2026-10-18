@@ -11,7 +11,8 @@
     "account:login": "tsx src/scripts/login.ts",
     "account:check": "tsx src/scripts/check-session.ts",
     "linkedin": "tsx src/scripts/linkedin.ts",
-    "account:probe": "tsx src/scripts/probe.ts"
+    "account:probe": "tsx src/scripts/probe.ts",
+    "account:reactivate": "tsx src/scripts/reactivate.ts"
   },
   "dependencies": {
     "@invytra/db": "workspace:*",

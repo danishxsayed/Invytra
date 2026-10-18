@@ -4,6 +4,7 @@ import type { SessionTaskContext } from "../browser/types.js";
 import { humanBrowse, humanClick, humanPause, humanType } from "./human.js";
 import {
   connectControl,
+  control,
   normalizeProfileUrl,
   readProfile,
   topCard,
@@ -71,7 +72,7 @@ export async function sendConnectionRequest(
 
   let connect = connectControl(page, info.name);
   if ((await connect.count()) === 0) {
-    const more = topCard(page).getByRole("button", { name: SELECTORS.profile.moreButton }).first();
+    const more = control(topCard(page), SELECTORS.profile.moreButton).first();
     if ((await more.count()) === 0) return { outcome: "SKIPPED", reason: "CONNECT_NOT_AVAILABLE", data };
     await humanClick(page, more);
     await humanPause(page, 500, 1200);
@@ -128,7 +129,7 @@ export async function sendMessage(
   const info = await openProfile(ctx, profileUrl, false);
   if (info.status !== "CONNECTED") return { outcome: "SKIPPED", reason: `NOT_CONNECTED (${info.status})`, data: { name: info.name } };
 
-  await humanClick(page, topCard(page).getByRole("button", { name: SELECTORS.profile.messageButton }).first());
+  await humanClick(page, control(topCard(page), SELECTORS.profile.messageControl).first());
   const box = page.locator(SELECTORS.message.composeBox).filter({ visible: true }).last();
   await box.waitFor({ state: "visible", timeout: 15_000 });
   await humanPause(page, 800, 1800);

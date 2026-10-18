@@ -64,6 +64,20 @@ describe("LinkedIn actions (fake site)", { timeout: 60_000 }, () => {
     expect(r).toMatchObject({ outcome: "DONE", data: { name: "Alice Smith", headline: "Founder at Acme", status: "NOT_CONNECTED" } });
   });
 
+  it("reads the pre-2026 profile layout too", async () => {
+    const r = await run((ctx) => visitProfile(ctx, url("olga")));
+    expect(r).toMatchObject({ outcome: "DONE", data: { name: "Olga Old", headline: "Old layout person", status: "NOT_CONNECTED" } });
+  });
+
+  it("invites on the pre-2026 layout", async () => {
+    expect(await run((ctx) => sendConnectionRequest(ctx, url("olga")))).toMatchObject({ outcome: "DONE" });
+    expect(state.invites.at(-1)).toEqual({ slug: "olga", note: null });
+  });
+
+  it("ignores '1st' in the About section when the profile is 2nd-degree", async () => {
+    expect(await run((ctx) => checkConnectionStatus(ctx, url("alice")))).toMatchObject({ data: { status: "NOT_CONNECTED" } });
+  });
+
   it("reports connected and pending profiles", async () => {
     expect(await run((ctx) => checkConnectionStatus(ctx, url("carol")))).toMatchObject({ data: { status: "CONNECTED" } });
     expect(await run((ctx) => checkConnectionStatus(ctx, url("dave")))).toMatchObject({ data: { status: "PENDING" } });
@@ -76,12 +90,14 @@ describe("LinkedIn actions (fake site)", { timeout: 60_000 }, () => {
   it("sends an invitation with a note to the right person only", async () => {
     const r = await run((ctx) => sendConnectionRequest(ctx, url("alice"), "Hi Alice, loved your post on SaaS pricing."));
     expect(r).toMatchObject({ outcome: "DONE", data: { name: "Alice Smith", withNote: true } });
-    expect(state.invites).toEqual([{ slug: "alice", note: "Hi Alice, loved your post on SaaS pricing." }]);
+    expect(state.invites.at(-1)).toEqual({ slug: "alice", note: "Hi Alice, loved your post on SaaS pricing." });
+    expect(state.invites.filter((i) => i.slug === "alice")).toHaveLength(1);
   });
 
   it("does not invite someone who is already pending", async () => {
+    const before = state.invites.length;
     expect(await run((ctx) => sendConnectionRequest(ctx, url("alice")))).toMatchObject({ outcome: "SKIPPED", reason: "PENDING" });
-    expect(state.invites).toHaveLength(1);
+    expect(state.invites).toHaveLength(before);
   });
 
   it("finds Connect under the More menu and sends without a note", async () => {

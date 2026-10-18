@@ -43,6 +43,7 @@ docs/             specs
 | `pnpm test` | run all tests (unit + fake-LinkedIn browser tests) |
 | `pnpm account:login <label>` | open a browser, log in to LinkedIn by hand, save the encrypted session |
 | `pnpm account:check <label>` | check a saved session still works (stops the account on a checkpoint) |
+| `pnpm account:reactivate <label>` | set a stopped account back to ACTIVE after you've checked its screenshot |
 | `pnpm account:probe <label> <profile-url> …` | read-only capture of real LinkedIn pages into `.data/probe/` to verify selectors |
 | `pnpm linkedin <label> visit <url>` | visit a profile (scrolls like a person) |
 | `pnpm linkedin <label> status <url>` | connected / pending / not connected |
@@ -63,5 +64,6 @@ logged in the `actions` table (SUCCEEDED / SKIPPED / FAILED, with duration and e
 3. `pnpm account:check test-1` — should print "Session OK".
 
 If LinkedIn shows a checkpoint, captcha, restriction or login page, the account is set to
-`NEEDS_ATTENTION` and a screenshot is saved in `.data/screenshots/`. Resolve it by hand,
-then run `pnpm account:login <label>` again to reactivate the account.
+`NEEDS_ATTENTION` and a screenshot is saved in `.data/screenshots/`. Look at the screenshot:
+if it was a false alarm, run `pnpm account:reactivate <label>`; if LinkedIn really asked for
+verification, resolve it by hand, then run `pnpm account:login <label>`.

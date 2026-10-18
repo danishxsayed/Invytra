@@ -19,7 +19,8 @@
     "account:login": "pnpm --filter @invytra/worker account:login",
     "account:check": "pnpm --filter @invytra/worker account:check",
     "linkedin": "pnpm --filter @invytra/worker linkedin",
-    "account:probe": "pnpm --filter @invytra/worker account:probe"
+    "account:probe": "pnpm --filter @invytra/worker account:probe",
+    "account:reactivate": "pnpm --filter @invytra/worker account:reactivate"
   },
   "devDependencies": {
     "turbo": "2.3.3",

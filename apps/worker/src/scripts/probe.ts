@@ -13,7 +13,7 @@ import { join, resolve } from "node:path";
 import { safeScreenshot } from "../browser/screenshot.js";
 import { withAccountSession } from "../browser/session-manager.js";
 import { humanPause } from "../linkedin/human.js";
-import { normalizeProfileUrl, readProfile, topCard } from "../linkedin/profile.js";
+import { control, normalizeProfileUrl, readProfile, topCard } from "../linkedin/profile.js";
 import { SELECTORS } from "../linkedin/selectors.js";
 import { createRuntime } from "../runtime.js";
 
@@ -80,7 +80,7 @@ async function main() {
           const shot = await safeScreenshot(page, join(outDir, `profile-${i}.png`));
 
           await save(`profile-${i}-more-menu.aria.yml`, async () => {
-            const more = card.getByRole("button", { name: SELECTORS.profile.moreButton }).first();
+            const more = control(card, SELECTORS.profile.moreButton).first();
             if ((await more.count()) === 0) return "No 'More actions' button found in top card";
             await more.click({ timeout: 10_000 });
             await humanPause(page, 1000, 1800);
@@ -101,7 +101,7 @@ async function main() {
 
         await page.goto(new URL(SELECTORS.inbox.path, baseUrl).toString(), { waitUntil: "domcontentloaded" });
         await humanPause(page, 5000, 7000);
-        await assertHealthy();
+        // Save first, check health after — so a stop still leaves evidence behind.
         await save("messaging-main.aria.yml", () => page.locator("main").first().ariaSnapshot({ timeout: 10_000 }));
         await save("messaging-threads.html", () =>
           page.evaluate(() =>
@@ -115,6 +115,7 @@ async function main() {
         await writeFile(join(outDir, "messaging-result.json"), JSON.stringify({ threadLinksFound: threadCount }, null, 2));
         await safeScreenshot(page, join(outDir, "messaging.png"));
         console.log(`  messaging: ${threadCount} conversation links found`);
+        await assertHealthy();
       },
       rt.deps,
     );
