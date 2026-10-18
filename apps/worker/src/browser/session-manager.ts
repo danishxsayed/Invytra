@@ -1,4 +1,3 @@
-import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Browser, BrowserContext, Page } from "playwright";
 import type { AccountLock } from "./account-lock.js";
@@ -10,6 +9,7 @@ import {
 } from "./errors.js";
 import { contextOptionsFor, launchBrowser, realUserAgent, type LaunchOptions } from "./launch.js";
 import { inspectPage } from "./page-state.js";
+import { safeScreenshot } from "./screenshot.js";
 import type { AccountRepository, SessionStore, SessionTaskContext } from "./types.js";
 
 export interface SessionManagerDeps {
@@ -93,12 +93,6 @@ export async function withAccountSession<T>(
 }
 
 async function screenshot(page: Page, dir: string, accountId: string, reason: string): Promise<string | null> {
-  try {
-    await mkdir(dir, { recursive: true });
-    const file = join(dir, `${accountId}-${reason}-${Date.now()}.png`);
-    await page.screenshot({ path: file, fullPage: false });
-    return file;
-  } catch {
-    return null;
-  }
+  const file = join(dir, `${accountId}-${reason}-${Date.now()}.png`);
+  return (await safeScreenshot(page, file)) ? file : null;
 }
