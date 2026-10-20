@@ -12,11 +12,15 @@
     "account:check": "tsx src/scripts/check-session.ts",
     "linkedin": "tsx src/scripts/linkedin.ts",
     "account:probe": "tsx src/scripts/probe.ts",
-    "account:reactivate": "tsx src/scripts/reactivate.ts"
+    "account:reactivate": "tsx src/scripts/reactivate.ts",
+    "worker": "tsx src/worker.ts",
+    "queue": "tsx src/scripts/queue.ts",
+    "queue:status": "tsx src/scripts/queue-status.ts"
   },
   "dependencies": {
     "@invytra/db": "workspace:*",
     "@invytra/shared": "workspace:*",
+    "bullmq": "5.34.6",
     "dotenv": "16.4.7",
     "ioredis": "5.4.2",
     "playwright": "1.56.1",

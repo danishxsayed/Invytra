@@ -19,9 +19,10 @@ restricted. No UI, no billing, no multi-tenancy.
 - [x] Step 1 — repo scaffold (2026-10-18)
 - [x] Step 2 — Prisma schema + initial migration, limits/working-hours policy with tests (2026-10-18)
 - [x] Step 3 — browser session manager: proxy launch, encrypted session save/restore, checkpoint/captcha/restriction detection, per-account Redis lock, `pnpm account:login` / `pnpm account:check` (2026-10-18)
-- [x] Step 4 — LinkedIn actions: visit, status, invite (+note, More-menu fallback, email/weekly-limit handling), message, inbox sync; limit checks + `actions` log; `pnpm linkedin` CLI; `pnpm account:probe` (2026-10-18) — profile + inbox selectors confirmed against live LinkedIn (2026 layout) with the probe; invite modal and message overlay still to confirm on first real send
-- [ ] Step 5 — job queue + scheduler (policy checks ready in `@invytra/shared`)
-- [ ] Step 6 — PoC CLI
+- [x] Step 4 — LinkedIn actions: visit, status, invite (+note, More-menu fallback, email/weekly-limit handling), message, inbox sync; limit checks + `actions` log; `pnpm linkedin` CLI; `pnpm account:probe` (2026-10-18) — profile, invite and inbox confirmed on live LinkedIn (2026 layout); message overlay still to confirm on a real send
+- [x] Step 5 — BullMQ queue + worker (2026-10-20): per-account FIFO with atomic slot claim, random gaps, working-hours/limit rescheduling, safe retries (never messages), invite pause on LinkedIn's weekly limit, hourly inbox sync, crash recovery
+- [x] Step 6 — CLI (2026-10-20): `pnpm queue …` (incl. CSV import, {firstName} templates), `pnpm queue:status`, `pnpm worker`
+- [ ] **Soak test** — 7 days at default limits on 2 accounts with zero restrictions (needs proxies + 2 test accounts)
 
 ## Scope — build in this order
 
@@ -84,6 +85,6 @@ personalization, multi-tenant workspaces.
 
 ## Suggested first prompt for Claude Code
 
-> Read CLAUDE.md and docs/PHASE-0-POC.md. Steps 1–4 are done. Do Step 5 only:
-> the BullMQ queue and scheduler in apps/worker/src/queue, reusing runAction
-> (limits + logging) and withAccountSession. Stop and show me before Step 6.
+> Read CLAUDE.md and docs/PHASE-0-POC.md. Phase 0 Steps 1–6 are built. Help me run
+> the 7-day soak test: check `pnpm queue:status` daily and investigate any FAILED
+> actions using the evidence folders in .data/screenshots.

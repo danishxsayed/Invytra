@@ -10,8 +10,9 @@ human-like schedule with strict daily limits.
 
 ## Current phase
 
-**Phase 0 — Proof of concept.** See `docs/PHASE-0-POC.md`. Do NOT build the dashboard,
-billing, or multi-tenant features until Phase 0 is signed off.
+**Phase 0 — Proof of concept.** See `docs/PHASE-0-POC.md`. Steps 1–6 are built; the 7-day
+soak test is next. Do NOT build the dashboard, billing, or multi-tenant features until
+Phase 0 is signed off.
 
 ## Tech stack
 
@@ -30,7 +31,7 @@ billing, or multi-tenant features until Phase 0 is signed off.
 ```
 /apps/web        Next.js customer dashboard           (Phase 1+)
 /apps/api        NestJS REST API                       (Phase 1+)
-/apps/worker     Automation engine: browsers, jobs     (Phase 0 starts here)
+/apps/worker     Automation engine: browsers, actions, queue, worker
 /packages/db     Prisma schema + client
 /packages/shared Shared types, constants, limits
 /docs            Specs and decisions

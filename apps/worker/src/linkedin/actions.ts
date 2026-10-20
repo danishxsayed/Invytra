@@ -18,6 +18,12 @@ export type ActionOutcome<T = Record<string, unknown>> =
   | { outcome: "DONE"; data: T }
   | { outcome: "SKIPPED"; reason: string; data?: T };
 
+/** Fills {firstName} / {name} from the profile. */
+export function fillTemplate(text: string, fullName: string): string {
+  const firstName = fullName.trim().split(/\s+/)[0] ?? "";
+  return text.replace(/\{firstName\}/g, firstName).replace(/\{name\}/g, fullName.trim());
+}
+
 /** LinkedIn says this account has used up its weekly invitations. Stop sending invites. */
 export class InviteLimitReachedError extends Error {
   constructor() {
@@ -68,7 +74,11 @@ export async function sendConnectionRequest(
   }
   const { page } = ctx;
   const info = await openProfile(ctx, profileUrl, true);
-  const data = { name: info.name, withNote: Boolean(trimmedNote) };
+  const filledNote = trimmedNote ? fillTemplate(trimmedNote, info.name) : undefined;
+  if (filledNote && filledNote.length > CONNECTION_NOTE_MAX_CHARS) {
+    throw new Error(`Note is ${filledNote.length} characters after filling in the name; LinkedIn allows ${CONNECTION_NOTE_MAX_CHARS}`);
+  }
+  const data = { name: info.name, withNote: Boolean(filledNote) };
   if (info.status !== "NOT_CONNECTED") return { outcome: "SKIPPED", reason: info.status, data };
 
   let connect = connectControl(page, info.name);
@@ -109,12 +119,12 @@ export async function sendConnectionRequest(
     await humanPause(page, 600, 1400);
     const button = (name: RegExp) =>
       dialog.getByRole("button", { name }).or(dialog.getByRole("link", { name })).filter({ visible: true });
-    if (trimmedNote) {
+    if (filledNote) {
       await humanClick(page, button(SELECTORS.invite.addNoteButton).first());
       await humanPause(page, 500, 1200);
       const box = page.locator(SELECTORS.invite.dialog).filter({ visible: true }).last()
         .locator(SELECTORS.invite.noteTextarea).filter({ visible: true }).first();
-      await humanType(page, box, trimmedNote);
+      await humanType(page, box, filledNote);
       await humanPause(page, 600, 1500);
       await humanClick(page, button(SELECTORS.invite.sendButton).first());
     } else {
@@ -146,12 +156,13 @@ export async function sendMessage(
   const { page } = ctx;
   const info = await openProfile(ctx, profileUrl, false);
   if (info.status !== "CONNECTED") return { outcome: "SKIPPED", reason: `NOT_CONNECTED (${info.status})`, data: { name: info.name } };
+  const filled = fillTemplate(body, info.name);
 
   await humanClick(page, control(topCard(page), SELECTORS.profile.messageControl).first());
   const box = page.locator(SELECTORS.message.composeBox).filter({ visible: true }).last();
   await box.waitFor({ state: "visible", timeout: 15_000 });
   await humanPause(page, 800, 1800);
-  await humanType(page, box, body);
+  await humanType(page, box, filled);
   await humanPause(page, 600, 1500);
 
   const send = page.getByRole("button", { name: SELECTORS.message.sendButton }).filter({ visible: true }).last();
@@ -160,7 +171,7 @@ export async function sendMessage(
   await ctx.assertHealthy();
 
   // Confirm the text now appears in the conversation
-  const probe = body.slice(0, 40);
+  const probe = filled.slice(0, 40);
   const shown = await page.getByText(probe, { exact: false }).filter({ visible: true }).count();
   if (shown === 0) throw new Error(`Message to ${info.name} was not confirmed in the conversation`);
 

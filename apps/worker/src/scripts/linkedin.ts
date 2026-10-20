@@ -10,7 +10,6 @@
  */
 import type { ActionType } from "@invytra/shared";
 import { DEFAULT_LIMITS, limitsSchema } from "@invytra/shared";
-import { storeInboxThreads } from "../actions/inbox-store.js";
 import { runAction, usageFor, type RunActionResult } from "../actions/run-action.js";
 import type { SessionTaskContext } from "../browser/types.js";
 import {
@@ -103,9 +102,8 @@ async function main() {
 
     if (result.status === "SUCCEEDED") {
       if (command === "inbox") {
-        const threads = result.data.threads as Parameters<typeof storeInboxThreads>[2];
-        const added = await storeInboxThreads(rt.prisma, account.id, threads);
-        console.log(`✔ ${threads.length} conversations read, ${added} new replies saved`);
+        const threads = (result.data.threads ?? []) as { name: string; snippet: string; unread: boolean }[];
+        console.log(`✔ ${threads.length} conversations read, ${result.data.newReplies ?? 0} new replies saved`);
         for (const t of threads.slice(0, 10)) {
           console.log(`  ${t.unread ? "●" : " "} ${t.name.padEnd(28).slice(0, 28)} ${t.snippet.slice(0, 70)}`);
         }

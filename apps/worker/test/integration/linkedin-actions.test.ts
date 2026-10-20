@@ -11,6 +11,7 @@ import {
   InviteLimitReachedError,
   checkConnectionStatus,
   fetchInbox,
+  fillTemplate,
   isOwnMessage,
   sendConnectionRequest,
   sendMessage,
@@ -118,6 +119,10 @@ describe("LinkedIn actions (fake site)", { timeout: 60_000 }, () => {
     expect(state.invites.at(-1)).toEqual({ slug: "nina", note: "Hi Nina" });
   });
 
+  it("fills {firstName} in notes and messages", async () => {
+    expect(fillTemplate("Hi {firstName} — {name}", "Mary Ann Lee")).toBe("Hi Mary — Mary Ann Lee");
+  });
+
   it("does not invite existing connections", async () => {
     expect(await run((ctx) => sendConnectionRequest(ctx, url("carol")))).toMatchObject({ outcome: "SKIPPED", reason: "CONNECTED" });
   });
@@ -135,7 +140,7 @@ describe("LinkedIn actions (fake site)", { timeout: 60_000 }, () => {
   });
 
   it("messages a 1st-degree connection", async () => {
-    const r = await run((ctx) => sendMessage(ctx, url("carol"), "Hi Carol — quick question about Gamma's sales stack."));
+    const r = await run((ctx) => sendMessage(ctx, url("carol"), "Hi {firstName} — quick question about Gamma's sales stack."));
     expect(r).toMatchObject({ outcome: "DONE", data: { name: "Carol White" } });
     expect(state.messages).toEqual([{ slug: "carol", text: "Hi Carol — quick question about Gamma's sales stack." }]);
   });

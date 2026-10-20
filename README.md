@@ -51,9 +51,41 @@ docs/             specs
 | `pnpm linkedin <label> message <url> "text"` | message a 1st-degree connection |
 | `pnpm linkedin <label> inbox` | read conversations and save new replies |
 | `pnpm linkedin <label> usage` | today's counts against the account's limits |
+| `pnpm worker` | run queued actions automatically (see below) |
+| `pnpm queue <label> …` | add actions to the queue |
+| `pnpm queue:status [label]` | queue, limits, recent results and replies |
 
 Every `pnpm linkedin` command checks working hours and daily/weekly limits first and is
 logged in the `actions` table (SUCCEEDED / SKIPPED / FAILED, with duration and errors).
+
+## Running on autopilot (queue + worker)
+
+`pnpm linkedin …` runs one action immediately. For real use, queue actions and let the
+worker run them:
+
+```bash
+pnpm worker                                   # keep this running in its own Terminal tab
+
+pnpm queue test-1 invite <url> [<url> …] --note "Hi {firstName}, …"
+pnpm queue test-1 file invite leads.csv --note "Hi {firstName}, …"   # one profile URL per line (first column)
+pnpm queue test-1 message <url> --text "Hi {firstName}, …"
+pnpm queue test-1 visit <url> …
+pnpm queue:status                             # what's queued, usage vs limits, recent results, replies
+```
+
+The worker:
+- runs each account's actions **one at a time, oldest first**, with a random 45 s – 4 min gap
+- only works inside the account's **working hours** (default Mon–Fri 9:00–18:00, its own time zone);
+  anything queued outside them waits for the next window
+- enforces **daily and weekly limits** before every action; over-limit actions wait and re-check
+- **retries** failed visits/invites up to 2 times (never messages — a retry could double-send)
+- pauses an account's invites for 3 days if LinkedIn reports the weekly invitation limit
+- **reads every account's inbox about once an hour** and saves new replies
+- stops an account on any checkpoint/captcha/restriction (its queued actions wait until
+  `pnpm account:reactivate`)
+- survives restarts: queued actions are kept, and anything interrupted is re-queued
+
+`{firstName}` and `{name}` in notes/messages are filled in from each profile.
 | `pnpm typecheck` | type-check every package |
 
 ## LinkedIn test accounts
