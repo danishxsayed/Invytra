@@ -96,7 +96,9 @@ export async function sendConnectionRequest(
   await humanClick(page, connect.first());
 
   // After Connect, LinkedIn shows a dialog — or (on some accounts) sends straight away.
-  const dialog = page.locator(SELECTORS.invite.dialog).filter({ visible: true }).last();
+  const inviteDialog = () =>
+    page.locator(SELECTORS.invite.dialog).filter({ visible: true }).filter({ hasText: SELECTORS.invite.dialogText }).last();
+  const dialog = inviteDialog();
   const deadline = Date.now() + 12_000;
   let sentWithoutDialog = false;
   for (;;) {
@@ -122,11 +124,21 @@ export async function sendConnectionRequest(
     if (filledNote) {
       await humanClick(page, button(SELECTORS.invite.addNoteButton).first());
       await humanPause(page, 500, 1200);
-      const box = page.locator(SELECTORS.invite.dialog).filter({ visible: true }).last()
-        .locator(SELECTORS.invite.noteTextarea).filter({ visible: true }).first();
+      // The note box may replace the dialog's content; from here on use the dialog that holds it.
+      const noteDialog = page
+        .locator(SELECTORS.invite.dialog)
+        .filter({ visible: true })
+        .filter({ has: page.locator(SELECTORS.invite.noteTextarea) })
+        .last();
+      const box = noteDialog.locator(SELECTORS.invite.noteTextarea).filter({ visible: true }).first();
+      await box.waitFor({ state: "visible", timeout: 10_000 });
       await humanType(page, box, filledNote);
       await humanPause(page, 600, 1500);
-      await humanClick(page, button(SELECTORS.invite.sendButton).first());
+      const send = noteDialog
+        .getByRole("button", { name: SELECTORS.invite.sendButton })
+        .or(noteDialog.getByRole("link", { name: SELECTORS.invite.sendButton }))
+        .filter({ visible: true });
+      await humanClick(page, send.first());
     } else {
       const withoutNote = button(SELECTORS.invite.sendWithoutNoteButton);
       const send = (await withoutNote.count()) > 0 ? withoutNote : button(SELECTORS.invite.sendButton);

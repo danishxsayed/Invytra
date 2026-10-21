@@ -76,6 +76,8 @@ export const SELECTORS = {
   invite: {
     /** ARIA dialogs, alert dialogs, and native <dialog> elements (no explicit role attribute). */
     dialog: '[role="dialog"], [role="alertdialog"], dialog[open]',
+    /** Text that identifies THE invitation dialog (pages also contain e.g. video-player "dialogs"). */
+    dialogText: /add a note|send without a note|invitation|personali[sz]e/i,
     addNoteButton: /^Add a note$/i,
     noteTextarea: 'textarea, [role="textbox"][contenteditable="true"]',
     sendButton: /^Send( invitation| now)?$/i,

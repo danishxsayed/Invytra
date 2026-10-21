@@ -76,6 +76,7 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
     </main>${sticky}${HIDDEN_CAPTCHA}
     <aside><h2>People also viewed</h2><button aria-label="Invite Yan Yo to connect">Connect</button></aside>
     <div id="modal-root"></div>
+    <div class="video-player"><div role="dialog" aria-label="Modal Window"><p>This is a modal window.</p></div></div>
     <div id="chat" hidden><ul id="thread"></ul>
       <div role="textbox" contenteditable="true" aria-label="Write a message…" id="box"></div>
       <button id="send-msg">Send</button><button aria-label="Close your conversation with ${p.name}">x</button></div>
@@ -92,9 +93,10 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
           document.querySelector('.actions').innerHTML= old ? '<button '+lbl+'>Pending</button>' : '<a href="#" '+lbl+'>Pending</a>';};
         if(kind==='instant'){send(null);return;}
         const wrap = kind==='native' ? ['<dialog open>','</dialog>'] : ['<div role="dialog">','</div>'];
-        root.innerHTML=wrap[0]+'<p>Add a note to your invitation?</p><button id="add">Add a note</button><button id="plain" aria-label="Send without a note">Send without a note</button>'+wrap[1];
+        const addCtl = kind==='native' ? '<a href="#" id="add">Add a note</a>' : '<button id="add">Add a note</button>';
+        root.innerHTML=wrap[0]+'<p>Add a note to your invitation?</p>'+addCtl+'<button id="plain">Send without a note</button>'+wrap[1];
         document.getElementById('plain').onclick=()=>send(null);
-        document.getElementById('add').onclick=()=>{root.querySelector('[role=dialog], dialog').innerHTML=
+        document.getElementById('add').onclick=(e)=>{e.preventDefault();root.querySelector('[role=dialog], dialog').innerHTML=
           '<textarea name="message" maxlength="300"></textarea><button id="s" aria-label="Send invitation">Send</button>';
           document.getElementById('s').onclick=()=>send(root.querySelector('textarea').value);};
       };
