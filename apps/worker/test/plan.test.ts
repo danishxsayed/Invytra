@@ -54,6 +54,10 @@ describe("validateSpec", () => {
   it("requires text for messages", () =>
     expect(() => validateSpec({ type: "MESSAGE", targetUrl: "https://www.linkedin.com/in/x/", payload: {} })).toThrow(/text/));
   it("accepts an inbox sync with no URL", () => expect(() => validateSpec({ type: "INBOX_SYNC" })).not.toThrow());
+  it("refuses a note that still has placeholder text", () =>
+    expect(() =>
+      validateSpec({ type: "CONNECTION_REQUEST", targetUrl: "https://www.linkedin.com/in/x/", payload: { note: "Hi {firstName}, …" } }),
+    ).toThrow(/placeholder/));
 });
 
 describe("pollAgainAt", () => {

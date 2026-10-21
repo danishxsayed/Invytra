@@ -8,11 +8,12 @@
  *   pnpm queue <label> message <url> [<url> …] --text "Hi {firstName}, …"
  *   pnpm queue <label> inbox
  *   pnpm queue <label> file    <invite|visit|status> <path-to-urls.txt> [--note "…"]
+ *   pnpm queue:cancel <label> [invite|message|visit|status|inbox]
  *
  * {firstName} is filled in from the profile at send time.
  */
 import type { ActionType } from "@invytra/shared";
-import { CONNECTION_NOTE_MAX_CHARS } from "@invytra/shared";
+import { CONNECTION_NOTE_MAX_CHARS, outreachTextProblem } from "@invytra/shared";
 import { readFile } from "node:fs/promises";
 import { Redis } from "ioredis";
 import { createQueue, enqueueAction } from "../queue/queue.js";
@@ -68,6 +69,11 @@ async function main() {
   // Templates are filled per person at send time; check the worst case length now.
   if (flags.note && flags.note.replace(/\{firstName\}/g, "X".repeat(20)).length > CONNECTION_NOTE_MAX_CHARS) {
     throw new Error(`--note is too long (LinkedIn allows ${CONNECTION_NOTE_MAX_CHARS} characters)`);
+  }
+
+  for (const [flag, value] of Object.entries({ note: flags.note, text: flags.text })) {
+    const problem = value !== undefined ? outreachTextProblem(value) : null;
+    if (problem) throw new Error(`--${flag} ${problem}:\n  "${value}"\nNothing was queued.`);
   }
 
   const rt = await createRuntime();

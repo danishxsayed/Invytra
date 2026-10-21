@@ -10,6 +10,7 @@
  */
 import type { ActionType } from "@invytra/shared";
 import { DEFAULT_LIMITS, limitsSchema } from "@invytra/shared";
+import { validateSpec } from "../actions/registry.js";
 import { runAction, usageFor, type RunActionResult } from "../actions/run-action.js";
 import type { SessionTaskContext } from "../browser/types.js";
 import {
@@ -85,6 +86,7 @@ async function main() {
         throw new Error(`Unknown command "${command}".\n${USAGE}`);
     }
     if (command !== "inbox") needUrl();
+    validateSpec({ type, targetUrl: url ?? null, payload });
 
     console.log(`→ ${command} as "${label}"…`);
     const result: RunActionResult<any> = await runAction(

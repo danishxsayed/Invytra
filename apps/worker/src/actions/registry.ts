@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@invytra/db";
-import type { ActionType } from "@invytra/shared";
+import { outreachTextProblem, type ActionType } from "@invytra/shared";
 import type { SessionTaskContext } from "../browser/types.js";
 import {
   checkConnectionStatus,
@@ -23,6 +23,14 @@ export function validateSpec(spec: ActionSpec): void {
   const needsUrl = spec.type !== "INBOX_SYNC";
   if (needsUrl && !spec.targetUrl) throw new Error(`${spec.type} needs a profile URL`);
   if (spec.type === "MESSAGE" && !String(spec.payload?.text ?? "").trim()) throw new Error("MESSAGE needs text");
+  // Never send placeholder text like "Hi {firstName}, …" (checked at enqueue AND before sending).
+  for (const [field, label] of [["note", "Invite note"], ["text", "Message text"]] as const) {
+    const value = spec.payload?.[field];
+    if (typeof value === "string") {
+      const problem = outreachTextProblem(value);
+      if (problem) throw new Error(`${label} ${problem}: "${value}"`);
+    }
+  }
 }
 
 /** The browser work for one action. */

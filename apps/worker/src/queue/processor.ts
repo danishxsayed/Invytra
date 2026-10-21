@@ -74,7 +74,16 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
     targetUrl: action.targetUrl,
     payload: (action.payload ?? {}) as Record<string, unknown>,
   };
-  const result = await executeActionRow(prisma, deps.session, action, workFor(spec));
+  let work;
+  try {
+    work = workFor(spec); // re-validates, e.g. refuses placeholder text queued by an older version
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    await prisma.action.update({ where: { id: action.id }, data: { status: "FAILED", error, executedAt: now } });
+    await deps.pacing.set(action.accountId, "nextActionAt", now); // release the claim
+    return { kind: "done", status: "FAILED", detail: error };
+  }
+  const result = await executeActionRow(prisma, deps.session, action, work);
   const finished = deps.now?.() ?? new Date();
 
   // Another worker held the account lock — nothing was done on LinkedIn; retry shortly.

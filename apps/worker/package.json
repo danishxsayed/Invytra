@@ -15,7 +15,8 @@
     "account:reactivate": "tsx src/scripts/reactivate.ts",
     "worker": "tsx src/worker.ts",
     "queue": "tsx src/scripts/queue.ts",
-    "queue:status": "tsx src/scripts/queue-status.ts"
+    "queue:status": "tsx src/scripts/queue-status.ts",
+    "queue:cancel": "tsx src/scripts/queue-cancel.ts"
   },
   "dependencies": {
     "@invytra/db": "workspace:*",

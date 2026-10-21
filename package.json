@@ -23,7 +23,8 @@
     "account:reactivate": "pnpm --filter @invytra/worker account:reactivate",
     "worker": "pnpm --filter @invytra/worker worker",
     "queue": "pnpm --filter @invytra/worker queue",
-    "queue:status": "pnpm --filter @invytra/worker queue:status"
+    "queue:status": "pnpm --filter @invytra/worker queue:status",
+    "queue:cancel": "pnpm --filter @invytra/worker queue:cancel"
   },
   "devDependencies": {
     "turbo": "2.3.3",

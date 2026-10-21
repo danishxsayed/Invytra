@@ -71,6 +71,7 @@ pnpm queue test-1 file invite leads.csv --note "Hi {firstName}, …"   # one pro
 pnpm queue test-1 message <url> --text "Hi {firstName}, …"
 pnpm queue test-1 visit <url> …
 pnpm queue:status                             # what's queued, usage vs limits, recent results, replies
+pnpm queue:cancel test-1 [invite|message|…]   # cancel queued actions before they run
 ```
 
 The worker:
@@ -85,7 +86,9 @@ The worker:
   `pnpm account:reactivate`)
 - survives restarts: queued actions are kept, and anything interrupted is re-queued
 
-`{firstName}` and `{name}` in notes/messages are filled in from each profile.
+`{firstName}` and `{name}` in notes/messages are filled in from each profile. Notes and
+messages that still contain placeholder text (`…`, `...`, `<…>`, `[…]`, unknown `{…}`) are
+refused before anything is queued or sent.
 | `pnpm typecheck` | type-check every package |
 
 ## LinkedIn test accounts
