@@ -32,6 +32,9 @@ export async function syncAccounts(prisma: PrismaClient, accounts: AccountConfig
       update: { email: a.email, proxyUrl: a.proxyUrl, timezone: a.timezone },
       create: {
         ...a,
+        // Not usable until someone runs `pnpm account:login <label>`.
+        status: "DISCONNECTED",
+        statusReason: "Not logged in yet — run: pnpm account:login " + a.label,
         workingHours: DEFAULT_WORKING_HOURS,
         limits: DEFAULT_LIMITS,
       },

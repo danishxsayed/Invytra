@@ -11,7 +11,13 @@ import {
   type UsageCounts,
   type WorkingHours,
 } from "@invytra/shared";
-import { AccountBusyError, AccountNeedsAttentionError, evidenceOf } from "../browser/errors.js";
+import {
+  AccountBusyError,
+  AccountNeedsAttentionError,
+  AccountUnavailableError,
+  SessionRequiredError,
+  evidenceOf,
+} from "../browser/errors.js";
 import { withAccountSession, type SessionManagerDeps } from "../browser/session-manager.js";
 import type { SessionTaskContext } from "../browser/types.js";
 import { InviteLimitReachedError, type ActionOutcome } from "../linkedin/actions.js";
@@ -138,7 +144,9 @@ export async function executeActionRow<T>(
     return { status: "SUCCEEDED", actionId: action.id, data: { ...(outcome.data as object), ...extra } as T, durationMs };
   } catch (err) {
     const errorKind: FailureKind =
-      err instanceof AccountNeedsAttentionError
+      err instanceof AccountNeedsAttentionError ||
+      err instanceof SessionRequiredError ||
+      err instanceof AccountUnavailableError
         ? "ACCOUNT_STOPPED"
         : err instanceof AccountBusyError
           ? "BUSY"
