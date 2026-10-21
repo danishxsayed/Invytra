@@ -15,6 +15,7 @@
 import type { ActionType } from "@invytra/shared";
 import { CONNECTION_NOTE_MAX_CHARS, outreachTextProblem } from "@invytra/shared";
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { Redis } from "ioredis";
 import { createQueue, enqueueAction } from "../queue/queue.js";
 import { normalizeProfileUrl } from "../linkedin/profile.js";
@@ -57,7 +58,11 @@ async function main() {
     const [kind, path] = rest;
     if (!kind || !path || !["invite", "visit", "status"].includes(kind)) throw new Error(USAGE);
     command = kind;
-    urls = (await readFile(path, "utf8"))
+    // pnpm runs this script from apps/worker; resolve paths from where the user typed the command.
+    const fullPath = resolve(process.env.INIT_CWD ?? process.cwd(), path);
+    urls = (await readFile(fullPath, "utf8").catch(() => {
+      throw new Error(`Can't read ${fullPath} — check the file name and folder`);
+    }))
       .split(/\r?\n/)
       .map((l) => l.split(",")[0]!.trim())
       .filter((l) => l.includes("/in/"));
