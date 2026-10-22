@@ -52,6 +52,33 @@ LinkedIn. One less service to build, deploy and secure.
 
 Total ≈ 7–9 weeks of focused work. Customers can only start after M6.
 
+## Reference: SalesRobot (reviewed 2026-10-22) — match the flow, beat it on trust
+
+Not copied — Invytra keeps its own design. What customers will expect, and where it lands:
+
+| Expectation seen in SalesRobot | Invytra milestone |
+|---|---|
+| Account switcher in the sidebar with "Connected" state | M2 |
+| Visible "Safe mode" indicator | M2 |
+| Getting-started checklist (connect account → create campaign → …) | M2 (account step), grows each milestone |
+| Accounts page: health, subscription, daily limits, "Configure daily limits" | M2 |
+| Daily limits per action type, randomised within a range | M2 (we already randomise gaps; add per-day ranges) |
+| Campaigns list with progress + performance; Prospects and Lead list tabs | M3 + M4 |
+| Inbox filters: replied / unread / unanswered, by campaign, by account | M5 |
+| Sequence templates | M4 |
+| Weekly activity table on the dashboard | M5 |
+| Agency view: campaigns across many accounts/clients | M6 (multi-workspace for agencies) |
+
+Where Invytra must be better:
+1. **Honest safety:** conservative defaults (20 invites/day, not 35–40), warm-up ramp for new
+   accounts, and every wait/stop explained.
+2. **Plain-language results** for every action ("Already connected", "Sent without note —
+   LinkedIn's free-note limit") with a screenshot on failure.
+3. **Less clutter:** lead with today's health, allowance and replies — not rows of zero stats
+   and a permanent setup banner.
+4. **Login inside the dashboard** (live browser) — no browser extension, no cookie copying.
+5. **India + U.S. ready:** Razorpay and Stripe, per-account time zones.
+
 ## In-dashboard LinkedIn login (M2) — approach
 
 The worker opens a real Chromium for the account, through the account's proxy, and streams
