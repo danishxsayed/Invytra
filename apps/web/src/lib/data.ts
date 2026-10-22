@@ -81,3 +81,42 @@ export async function recentReplies(prisma: PrismaClient, workspaceId: string, t
     select: { id: true, fromName: true, text: true, fetchedAt: true, account: { select: { label: true } } },
   });
 }
+
+const DAY = 24 * 60 * 60 * 1000;
+
+/** Counts for the last 7 days and the 7 days before, for the stat cards. */
+export async function weeklyStats(prisma: PrismaClient, workspaceId: string, now = new Date()) {
+  const since = new Date(now.getTime() - 7 * DAY);
+  const before = new Date(now.getTime() - 14 * DAY);
+  const count = (type: "CONNECTION_REQUEST" | "MESSAGE" | "PROFILE_VISIT", from: Date, to: Date) =>
+    prisma.action.count({
+      where: { account: { workspaceId }, type, status: "SUCCEEDED", executedAt: { gte: from, lt: to } },
+    });
+  const replies = (from: Date, to: Date) =>
+    prisma.inboxMessage.count({ where: { account: { workspaceId }, fetchedAt: { gte: from, lt: to } } });
+  const [inv, invPrev, msg, msgPrev, vis, visPrev, rep, repPrev] = await Promise.all([
+    count("CONNECTION_REQUEST", since, now),
+    count("CONNECTION_REQUEST", before, since),
+    count("MESSAGE", since, now),
+    count("MESSAGE", before, since),
+    count("PROFILE_VISIT", since, now),
+    count("PROFILE_VISIT", before, since),
+    replies(since, now),
+    replies(before, since),
+  ]);
+  return {
+    invites: { now: inv, prev: invPrev },
+    messages: { now: msg, prev: msgPrev },
+    visits: { now: vis, prev: visPrev },
+    replies: { now: rep, prev: repPrev },
+  };
+}
+
+/** Lightweight list for the sidebar account switcher. */
+export async function sidebarAccounts(prisma: PrismaClient, workspaceId: string) {
+  return prisma.linkedinAccount.findMany({
+    where: { workspaceId },
+    orderBy: { label: "asc" },
+    select: { id: true, label: true, status: true },
+  });
+}

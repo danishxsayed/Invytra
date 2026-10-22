@@ -1,6 +1,8 @@
 import { prisma } from "@invytra/db";
+import { Activity } from "lucide-react";
 import Link from "next/link";
 import { ActivityList } from "@/components/ActivityList";
+import { Card, EmptyState, PageHeader, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { recentActivity, type ActivityFilter } from "@/lib/data";
 
@@ -20,31 +22,37 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
   const show = (await searchParams).show ?? "all";
   const filter = FILTERS.find((f) => f.key === show) ?? FILTERS[0]!;
   const rows = await recentActivity(prisma, me.workspace.id, { status: filter.status, take: 200 });
-  const accounts = new Set(rows.map((r) => r.account.label));
+  const many = new Set(rows.map((r) => r.account.label)).size > 1;
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Activity</h1>
-        <p className="text-ink-soft">Every visit, invite, message and inbox check — newest first.</p>
-      </header>
-      <nav aria-label="Filter activity" className="flex flex-wrap gap-1.5">
+    <div className="space-y-6 animate-fade-up">
+      <PageHeader title="Activity" description="Every visit, invite, message and inbox check — newest first." />
+      <nav aria-label="Filter activity" className="inline-flex rounded-xl border border-zinc-200 bg-white p-1 shadow-card">
         {FILTERS.map((f) => (
           <Link
             key={f.key}
             href={f.key === "all" ? "/app/activity" : `/app/activity?show=${f.key}`}
             aria-current={f.key === filter.key ? "page" : undefined}
-            className={`rounded-full px-3 py-1 text-sm ${
-              f.key === filter.key ? "bg-ink text-white" : "bg-white text-ink-soft shadow-[0_0_0_1px_theme(colors.line)] hover:text-ink"
-            }`}
+            className={cx(
+              "rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
+              f.key === filter.key ? "bg-brand-50 text-brand-700" : "text-zinc-500 hover:text-zinc-900",
+            )}
           >
             {f.label}
           </Link>
         ))}
       </nav>
-      <section className="rounded-lg border border-line bg-white px-5">
-        <ActivityList rows={rows} showAccount={accounts.size > 1} />
-      </section>
+      <Card>
+        {rows.length === 0 ? (
+          <EmptyState
+            icon={Activity}
+            title={filter.key === "all" ? "No activity yet" : `Nothing ${filter.label.toLowerCase()}`}
+            body="Actions appear here as soon as the worker runs them."
+          />
+        ) : (
+          <ActivityList rows={rows} showAccount={many} />
+        )}
+      </Card>
     </div>
   );
 }

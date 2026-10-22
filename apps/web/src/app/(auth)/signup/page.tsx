@@ -10,16 +10,16 @@ export default async function SignupPage() {
   if (await currentUser()) redirect("/app");
   return (
     <>
-      <h1 className="text-2xl font-semibold">Create your account</h1>
-      <p className="mb-8 mt-1 text-ink-soft">You'll connect your first LinkedIn account next.</p>
+      <h1 className="text-xl font-semibold tracking-tight">Create your account</h1>
+      <p className="mb-6 mt-1 text-[14px] text-zinc-500">Start your free trial. No card needed.</p>
       <AuthForm
         action={signup}
         submit="Create account"
         pending="Creating account…"
         fields={[
-          { name: "name", label: "Your name", autoComplete: "name" },
-          { name: "company", label: "Company", autoComplete: "organization" },
-          { name: "email", label: "Work email", type: "email", autoComplete: "email" },
+          { name: "name", label: "Your name", autoComplete: "name", placeholder: "Alex Morgan" },
+          { name: "company", label: "Company", autoComplete: "organization", placeholder: "Acme Inc." },
+          { name: "email", label: "Work email", type: "email", autoComplete: "email", placeholder: "you@company.com" },
           {
             name: "password",
             label: "Password",

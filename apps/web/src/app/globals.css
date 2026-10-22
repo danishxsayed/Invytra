@@ -3,9 +3,10 @@
 @tailwind utilities;
 
 @layer base {
-  html { background: theme("colors.paper"); color: theme("colors.ink.DEFAULT"); }
-  body { font-feature-settings: "tnum" 1; -webkit-font-smoothing: antialiased; }
-  :focus-visible { outline: 2px solid theme("colors.pine.DEFAULT"); outline-offset: 2px; border-radius: 3px; }
+  html { background: #FAFAFB; color: theme("colors.zinc.900"); }
+  body { -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01"; }
+  :focus-visible { outline: 2px solid theme("colors.brand.500"); outline-offset: 2px; border-radius: 8px; }
+  .tabular { font-variant-numeric: tabular-nums; }
 }
 
 @media (prefers-reduced-motion: reduce) {

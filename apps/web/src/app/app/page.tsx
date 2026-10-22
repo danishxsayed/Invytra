@@ -1,78 +1,105 @@
 import { prisma } from "@invytra/db";
+import { Activity, ArrowRight, Eye, Inbox, MessageSquare, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
-import { AccountRow } from "@/components/AccountRow";
+import { AccountCard } from "@/components/AccountCard";
 import { ActivityList } from "@/components/ActivityList";
+import { Checklist } from "@/components/Checklist";
+import { StatCard } from "@/components/StatCard";
+import { Avatar, Card, CardHeader, EmptyState, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { accountsOverview, recentActivity, recentReplies } from "@/lib/data";
+import { accountsOverview, recentActivity, recentReplies, weeklyStats } from "@/lib/data";
 import { timeAgo } from "@/lib/format";
 
-export const metadata = { title: "Overview" };
+export const metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
 
-export default async function Overview() {
+function greeting(): string {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+}
+
+export default async function Dashboard() {
   const me = await requireUser();
   const wid = me.workspace.id;
-  const [accounts, activity, replies] = await Promise.all([
+  const [accounts, activity, replies, stats] = await Promise.all([
     accountsOverview(prisma, wid),
-    recentActivity(prisma, wid, { take: 12 }),
-    recentReplies(prisma, wid, 8),
+    recentActivity(prisma, wid, { take: 8 }),
+    recentReplies(prisma, wid, 6),
+    weeklyStats(prisma, wid),
   ]);
+  const connected = accounts.some((a) => a.status === "ACTIVE");
+  const many = accounts.length > 1;
+  const link = (href: string, text: string) => (
+    <Link href={href} className="inline-flex items-center gap-1 text-[13px] font-medium text-brand-600 hover:text-brand-700">
+      {text} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+    </Link>
+  );
 
   return (
-    <div className="space-y-10">
-      <header>
-        <h1 className="text-2xl font-semibold">Overview</h1>
-        <p className="text-ink-soft">How your LinkedIn accounts are doing today.</p>
-      </header>
+    <div className="space-y-6 animate-fade-up">
+      <PageHeader title={`${greeting()}, ${me.user.name.split(" ")[0]}`} description="Here's how your LinkedIn outreach is going." />
 
-      <section aria-labelledby="accounts-h" className="space-y-3">
-        <h2 id="accounts-h" className="text-lg font-semibold">LinkedIn accounts</h2>
+      <Checklist
+        steps={[
+          { label: "Create your account", done: true, hint: "You're in." },
+          { label: "Connect LinkedIn", done: connected, hint: "Log in through a secure window." },
+          { label: "Add leads", done: false, hint: "Upload a CSV or paste profile links.", soon: true },
+          { label: "Launch a campaign", done: false, hint: "Invite, wait, message, follow up.", soon: true },
+        ]}
+      />
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Invites sent" icon={UserPlus} tone="bg-brand-50 text-brand-600" {...stats.invites} />
+        <StatCard label="Messages sent" icon={MessageSquare} tone="bg-sky-50 text-sky-600" {...stats.messages} />
+        <StatCard label="Profiles visited" icon={Eye} tone="bg-teal-50 text-teal-600" {...stats.visits} />
+        <StatCard label="Replies" icon={Inbox} tone="bg-amber-50 text-amber-600" {...stats.replies} />
+      </div>
+
+      <section aria-label="LinkedIn accounts" className="space-y-3">
         {accounts.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-line bg-white px-5 py-8">
-            <p className="font-medium">Connect your first LinkedIn account</p>
-            <p className="mt-1 max-w-prose text-ink-soft">
-              You'll log in to LinkedIn in a secure window here, and Invytra will keep that session to send invites
-              and messages within safe daily limits. Account connection arrives in the next update.
-            </p>
-          </div>
+          <Card>
+            <EmptyState
+              icon={Users}
+              title="Connect your first LinkedIn account"
+              body="You'll log in to LinkedIn in a secure window, and Invytra keeps the session to send invites and messages within safe daily limits."
+              action={<span className="rounded-lg bg-zinc-100 px-3 py-1.5 text-[13px] font-medium text-zinc-500">Coming in the next update</span>}
+            />
+          </Card>
         ) : (
-          accounts.map((a) => <AccountRow key={a.id} a={a} />)
+          accounts.map((a) => <AccountCard key={a.id} a={a} />)
         )}
       </section>
 
-      <div className="grid gap-10 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <section aria-labelledby="activity-h">
-          <div className="flex items-baseline justify-between">
-            <h2 id="activity-h" className="text-lg font-semibold">Latest activity</h2>
-            <Link href="/app/activity" className="text-sm text-pine underline-offset-2 hover:underline">
-              All activity
-            </Link>
-          </div>
-          <ActivityList rows={activity} showAccount={accounts.length > 1} />
-        </section>
-        <section aria-labelledby="replies-h">
-          <div className="flex items-baseline justify-between">
-            <h2 id="replies-h" className="text-lg font-semibold">Latest replies</h2>
-            <Link href="/app/inbox" className="text-sm text-pine underline-offset-2 hover:underline">
-              Inbox
-            </Link>
-          </div>
-          {replies.length === 0 ? (
-            <p className="py-6 text-ink-soft">No replies yet. Inboxes are checked about once an hour.</p>
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Card>
+          <CardHeader title="Recent activity" icon={Activity} action={link("/app/activity", "View all")} />
+          {activity.length === 0 ? (
+            <EmptyState icon={Activity} title="No activity yet" body="Invites, messages and inbox checks show up here as soon as they run." />
           ) : (
-            <ul className="divide-y divide-line">
+            <ActivityList rows={activity} showAccount={many} compact />
+          )}
+        </Card>
+        <Card>
+          <CardHeader title="Latest replies" icon={Inbox} action={link("/app/inbox", "Open inbox")} />
+          {replies.length === 0 ? (
+            <EmptyState icon={Inbox} title="No replies yet" body="Inboxes are checked about once an hour during working hours." />
+          ) : (
+            <ul className="divide-y divide-zinc-100">
               {replies.map((m) => (
-                <li key={m.id} className="py-3">
-                  <p className="flex justify-between gap-3">
-                    <span className="truncate font-medium">{m.fromName}</span>
-                    <span className="shrink-0 text-sm text-ink-faint">{timeAgo(m.fetchedAt)}</span>
-                  </p>
-                  <p className="line-clamp-2 text-sm text-ink-soft">{m.text}</p>
+                <li key={m.id} className="flex gap-3 px-5 py-3">
+                  <Avatar name={m.fromName} />
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-baseline justify-between gap-3">
+                      <span className="truncate text-[14px] font-medium text-zinc-900">{m.fromName}</span>
+                      <span className="shrink-0 text-[12px] text-zinc-400">{timeAgo(m.fetchedAt)}</span>
+                    </p>
+                    <p className="line-clamp-2 text-[13px] text-zinc-500">{m.text}</p>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
-        </section>
+        </Card>
       </div>
     </div>
   );

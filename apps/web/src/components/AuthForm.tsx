@@ -1,5 +1,6 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useActionState } from "react";
 import type { FormState } from "@/app/(auth)/actions";
@@ -10,6 +11,7 @@ interface Field {
   type?: string;
   autoComplete?: string;
   hint?: string;
+  placeholder?: string;
 }
 
 export function AuthForm({
@@ -27,36 +29,38 @@ export function AuthForm({
 }) {
   const [state, formAction, isPending] = useActionState(action, {});
   return (
-    <form action={formAction} className="space-y-5" noValidate>
+    <form action={formAction} className="space-y-4" noValidate>
       {fields.map((f) => (
         <label key={f.name} className="block">
-          <span className="text-sm font-medium text-ink">{f.label}</span>
+          <span className="text-[13px] font-medium text-zinc-700">{f.label}</span>
           <input
             name={f.name}
             type={f.type ?? "text"}
             autoComplete={f.autoComplete}
+            placeholder={f.placeholder}
             defaultValue={f.type === "password" ? undefined : state.fields?.[f.name]}
             required
-            className="mt-1.5 block w-full rounded-md border border-line bg-white px-3 py-2.5 text-base text-ink shadow-[inset_0_1px_0_rgba(24,33,47,0.04)] focus:border-pine focus:outline-none focus:ring-2 focus:ring-pine/20"
+            className="mt-1.5 block w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-[14px] text-zinc-900 shadow-[0_1px_2px_rgba(16,24,40,0.04)] placeholder:text-zinc-400 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100"
           />
-          {f.hint && <span className="mt-1 block text-sm text-ink-faint">{f.hint}</span>}
+          {f.hint && <span className="mt-1 block text-[12px] text-zinc-500">{f.hint}</span>}
         </label>
       ))}
       {state.error && (
-        <p role="alert" className="rounded-md bg-rose-soft px-3 py-2 text-sm text-rose">
+        <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">
           {state.error}
         </p>
       )}
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-md bg-ink px-4 py-2.5 text-base font-semibold text-white hover:bg-ink/90 disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-brand-500 to-brand-600 px-4 py-2.5 text-[14px] font-semibold text-white shadow-glow transition hover:from-brand-600 hover:to-brand-700 disabled:opacity-70"
       >
+        {isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
         {isPending ? pending : submit}
       </button>
-      <p className="text-center text-sm text-ink-soft">
+      <p className="pt-1 text-center text-[13px] text-zinc-500">
         {footer.text}{" "}
-        <Link href={footer.href} className="font-medium text-pine underline-offset-2 hover:underline">
+        <Link href={footer.href} className="font-medium text-brand-600 hover:text-brand-700">
           {footer.link}
         </Link>
       </p>
