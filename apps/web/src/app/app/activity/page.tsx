@@ -34,7 +34,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
             href={f.key === "all" ? "/app/activity" : `/app/activity?show=${f.key}`}
             aria-current={f.key === filter.key ? "page" : undefined}
             className={cx(
-              "rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
+              "rounded-lg px-3 py-1.5 text-[14px] font-medium transition-colors",
               f.key === filter.key ? "bg-brand-400 text-stone-900" : "text-stone-500 hover:text-stone-900",
             )}
           >

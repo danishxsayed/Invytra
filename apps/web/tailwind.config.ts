@@ -22,6 +22,14 @@ export default {
       fontFamily: {
         sans: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
+      fontSize: {
+        xs: ["13px", "18px"],
+        sm: ["14px", "20px"],
+        base: ["16px", "24px"],
+        lg: ["19px", "27px"],
+        xl: ["23px", "30px"],
+        "2xl": ["28px", "34px"],
+      },
       boxShadow: {
         card: "0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06)",
         pop: "0 8px 24px -6px rgba(16,24,40,0.12), 0 2px 6px rgba(16,24,40,0.06)",

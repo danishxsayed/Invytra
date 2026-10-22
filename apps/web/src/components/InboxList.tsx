@@ -28,7 +28,7 @@ export function InboxList({ items, showAccount }: { items: ReplyItem[]; showAcco
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search by name or message"
-            className="w-full rounded-lg border border-stone-200 bg-stone-50 py-2 pl-9 pr-3 text-[14px] placeholder:text-stone-400 focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-200"
+            className="w-full rounded-lg border border-stone-200 bg-stone-50 py-2 pl-9 pr-3 text-[15px] placeholder:text-stone-400 focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-200"
           />
         </label>
       </div>
@@ -41,13 +41,13 @@ export function InboxList({ items, showAccount }: { items: ReplyItem[]; showAcco
               <Avatar name={m.fromName} size="lg" />
               <div className="min-w-0 flex-1">
                 <p className="flex items-baseline justify-between gap-3">
-                  <span className="truncate text-[14px] font-medium text-stone-900">{m.fromName}</span>
-                  <span className="shrink-0 text-[12px] text-stone-400">
+                  <span className="truncate text-[15px] font-medium text-stone-900">{m.fromName}</span>
+                  <span className="shrink-0 text-[13px] text-stone-400">
                     {m.when}
                     {showAccount && ` · ${m.account}`}
                   </span>
                 </p>
-                <p className="mt-0.5 max-w-prose text-[14px] text-stone-600">{m.text}</p>
+                <p className="mt-0.5 max-w-prose text-[15px] text-stone-600">{m.text}</p>
               </div>
             </li>
           ))}

@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           style={{ backgroundImage: "radial-gradient(rgba(24,24,27,0.08) 1px, transparent 1px)", backgroundSize: "22px 22px" }}
         />
       </div>
-      <div className="relative w-full max-w-[400px] animate-fade-up">
+      <div className="relative w-full max-w-[440px] animate-fade-up">
         <div className="mb-6 flex items-center justify-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-400 text-base font-bold text-stone-900 shadow-glow">
             I
@@ -19,7 +19,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <span className="text-xl font-semibold tracking-tight">Invytra</span>
         </div>
         <div className="rounded-2xl border border-stone-200/80 bg-white/90 p-7 shadow-pop backdrop-blur">{children}</div>
-        <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[12px] text-stone-500">
+        <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] text-stone-500">
           <li className="inline-flex items-center gap-1.5">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden /> Safe daily limits
           </li>
