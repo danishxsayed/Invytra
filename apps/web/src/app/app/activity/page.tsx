@@ -27,7 +27,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
   return (
     <div className="space-y-6 animate-fade-up">
       <PageHeader title="Activity" description="Every visit, invite, message and inbox check — newest first." />
-      <nav aria-label="Filter activity" className="inline-flex rounded-xl border border-zinc-200 bg-white p-1 shadow-card">
+      <nav aria-label="Filter activity" className="inline-flex rounded-xl border border-stone-200 bg-white p-1 shadow-card">
         {FILTERS.map((f) => (
           <Link
             key={f.key}
@@ -35,7 +35,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
             aria-current={f.key === filter.key ? "page" : undefined}
             className={cx(
               "rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
-              f.key === filter.key ? "bg-brand-50 text-brand-700" : "text-zinc-500 hover:text-zinc-900",
+              f.key === filter.key ? "bg-brand-400 text-stone-900" : "text-stone-500 hover:text-stone-900",
             )}
           >
             {f.label}

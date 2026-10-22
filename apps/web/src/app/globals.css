@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 @layer base {
-  html { background: #FAFAFB; color: theme("colors.zinc.900"); }
+  html { background: theme("colors.canvas"); color: theme("colors.stone.900"); }
   body { -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01"; }
-  :focus-visible { outline: 2px solid theme("colors.brand.500"); outline-offset: 2px; border-radius: 8px; }
+  :focus-visible { outline: 2px solid theme("colors.stone.900"); outline-offset: 2px; border-radius: 8px; }
   .tabular { font-variant-numeric: tabular-nums; }
 }
 

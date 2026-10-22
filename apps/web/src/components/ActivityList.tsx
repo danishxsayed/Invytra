@@ -5,16 +5,16 @@ import { OutcomePill } from "./StatusBadge";
 import { cx } from "./ui";
 
 const ICON: Record<string, { icon: LucideIcon; cls: string }> = {
-  CONNECTION_REQUEST: { icon: UserPlus, cls: "bg-brand-50 text-brand-600" },
+  CONNECTION_REQUEST: { icon: UserPlus, cls: "bg-brand-100 text-brand-800" },
   MESSAGE: { icon: MessageSquare, cls: "bg-sky-50 text-sky-600" },
   PROFILE_VISIT: { icon: Eye, cls: "bg-teal-50 text-teal-600" },
-  CHECK_CONNECTION: { icon: Search, cls: "bg-zinc-100 text-zinc-500" },
+  CHECK_CONNECTION: { icon: Search, cls: "bg-stone-100 text-stone-500" },
   INBOX_SYNC: { icon: Inbox, cls: "bg-amber-50 text-amber-600" },
 };
 
 export function ActivityList({ rows, showAccount, compact }: { rows: ActivityRow[]; showAccount: boolean; compact?: boolean }) {
   return (
-    <ul className="divide-y divide-zinc-100">
+    <ul className="divide-y divide-stone-100">
       {rows.map((r) => {
         const who = slugName(r.targetUrl);
         const when = r.executedAt ?? r.scheduledAt;
@@ -25,17 +25,17 @@ export function ActivityList({ rows, showAccount, compact }: { rows: ActivityRow
               <Icon className="h-4 w-4" aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] text-zinc-900">
+              <p className="truncate text-[14px] text-stone-900">
                 <span className="font-medium">{ACTION_LABEL[r.type] ?? r.type}</span>
                 {who && (
                   <>
-                    <span className="text-zinc-400"> · </span>
+                    <span className="text-stone-400"> · </span>
                     <a
                       href={r.targetUrl ?? "#"}
                       target="_blank"
                       rel="noreferrer"
                       title={profilePath(r.targetUrl)}
-                      className="capitalize text-zinc-600 hover:text-brand-600 hover:underline"
+                      className="capitalize text-stone-600 hover:text-stone-900 hover:underline"
                     >
                       {who}
                     </a>
@@ -46,7 +46,7 @@ export function ActivityList({ rows, showAccount, compact }: { rows: ActivityRow
                 <OutcomePill status={r.status}>{outcomeText(r)}</OutcomePill>
               </div>
             </div>
-            <div className="shrink-0 text-right text-[12px] text-zinc-400">
+            <div className="shrink-0 text-right text-[12px] text-stone-400">
               <p>{timeAgo(when)}</p>
               {showAccount && <p className="mt-0.5">{r.account.label}</p>}
             </div>

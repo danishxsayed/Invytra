@@ -19,10 +19,10 @@ export function AccountCard({ a }: { a: AccountOverview }) {
         <Avatar name={a.label} size="lg" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate text-[15px] font-semibold text-zinc-900">{a.label}</h3>
+            <h3 className="truncate text-[15px] font-semibold text-stone-900">{a.label}</h3>
             <StatusBadge status={a.status} />
           </div>
-          <p className="mt-0.5 text-[13px] text-zinc-500">
+          <p className="mt-0.5 text-[13px] text-stone-500">
             {a.queued > 0 ? `${a.queued} action${a.queued === 1 ? "" : "s"} queued` : "Nothing queued"}
             {a.lastActiveAt && ` · last active ${timeAgo(a.lastActiveAt)}`}
           </p>
@@ -36,10 +36,10 @@ export function AccountCard({ a }: { a: AccountOverview }) {
         <UsageBar label="Messages today" used={a.usage.today.MESSAGE} limit={a.limits.messagesPerDay} />
         <UsageBar label="Profile visits today" used={a.usage.today.PROFILE_VISIT} limit={a.limits.profileVisitsPerDay} />
       </div>
-      <div className="mt-5 flex flex-wrap gap-x-5 gap-y-1.5 border-t border-zinc-100 pt-4 text-[12px] text-zinc-500">
+      <div className="mt-5 flex flex-wrap gap-x-5 gap-y-1.5 border-t border-stone-100 pt-4 text-[12px] text-stone-500">
         <span className="tabular">
           Invites this week{" "}
-          <span className="font-medium text-zinc-800">
+          <span className="font-medium text-stone-800">
             {a.usage.connectionRequestsThisWeek}/{a.limits.connectionRequestsPerWeek}
           </span>
         </span>

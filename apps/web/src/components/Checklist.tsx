@@ -15,22 +15,22 @@ export function Checklist({ steps }: { steps: Step[] }) {
   return (
     <Card className="overflow-hidden">
       <div className="relative px-5 py-4">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-brand-200/50 blur-3xl" aria-hidden />
+        <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-brand-300/40 blur-3xl" aria-hidden />
         <div className="relative flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-brand-800">
               <Sparkles className="h-4 w-4" aria-hidden />
             </span>
             <div>
-              <h2 className="text-[15px] font-semibold text-zinc-900">Get set up</h2>
-              <p className="text-[13px] text-zinc-500">
+              <h2 className="text-[15px] font-semibold text-stone-900">Get set up</h2>
+              <p className="text-[13px] text-stone-500">
                 {done} of {steps.length} done
               </p>
             </div>
           </div>
           <div className="flex w-40 gap-1" aria-hidden>
             {steps.map((s, i) => (
-              <span key={i} className={cx("h-1.5 flex-1 rounded-full", s.done ? "bg-brand-500" : "bg-zinc-200")} />
+              <span key={i} className={cx("h-1.5 flex-1 rounded-full", s.done ? "bg-brand-400" : "bg-stone-200")} />
             ))}
           </div>
         </div>
@@ -40,19 +40,19 @@ export function Checklist({ steps }: { steps: Step[] }) {
               key={s.label}
               className={cx(
                 "flex items-start gap-2.5 rounded-xl border px-3 py-2.5",
-                s.done ? "border-transparent bg-zinc-50" : "border-zinc-200 bg-white",
+                s.done ? "border-transparent bg-stone-50" : "border-stone-200 bg-white",
               )}
             >
               {s.done ? (
-                <span className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand-500 text-white">
+                <span className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand-400 text-stone-900">
                   <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
                 </span>
               ) : (
-                <Circle className="mt-0.5 h-4 w-4 text-zinc-300" aria-hidden />
+                <Circle className="mt-0.5 h-4 w-4 text-stone-300" aria-hidden />
               )}
               <div className="min-w-0">
-                <p className={cx("text-[13px] font-medium", s.done ? "text-zinc-400 line-through" : "text-zinc-900")}>{s.label}</p>
-                <p className="hidden text-[12px] text-zinc-500 sm:block">{s.soon ? "Coming soon" : s.hint}</p>
+                <p className={cx("text-[13px] font-medium", s.done ? "text-stone-400 line-through" : "text-stone-900")}>{s.label}</p>
+                <p className="hidden text-[12px] text-stone-500 sm:block">{s.soon ? "Coming soon" : s.hint}</p>
               </div>
             </li>
           ))}

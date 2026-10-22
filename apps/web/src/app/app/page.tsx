@@ -30,7 +30,7 @@ export default async function Dashboard() {
   const connected = accounts.some((a) => a.status === "ACTIVE");
   const many = accounts.length > 1;
   const link = (href: string, text: string) => (
-    <Link href={href} className="inline-flex items-center gap-1 text-[13px] font-medium text-brand-600 hover:text-brand-700">
+    <Link href={href} className="inline-flex items-center gap-1 text-[13px] font-medium text-brand-800 hover:text-stone-900">
       {text} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
     </Link>
   );
@@ -49,7 +49,7 @@ export default async function Dashboard() {
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Invites sent" icon={UserPlus} tone="bg-brand-50 text-brand-600" {...stats.invites} />
+        <StatCard label="Invites sent" icon={UserPlus} tone="bg-brand-100 text-brand-800" {...stats.invites} />
         <StatCard label="Messages sent" icon={MessageSquare} tone="bg-sky-50 text-sky-600" {...stats.messages} />
         <StatCard label="Profiles visited" icon={Eye} tone="bg-teal-50 text-teal-600" {...stats.visits} />
         <StatCard label="Replies" icon={Inbox} tone="bg-amber-50 text-amber-600" {...stats.replies} />
@@ -62,7 +62,7 @@ export default async function Dashboard() {
               icon={Users}
               title="Connect your first LinkedIn account"
               body="You'll log in to LinkedIn in a secure window, and Invytra keeps the session to send invites and messages within safe daily limits."
-              action={<span className="rounded-lg bg-zinc-100 px-3 py-1.5 text-[13px] font-medium text-zinc-500">Coming in the next update</span>}
+              action={<span className="rounded-lg bg-stone-100 px-3 py-1.5 text-[13px] font-medium text-stone-500">Coming in the next update</span>}
             />
           </Card>
         ) : (
@@ -84,16 +84,16 @@ export default async function Dashboard() {
           {replies.length === 0 ? (
             <EmptyState icon={Inbox} title="No replies yet" body="Inboxes are checked about once an hour during working hours." />
           ) : (
-            <ul className="divide-y divide-zinc-100">
+            <ul className="divide-y divide-stone-100">
               {replies.map((m) => (
                 <li key={m.id} className="flex gap-3 px-5 py-3">
                   <Avatar name={m.fromName} />
                   <div className="min-w-0 flex-1">
                     <p className="flex items-baseline justify-between gap-3">
-                      <span className="truncate text-[14px] font-medium text-zinc-900">{m.fromName}</span>
-                      <span className="shrink-0 text-[12px] text-zinc-400">{timeAgo(m.fetchedAt)}</span>
+                      <span className="truncate text-[14px] font-medium text-stone-900">{m.fromName}</span>
+                      <span className="shrink-0 text-[12px] text-stone-400">{timeAgo(m.fetchedAt)}</span>
                     </p>
-                    <p className="line-clamp-2 text-[13px] text-zinc-500">{m.text}</p>
+                    <p className="line-clamp-2 text-[13px] text-stone-500">{m.text}</p>
                   </div>
                 </li>
               ))}

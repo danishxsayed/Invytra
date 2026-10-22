@@ -32,7 +32,7 @@ export function AuthForm({
     <form action={formAction} className="space-y-4" noValidate>
       {fields.map((f) => (
         <label key={f.name} className="block">
-          <span className="text-[13px] font-medium text-zinc-700">{f.label}</span>
+          <span className="text-[13px] font-medium text-stone-700">{f.label}</span>
           <input
             name={f.name}
             type={f.type ?? "text"}
@@ -40,9 +40,9 @@ export function AuthForm({
             placeholder={f.placeholder}
             defaultValue={f.type === "password" ? undefined : state.fields?.[f.name]}
             required
-            className="mt-1.5 block w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-[14px] text-zinc-900 shadow-[0_1px_2px_rgba(16,24,40,0.04)] placeholder:text-zinc-400 focus:border-brand-400 focus:outline-none focus:ring-4 focus:ring-brand-100"
+            className="mt-1.5 block w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-[14px] text-stone-900 shadow-[0_1px_2px_rgba(16,24,40,0.04)] placeholder:text-stone-400 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-200"
           />
-          {f.hint && <span className="mt-1 block text-[12px] text-zinc-500">{f.hint}</span>}
+          {f.hint && <span className="mt-1 block text-[12px] text-stone-500">{f.hint}</span>}
         </label>
       ))}
       {state.error && (
@@ -53,14 +53,14 @@ export function AuthForm({
       <button
         type="submit"
         disabled={isPending}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-brand-500 to-brand-600 px-4 py-2.5 text-[14px] font-semibold text-white shadow-glow transition hover:from-brand-600 hover:to-brand-700 disabled:opacity-70"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-400 px-4 py-2.5 text-[14px] font-semibold text-stone-900 shadow-glow transition hover:bg-brand-300 disabled:opacity-70"
       >
         {isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
         {isPending ? pending : submit}
       </button>
-      <p className="pt-1 text-center text-[13px] text-zinc-500">
+      <p className="pt-1 text-center text-[13px] text-stone-500">
         {footer.text}{" "}
-        <Link href={footer.href} className="font-medium text-brand-600 hover:text-brand-700">
+        <Link href={footer.href} className="font-medium text-brand-800 hover:text-stone-900">
           {footer.link}
         </Link>
       </p>

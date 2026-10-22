@@ -39,7 +39,8 @@ LinkedIn. One less service to build, deploy and secure.
   session cookies, bcrypt passwords, login throttling; Overview (accounts with tick-strip
   allowances, latest activity, replies), Activity (filters), Inbox; tenant-isolation tests
 - [x] UI redesign (2026-10-22, founder feedback "too basic"): modern minimal SaaS style —
-  Geist (bundled), zinc + violet #6D5BFF, Lucide icons; sidebar with LinkedIn account
+  Geist (bundled), Lucide icons; colours per founder: lime brand #C4FA13 (fills, with near-black
+  text; olive #47590A for small text/links), warm background #F5F5EB, stone greys; sidebar with LinkedIn account
   switcher, Safe-mode badge, icon nav; dashboard with get-set-up checklist, 7-day stat cards,
   account cards with usage bars, icon activity timeline, replies with avatars; searchable
   inbox; glow-card log-in/sign-up; mobile drawer

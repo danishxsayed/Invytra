@@ -5,7 +5,7 @@ export function cx(...c: (string | false | null | undefined)[]) {
 }
 
 export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={cx("rounded-2xl border border-zinc-200/80 bg-white shadow-card", className)}>{children}</div>;
+  return <div className={cx("rounded-2xl border border-stone-200/80 bg-white shadow-card", className)}>{children}</div>;
 }
 
 export function CardHeader({
@@ -20,12 +20,12 @@ export function CardHeader({
   description?: string;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-zinc-100 px-5 py-4">
+    <div className="flex items-start justify-between gap-4 border-b border-stone-100 px-5 py-4">
       <div className="flex items-center gap-2.5">
-        {Icon && <Icon className="h-4 w-4 text-zinc-400" aria-hidden />}
+        {Icon && <Icon className="h-4 w-4 text-stone-400" aria-hidden />}
         <div>
-          <h2 className="text-[15px] font-semibold text-zinc-900">{title}</h2>
-          {description && <p className="text-[13px] text-zinc-500">{description}</p>}
+          <h2 className="text-[15px] font-semibold text-stone-900">{title}</h2>
+          {description && <p className="text-[13px] text-stone-500">{description}</p>}
         </div>
       </div>
       {action}
@@ -34,7 +34,7 @@ export function CardHeader({
 }
 
 const PALETTE = [
-  "bg-brand-100 text-brand-700",
+  "bg-brand-100 text-brand-800",
   "bg-emerald-100 text-emerald-700",
   "bg-amber-100 text-amber-700",
   "bg-sky-100 text-sky-700",
@@ -67,14 +67,14 @@ export function UsageBar({ label, used, limit }: { label: string; used: number; 
   return (
     <div>
       <div className="flex items-baseline justify-between text-[13px]">
-        <span className="text-zinc-500">{label}</span>
-        <span className="tabular font-medium text-zinc-900">
+        <span className="text-stone-500">{label}</span>
+        <span className="tabular font-medium text-stone-900">
           {used}
-          <span className="text-zinc-400">/{limit}</span>
+          <span className="text-stone-400">/{limit}</span>
         </span>
       </div>
       <div
-        className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-100"
+        className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-stone-100"
         role="meter"
         aria-label={label}
         aria-valuemin={0}
@@ -82,7 +82,7 @@ export function UsageBar({ label, used, limit }: { label: string; used: number; 
         aria-valuenow={used}
       >
         <div
-          className={cx("h-full rounded-full", full ? "bg-amber-400" : "bg-gradient-to-r from-brand-400 to-brand-600")}
+          className={cx("h-full rounded-full", full ? "bg-amber-400" : "bg-gradient-to-r from-brand-400 to-brand-500")}
           style={{ width: `${Math.max(pct, used > 0 ? 4 : 0)}%` }}
         />
       </div>
@@ -103,11 +103,11 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center px-6 py-12 text-center">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-100 text-zinc-400">
+      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-stone-100 text-stone-400">
         <Icon className="h-5 w-5" aria-hidden />
       </span>
-      <p className="mt-3 font-medium text-zinc-900">{title}</p>
-      <p className="mt-1 max-w-sm text-[13px] text-zinc-500">{body}</p>
+      <p className="mt-3 font-medium text-stone-900">{title}</p>
+      <p className="mt-1 max-w-sm text-[13px] text-stone-500">{body}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -117,8 +117,8 @@ export function PageHeader({ title, description, action }: { title: string; desc
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">{title}</h1>
-        {description && <p className="mt-1 text-[14px] text-zinc-500">{description}</p>}
+        <h1 className="text-2xl font-semibold tracking-tight text-stone-900">{title}</h1>
+        {description && <p className="mt-1 text-[14px] text-stone-500">{description}</p>}
       </div>
       {action}
     </div>
