@@ -62,13 +62,30 @@ export async function checkConnectionStatus(
   return { outcome: "DONE", data: { status: info.status, name: info.name } };
 }
 
-/** 2. Send a connection request, optionally with a note (max 300 characters). */
+export interface InviteOptions {
+  /** Note text; {firstName}/{name} are filled in. Max 300 characters after filling. */
+  note?: string;
+  /** If notes are unavailable (LinkedIn's free-note limit), skip the invite instead of sending it without the note. */
+  requireNote?: boolean;
+  /** Notes are known to be used up this month — don't try "Add a note" at all. */
+  notesBlocked?: boolean;
+}
+
+export interface InviteResult {
+  name: string;
+  withNote: boolean;
+  /** LinkedIn said this account is out of free custom notes. */
+  noteLimitHit?: boolean;
+}
+
+/** 2. Send a connection request, optionally with a note. */
 export async function sendConnectionRequest(
   ctx: SessionTaskContext,
   profileUrl: string,
-  note?: string,
-): Promise<ActionOutcome<{ name: string; withNote: boolean }>> {
-  const trimmedNote = note?.trim() || undefined;
+  options: InviteOptions | string = {},
+): Promise<ActionOutcome<InviteResult>> {
+  const opts: InviteOptions = typeof options === "string" ? { note: options } : options;
+  const trimmedNote = opts.note?.trim() || undefined;
   if (trimmedNote && trimmedNote.length > CONNECTION_NOTE_MAX_CHARS) {
     throw new Error(`Note is ${trimmedNote.length} characters; LinkedIn allows ${CONNECTION_NOTE_MAX_CHARS}`);
   }
@@ -78,71 +95,113 @@ export async function sendConnectionRequest(
   if (filledNote && filledNote.length > CONNECTION_NOTE_MAX_CHARS) {
     throw new Error(`Note is ${filledNote.length} characters after filling in the name; LinkedIn allows ${CONNECTION_NOTE_MAX_CHARS}`);
   }
-  const data = { name: info.name, withNote: Boolean(filledNote) };
+  const data: InviteResult = { name: info.name, withNote: false };
   if (info.status !== "NOT_CONNECTED") return { outcome: "SKIPPED", reason: info.status, data };
+  if (filledNote && opts.notesBlocked && opts.requireNote) return { outcome: "SKIPPED", reason: "NOTE_LIMIT", data };
 
-  let connect = connectControl(page, info.name);
-  if ((await connect.count()) === 0) {
-    const more = control(topCard(page), SELECTORS.profile.moreButton).first();
-    if ((await more.count()) === 0) return { outcome: "SKIPPED", reason: "CONNECT_NOT_AVAILABLE", data };
-    await humanClick(page, more);
-    await humanPause(page, 500, 1200);
-    connect = connectControl(page, info.name).or(connectMenuItem(page, info.name));
-    if ((await connect.count()) === 0) {
-      await page.keyboard.press("Escape");
-      return { outcome: "SKIPPED", reason: "CONNECT_NOT_AVAILABLE", data };
-    }
-  }
-  await humanClick(page, connect.first());
-
-  // After Connect, LinkedIn shows a dialog — or (on some accounts) sends straight away.
   const inviteDialog = () =>
     page.locator(SELECTORS.invite.dialog).filter({ visible: true }).filter({ hasText: SELECTORS.invite.dialogText }).last();
-  const dialog = inviteDialog();
-  const deadline = Date.now() + 12_000;
-  let sentWithoutDialog = false;
-  for (;;) {
-    if (await pageMentions(ctx, INVITE_BLOCK_MARKERS.weeklyLimit)) throw new InviteLimitReachedError();
-    if (await pageMentions(ctx, INVITE_BLOCK_MARKERS.emailRequired)) {
-      await page.keyboard.press("Escape");
-      return { outcome: "SKIPPED", reason: "EMAIL_REQUIRED", data };
-    }
-    if ((await dialog.count()) > 0) break;
-    if ((await readProfile(page)).status === "PENDING") {
-      sentWithoutDialog = true;
-      break;
-    }
-    if (Date.now() > deadline) throw new Error("No invitation dialog appeared after clicking Connect");
-    await page.waitForTimeout(500);
-  }
+  const inDialog = (dialog: ReturnType<typeof inviteDialog>, name: RegExp) =>
+    dialog.getByRole("button", { name }).or(dialog.getByRole("link", { name })).filter({ visible: true });
 
-  if (sentWithoutDialog) data.withNote = false; // LinkedIn sent it without offering a note
-  if (!sentWithoutDialog) {
-    await humanPause(page, 600, 1400);
-    const button = (name: RegExp) =>
-      dialog.getByRole("button", { name }).or(dialog.getByRole("link", { name })).filter({ visible: true });
-    if (filledNote) {
-      await humanClick(page, button(SELECTORS.invite.addNoteButton).first());
+  /** Click Connect (directly or via "More") and wait for the invite dialog — or for LinkedIn to send straight away. */
+  const openInvite = async (): Promise<"dialog" | "sent" | ActionOutcome<InviteResult>> => {
+    let connect = connectControl(page, info.name);
+    if ((await connect.count()) === 0) {
+      const more = control(topCard(page), SELECTORS.profile.moreButton).first();
+      if ((await more.count()) === 0) return { outcome: "SKIPPED", reason: "CONNECT_NOT_AVAILABLE", data };
+      await humanClick(page, more);
       await humanPause(page, 500, 1200);
-      // The note box may replace the dialog's content; from here on use the dialog that holds it.
-      const noteDialog = page
+      connect = connectControl(page, info.name).or(connectMenuItem(page, info.name));
+      if ((await connect.count()) === 0) {
+        await page.keyboard.press("Escape");
+        return { outcome: "SKIPPED", reason: "CONNECT_NOT_AVAILABLE", data };
+      }
+    }
+    await humanClick(page, connect.first());
+    const deadline = Date.now() + 12_000;
+    for (;;) {
+      if (await pageMentions(ctx, INVITE_BLOCK_MARKERS.weeklyLimit)) throw new InviteLimitReachedError();
+      if (await pageMentions(ctx, INVITE_BLOCK_MARKERS.emailRequired)) {
+        await page.keyboard.press("Escape");
+        return { outcome: "SKIPPED", reason: "EMAIL_REQUIRED", data };
+      }
+      if ((await inviteDialog().count()) > 0) return "dialog";
+      if ((await readProfile(page)).status === "PENDING") return "sent";
+      if (Date.now() > deadline) throw new Error("No invitation dialog appeared after clicking Connect");
+      await page.waitForTimeout(500);
+    }
+  };
+
+  const sendWithoutNote = async () => {
+    const dialog = inviteDialog();
+    const withoutNote = inDialog(dialog, SELECTORS.invite.sendWithoutNoteButton);
+    const send = (await withoutNote.count()) > 0 ? withoutNote : inDialog(dialog, SELECTORS.invite.sendButton);
+    await humanClick(page, send.first());
+  };
+
+  let opened = await openInvite();
+  if (typeof opened !== "string") return opened;
+
+  if (opened === "dialog") {
+    await humanPause(page, 600, 1400);
+    if (filledNote && !opts.notesBlocked) {
+      await humanClick(page, inDialog(inviteDialog(), SELECTORS.invite.addNoteButton).first());
+      // Either the note box appears, or LinkedIn says the free notes are used up.
+      const noteBox = page
         .locator(SELECTORS.invite.dialog)
         .filter({ visible: true })
-        .filter({ has: page.locator(SELECTORS.invite.noteTextarea) })
-        .last();
-      const box = noteDialog.locator(SELECTORS.invite.noteTextarea).filter({ visible: true }).first();
-      await box.waitFor({ state: "visible", timeout: 10_000 });
-      await humanType(page, box, filledNote);
-      await humanPause(page, 600, 1500);
-      const send = noteDialog
-        .getByRole("button", { name: SELECTORS.invite.sendButton })
-        .or(noteDialog.getByRole("link", { name: SELECTORS.invite.sendButton }))
-        .filter({ visible: true });
-      await humanClick(page, send.first());
+        .locator(SELECTORS.invite.noteTextarea)
+        .filter({ visible: true })
+        .first();
+      const deadline = Date.now() + 10_000;
+      let state: "box" | "limit" = "box";
+      for (;;) {
+        if ((await noteBox.count()) > 0) break;
+        if (await pageMentions(ctx, INVITE_BLOCK_MARKERS.noteLimit)) {
+          state = "limit";
+          break;
+        }
+        if (Date.now() > deadline) throw new Error('No note box appeared after clicking "Add a note"');
+        await page.waitForTimeout(400);
+      }
+
+      if (state === "box") {
+        const noteDialog = page
+          .locator(SELECTORS.invite.dialog)
+          .filter({ visible: true })
+          .filter({ has: page.locator(SELECTORS.invite.noteTextarea) })
+          .last();
+        await humanPause(page, 400, 900);
+        await humanType(page, noteBox, filledNote);
+        await humanPause(page, 600, 1500);
+        const send = noteDialog
+          .getByRole("button", { name: SELECTORS.invite.sendButton })
+          .or(noteDialog.getByRole("link", { name: SELECTORS.invite.sendButton }))
+          .filter({ visible: true });
+        await humanClick(page, send.first());
+        data.withNote = true;
+      } else {
+        // Close the Premium upsell.
+        data.noteLimitHit = true;
+        const dismiss = page.locator(SELECTORS.invite.dialog).filter({ visible: true })
+          .getByRole("button", { name: SELECTORS.invite.dismissButton });
+        if ((await dismiss.count()) > 0) await humanClick(page, dismiss.first());
+        else await page.keyboard.press("Escape");
+        await humanPause(page, 800, 1600);
+        if (opts.requireNote) return { outcome: "SKIPPED", reason: "NOTE_LIMIT", data };
+        // Start again and send without a note.
+        if ((await inviteDialog().count()) === 0) {
+          opened = await openInvite();
+          if (typeof opened !== "string") return opened;
+        }
+        if (opened === "dialog") {
+          await humanPause(page, 600, 1400);
+          await sendWithoutNote();
+        }
+      }
     } else {
-      const withoutNote = button(SELECTORS.invite.sendWithoutNoteButton);
-      const send = (await withoutNote.count()) > 0 ? withoutNote : button(SELECTORS.invite.sendButton);
-      await humanClick(page, send.first());
+      await sendWithoutNote();
     }
     await humanPause(page, 1500, 3000);
   }

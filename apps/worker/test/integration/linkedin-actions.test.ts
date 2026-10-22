@@ -123,6 +123,26 @@ describe("LinkedIn actions (fake site)", { timeout: 60_000 }, () => {
     expect(fillTemplate("Hi {firstName} — {name}", "Mary Ann Lee")).toBe("Hi Mary — Mary Ann Lee");
   });
 
+  it("sends without a note when LinkedIn's free notes are used up", async () => {
+    const r = await run((ctx) => sendConnectionRequest(ctx, url("pam"), { note: "Hi {firstName}, let's connect" }));
+    expect(r).toMatchObject({ outcome: "DONE", data: { name: "Pam Premium", withNote: false, noteLimitHit: true } });
+    expect(state.invites.at(-1)).toEqual({ slug: "pam", note: null });
+  });
+
+  it("skips instead when the note is required and notes are used up", async () => {
+    const before = state.invites.length;
+    const r = await run((ctx) => sendConnectionRequest(ctx, url("quinn"), { note: "Hi {firstName}", requireNote: true }));
+    expect(r).toMatchObject({ outcome: "SKIPPED", reason: "NOTE_LIMIT", data: { noteLimitHit: true } });
+    expect(state.invites).toHaveLength(before);
+  });
+
+  it("goes straight to 'Send without a note' once notes are known to be blocked", async () => {
+    const r = await run((ctx) => sendConnectionRequest(ctx, url("quinn"), { note: "Hi {firstName}", notesBlocked: true }));
+    expect(r).toMatchObject({ outcome: "DONE", data: { withNote: false } });
+    expect(r.outcome === "DONE" && r.data.noteLimitHit).toBeFalsy();
+    expect(state.invites.at(-1)).toEqual({ slug: "quinn", note: null });
+  });
+
   it("does not invite existing connections", async () => {
     expect(await run((ctx) => sendConnectionRequest(ctx, url("carol")))).toMatchObject({ outcome: "SKIPPED", reason: "CONNECTED" });
   });

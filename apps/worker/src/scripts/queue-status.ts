@@ -39,6 +39,10 @@ async function main() {
       }
       if (queued.length > 8) console.log(`    … and ${queued.length - 8} more`);
 
+      const notesUntil = await rt.redis.get(`invytra:pacing:${a.id}:notesBlockedUntil`);
+      if (notesUntil && Number(notesUntil) > Date.now()) {
+        console.log(`  Notes: LinkedIn free notes used up — invites go without a note until ${fmt(new Date(Number(notesUntil)))}`);
+      }
       const recent = await rt.prisma.action.findMany({
         where: { accountId: a.id, status: { in: ["SUCCEEDED", "SKIPPED", "FAILED"] } },
         orderBy: { executedAt: "desc" },
@@ -47,7 +51,12 @@ async function main() {
       console.log(`  Recent:`);
       for (const r of recent) {
         const icon = r.status === "SUCCEEDED" ? "✔" : r.status === "SKIPPED" ? "–" : "✖";
-        console.log(`    ${icon} ${fmt(r.executedAt)}  ${r.type.padEnd(18)} ${short(r.targetUrl)}  ${(r.error ?? "").split("\n")[0]!.slice(0, 60)}`);
+        const result = (r.payload as { result?: { withNote?: boolean; noteLimitHit?: boolean }; note?: string } | null) ?? {};
+        const extra =
+          r.status === "SUCCEEDED" && result.note && result.result?.withNote === false
+            ? "sent without note (LinkedIn's free-note limit)"
+            : (r.error ?? "").split("\n")[0]!.slice(0, 60);
+        console.log(`    ${icon} ${fmt(r.executedAt)}  ${r.type.padEnd(18)} ${short(r.targetUrl)}  ${extra}`);
       }
       const replies = await rt.prisma.inboxMessage.findMany({ where: { accountId: a.id }, orderBy: { fetchedAt: "desc" }, take: 5 });
       if (replies.length) {

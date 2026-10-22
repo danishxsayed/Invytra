@@ -55,3 +55,8 @@ export function pollAgainAt(now: Date, notBefore: Date | null, random: Random = 
   const poll = now.getTime() + between(45, 120, random) * 1000;
   return new Date(notBefore ? Math.min(Math.max(notBefore.getTime(), now.getTime() + 5000), poll) : poll);
 }
+
+/** LinkedIn's free custom-note allowance is monthly: assume it's back on the 1st of next month (UTC). */
+export function notesBlockUntil(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 6, 0, 0));
+}

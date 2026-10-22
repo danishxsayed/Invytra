@@ -44,7 +44,12 @@ export function workFor(spec: ActionSpec): (ctx: SessionTaskContext) => Promise<
     case "CHECK_CONNECTION":
       return (ctx) => checkConnectionStatus(ctx, url);
     case "CONNECTION_REQUEST":
-      return (ctx) => sendConnectionRequest(ctx, url, typeof p.note === "string" ? p.note : undefined);
+      return (ctx) =>
+        sendConnectionRequest(ctx, url, {
+          note: typeof p.note === "string" ? p.note : undefined,
+          requireNote: p.requireNote === true,
+          notesBlocked: p.notesBlocked === true,
+        });
     case "MESSAGE":
       return (ctx) => sendMessage(ctx, url, String(p.text));
     case "INBOX_SYNC":

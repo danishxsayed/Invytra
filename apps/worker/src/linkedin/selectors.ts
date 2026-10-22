@@ -41,6 +41,8 @@ export const CAPTCHA_SELECTORS = [
 export const INVITE_BLOCK_MARKERS = {
   weeklyLimit: ["reached the weekly invitation limit", "weekly invitation limit"],
   emailRequired: ["to verify this member knows you, please enter their email", "enter their email to connect"],
+  /** Free accounts get a few custom notes per month; then "Add a note" shows a Premium upsell. */
+  noteLimit: ["out of free custom notes", "send unlimited personalized invites"],
 } as const;
 
 /**
@@ -82,6 +84,7 @@ export const SELECTORS = {
     noteTextarea: 'textarea, [role="textbox"][contenteditable="true"]',
     sendButton: /^Send( invitation| now)?$/i,
     sendWithoutNoteButton: /^Send without a note$/i,
+    dismissButton: /^Dismiss$/i,
   },
   message: {
     /** The chat overlay that opens after clicking Message. */

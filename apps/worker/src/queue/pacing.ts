@@ -3,6 +3,7 @@
  * - nextActionAt: earliest time the next action may start (human-like gaps).
  *   While an action runs, it holds a provisional value so no other job claims the account.
  * - inviteBlockedUntil: set when LinkedIn reports the weekly invite limit.
+ * - notesBlockedUntil: set when LinkedIn says the free custom notes are used up.
  */
 export interface PacingStore {
   get(accountId: string, key: PacingKey): Promise<Date | null>;
@@ -14,7 +15,7 @@ export interface PacingStore {
    */
   claim(accountId: string, now: Date, holdUntil: Date): Promise<Date | null>;
 }
-export type PacingKey = "nextActionAt" | "inviteBlockedUntil";
+export type PacingKey = "nextActionAt" | "inviteBlockedUntil" | "notesBlockedUntil";
 
 interface RedisLike {
   get(key: string): Promise<string | null>;

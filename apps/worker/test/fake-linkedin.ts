@@ -4,7 +4,7 @@
  */
 import { createServer, type Server } from "node:http";
 
-type Kind = "open" | "more" | "connected" | "pending" | "email" | "limit" | "instant" | "native";
+type Kind = "open" | "more" | "connected" | "pending" | "email" | "limit" | "instant" | "native" | "notelimit";
 const HIDDEN_CAPTCHA = '<iframe src="/captcha-widget" title="captcha" style="display:none"></iframe>';
 
 interface Person {
@@ -23,6 +23,8 @@ export const PEOPLE: Record<string, Person> = {
   olga: { name: "Olga Old", headline: "Old layout person", kind: "open" },
   ivan: { name: "Ivan Instant", headline: "Sends with no dialog", kind: "instant" },
   nina: { name: "Nina Native", headline: "Native dialog element", kind: "native" },
+  pam: { name: "Pam Premium", headline: "Out of free notes", kind: "notelimit" },
+  quinn: { name: "Quinn Quota", headline: "Out of free notes too", kind: "notelimit" },
 };
 
 /** Profiles rendered with LinkedIn's pre-2026 layout (h1, buttons, first <section>). */
@@ -96,6 +98,9 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
         const addCtl = kind==='native' ? '<a href="#" id="add">Add a note</a>' : '<button id="add">Add a note</button>';
         root.innerHTML=wrap[0]+'<p>Add a note to your invitation?</p>'+addCtl+'<button id="plain">Send without a note</button>'+wrap[1];
         document.getElementById('plain').onclick=()=>send(null);
+        if(kind==='notelimit'){document.getElementById('add').onclick=(e)=>{e.preventDefault();
+          root.innerHTML='<dialog open><button aria-label="Dismiss" id="dis"></button><p>Send unlimited personalized invites with Premium</p><p>You&#39;re out of free custom notes. Bypass the limit with Premium.</p><a href="#">Reactivate Premium</a></dialog>';
+          document.getElementById('dis').onclick=()=>{root.innerHTML='';};};return;}
         document.getElementById('add').onclick=(e)=>{e.preventDefault();root.querySelector('[role=dialog], dialog').innerHTML=
           '<textarea name="message" maxlength="300"></textarea><button id="s" aria-label="Send invitation">Send</button>';
           document.getElementById('s').onclick=()=>send(root.querySelector('textarea').value);};

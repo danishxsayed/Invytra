@@ -4,13 +4,16 @@
  *
  *   pnpm queue <label> visit   <url> [<url> …]
  *   pnpm queue <label> status  <url> [<url> …]
- *   pnpm queue <label> invite  <url> [<url> …] [--note "Hi {firstName}, …"]
+ *   pnpm queue <label> invite  <url> [<url> …] [--note "Hi {firstName}, …"] [--require-note]
  *   pnpm queue <label> message <url> [<url> …] --text "Hi {firstName}, …"
  *   pnpm queue <label> inbox
  *   pnpm queue <label> file    <invite|visit|status> <path-to-urls.txt> [--note "…"]
  *   pnpm queue:cancel <label> [invite|message|visit|status|inbox]
  *
  * {firstName} is filled in from the profile at send time.
+ * Free LinkedIn accounts get only a few custom notes a month. When they run
+ * out, invites are sent without the note — unless --require-note is given,
+ * in which case they are skipped.
  */
 import type { ActionType } from "@invytra/shared";
 import { CONNECTION_NOTE_MAX_CHARS, outreachTextProblem } from "@invytra/shared";
@@ -24,7 +27,7 @@ import { createRuntime } from "../runtime.js";
 const USAGE = `Usage:
   pnpm queue <label> visit   <url> [<url> …]
   pnpm queue <label> status  <url> [<url> …]
-  pnpm queue <label> invite  <url> [<url> …] [--note "Hi {firstName}, …"]
+  pnpm queue <label> invite  <url> [<url> …] [--note "Hi {firstName}, …"] [--require-note]
   pnpm queue <label> message <url> [<url> …] --text "Hi {firstName}, …"
   pnpm queue <label> inbox
   pnpm queue <label> file    <invite|visit|status> <urls.txt> [--note "…"]`;
@@ -37,13 +40,17 @@ const TYPES: Record<string, ActionType> = {
   inbox: "INBOX_SYNC",
 };
 
+const BOOLEAN_FLAGS = new Set(["require-note"]);
+
 function parseArgs(argv: string[]) {
   const positional: string[] = [];
   const flags: Record<string, string> = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
-    if (a.startsWith("--")) flags[a.slice(2)] = argv[++i] ?? "";
-    else positional.push(a);
+    if (a.startsWith("--")) {
+      const name = a.slice(2);
+      flags[name] = BOOLEAN_FLAGS.has(name) ? "true" : (argv[++i] ?? "");
+    } else positional.push(a);
   }
   return { positional, flags };
 }
@@ -89,6 +96,10 @@ async function main() {
     const payload: Record<string, unknown> = {};
     if (flags.note) payload.note = flags.note;
     if (flags.text) payload.text = flags.text;
+    if (flags["require-note"]) {
+      if (!flags.note) throw new Error("--require-note needs a --note");
+      payload.requireNote = true;
+    }
 
     if (type === "INBOX_SYNC") {
       await enqueueAction(rt.prisma, queue, { accountId: account.id, type });

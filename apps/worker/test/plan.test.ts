@@ -1,7 +1,7 @@
 import { DEFAULT_WORKING_HOURS, isWithinWorkingHours } from "@invytra/shared";
 import { describe, expect, it } from "vitest";
 import { validateSpec, isRetryable } from "../src/actions/registry.js";
-import { MAX_ATTEMPTS, busyRetryAt, inviteBlockUntil, pollAgainAt, rescheduleFor, retryAt } from "../src/queue/plan.js";
+import { MAX_ATTEMPTS, busyRetryAt, inviteBlockUntil, notesBlockUntil, pollAgainAt, rescheduleFor, retryAt } from "../src/queue/plan.js";
 import { memoryPacingStore } from "../src/queue/pacing.js";
 
 const WED_NIGHT_IST = new Date("2025-10-15T16:00:00Z"); // 21:30 IST
@@ -58,6 +58,13 @@ describe("validateSpec", () => {
     expect(() =>
       validateSpec({ type: "CONNECTION_REQUEST", targetUrl: "https://www.linkedin.com/in/x/", payload: { note: "Hi {firstName}, …" } }),
     ).toThrow(/placeholder/));
+});
+
+describe("notesBlockUntil", () => {
+  it("lifts on the 1st of next month", () =>
+    expect(notesBlockUntil(new Date("2026-10-21T10:00:00Z")).toISOString()).toBe("2026-11-01T06:00:00.000Z"));
+  it("rolls over the year", () =>
+    expect(notesBlockUntil(new Date("2026-12-15T10:00:00Z")).toISOString()).toBe("2027-01-01T06:00:00.000Z"));
 });
 
 describe("pollAgainAt", () => {

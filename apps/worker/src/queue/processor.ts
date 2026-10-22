@@ -4,7 +4,16 @@ import type { SessionManagerDeps } from "../browser/session-manager.js";
 import { isRetryable, workFor } from "../actions/registry.js";
 import { accountSettings, checkPolicy, executeActionRow } from "../actions/run-action.js";
 import type { PacingStore } from "./pacing.js";
-import { CLAIM_HOLD_MS, MAX_ATTEMPTS, busyRetryAt, inviteBlockUntil, pollAgainAt, rescheduleFor, retryAt } from "./plan.js";
+import {
+  CLAIM_HOLD_MS,
+  MAX_ATTEMPTS,
+  busyRetryAt,
+  inviteBlockUntil,
+  notesBlockUntil,
+  pollAgainAt,
+  rescheduleFor,
+  retryAt,
+} from "./plan.js";
 
 export interface ProcessorDeps {
   prisma: PrismaClient;
@@ -69,11 +78,12 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
   if (heldUntil) return defer(scaled(pollAgainAt(now, heldUntil)), "PACING");
 
   // 4. Run it
-  const spec = {
-    type: action.type,
-    targetUrl: action.targetUrl,
-    payload: (action.payload ?? {}) as Record<string, unknown>,
-  };
+  const payload = { ...((action.payload ?? {}) as Record<string, unknown>) };
+  if (action.type === "CONNECTION_REQUEST" && payload.note) {
+    const notesBlocked = await deps.pacing.get(action.accountId, "notesBlockedUntil");
+    if (notesBlocked && notesBlocked > now) payload.notesBlocked = true;
+  }
+  const spec = { type: action.type, targetUrl: action.targetUrl, payload };
   let work;
   try {
     work = workFor(spec); // re-validates, e.g. refuses placeholder text queued by an older version
@@ -93,6 +103,9 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
     return defer(busyRetryAt(finished), "ACCOUNT_BUSY");
   }
 
+  if (result.status !== "FAILED" && (result.data as { noteLimitHit?: boolean } | undefined)?.noteLimitHit) {
+    await deps.pacing.set(action.accountId, "notesBlockedUntil", notesBlockUntil(finished));
+  }
   const gap = randomActionDelayMs() * (deps.gapScale ?? 1);
   await deps.pacing.set(action.accountId, "nextActionAt", new Date(finished.getTime() + gap));
   if (result.status !== "FAILED") return { kind: "done", status: result.status };

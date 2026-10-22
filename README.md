@@ -86,6 +86,10 @@ The worker:
   `pnpm account:reactivate`)
 - survives restarts: queued actions are kept, and anything interrupted is re-queued
 
+**Free LinkedIn accounts get only a few custom invite notes per month.** When LinkedIn says
+they're used up, Invytra sends the invite without the note and remembers it until the 1st of
+next month (shown in `pnpm queue:status`). Add `--require-note` to skip those invites instead.
+
 `{firstName}` and `{name}` in notes/messages are filled in from each profile. Notes and
 messages that still contain placeholder text (`…`, `...`, `<…>`, `[…]`, unknown `{…}`) are
 refused before anything is queued or sent.
