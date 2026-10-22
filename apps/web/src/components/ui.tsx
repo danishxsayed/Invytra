@@ -24,8 +24,8 @@ export function CardHeader({
       <div className="flex items-center gap-2.5">
         {Icon && <Icon className="h-4 w-4 text-stone-400" aria-hidden />}
         <div>
-          <h2 className="text-[16px] font-semibold text-stone-900">{title}</h2>
-          {description && <p className="text-[14px] text-stone-500">{description}</p>}
+          <h2 className="text-[17px] font-semibold text-stone-900">{title}</h2>
+          {description && <p className="text-[15px] text-stone-500">{description}</p>}
         </div>
       </div>
       {action}
@@ -50,7 +50,7 @@ export function initials(name: string): string {
 export function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const sz = size === "sm" ? "h-7 w-7 text-[12px]" : size === "lg" ? "h-10 w-10 text-sm" : "h-8 w-8 text-xs";
+  const sz = size === "sm" ? "h-7 w-7 text-[13px]" : size === "lg" ? "h-10 w-10 text-sm" : "h-8 w-8 text-xs";
   return (
     <span
       aria-hidden
@@ -66,7 +66,7 @@ export function UsageBar({ label, used, limit }: { label: string; used: number; 
   const full = used >= limit;
   return (
     <div>
-      <div className="flex items-baseline justify-between text-[14px]">
+      <div className="flex items-baseline justify-between text-[15px]">
         <span className="text-stone-500">{label}</span>
         <span className="tabular font-medium text-stone-900">
           {used}
@@ -107,7 +107,7 @@ export function EmptyState({
         <Icon className="h-5 w-5" aria-hidden />
       </span>
       <p className="mt-3 font-medium text-stone-900">{title}</p>
-      <p className="mt-1 max-w-sm text-[14px] text-stone-500">{body}</p>
+      <p className="mt-1 max-w-sm text-[15px] text-stone-500">{body}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -118,7 +118,7 @@ export function PageHeader({ title, description, action }: { title: string; desc
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-stone-900">{title}</h1>
-        {description && <p className="mt-1 text-[15px] text-stone-500">{description}</p>}
+        {description && <p className="mt-1 text-[16px] text-stone-500">{description}</p>}
       </div>
       {action}
     </div>

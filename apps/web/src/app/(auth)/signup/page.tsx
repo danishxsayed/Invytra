@@ -11,7 +11,7 @@ export default async function SignupPage() {
   return (
     <>
       <h1 className="text-xl font-semibold tracking-tight">Create your account</h1>
-      <p className="mb-6 mt-1 text-[15px] text-stone-500">Start your free trial. No card needed.</p>
+      <p className="mb-6 mt-1 text-[16px] text-stone-500">Start your free trial. No card needed.</p>
       <AuthForm
         action={signup}
         submit="Create account"

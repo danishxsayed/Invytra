@@ -10,7 +10,7 @@ const ACCOUNT: Record<string, { label: string; dot: string; cls: string }> = {
 export function StatusBadge({ status }: { status: string }) {
   const s = ACCOUNT[status] ?? ACCOUNT.DISCONNECTED!;
   return (
-    <span className={cx("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-medium ring-1 ring-inset", s.cls)}>
+    <span className={cx("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[14px] font-medium ring-1 ring-inset", s.cls)}>
       <span className={cx("h-1.5 w-1.5 rounded-full", s.dot)} aria-hidden />
       {s.label}
     </span>
@@ -31,7 +31,7 @@ const OUTCOME: Record<string, string> = {
 
 export function OutcomePill({ status, children }: { status: string; children: React.ReactNode }) {
   return (
-    <span className={cx("inline-flex max-w-full items-center truncate rounded-md px-1.5 py-0.5 text-[13px] font-medium", OUTCOME[status] ?? OUTCOME.QUEUED)}>
+    <span className={cx("inline-flex max-w-full items-center truncate rounded-md px-1.5 py-0.5 text-[14px] font-medium", OUTCOME[status] ?? OUTCOME.QUEUED)}>
       {children}
     </span>
   );

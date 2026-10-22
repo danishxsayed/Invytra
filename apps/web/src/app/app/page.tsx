@@ -30,7 +30,7 @@ export default async function Dashboard() {
   const connected = accounts.some((a) => a.status === "ACTIVE");
   const many = accounts.length > 1;
   const link = (href: string, text: string) => (
-    <Link href={href} className="inline-flex items-center gap-1 text-[14px] font-medium text-brand-800 hover:text-stone-900">
+    <Link href={href} className="inline-flex items-center gap-1 text-[15px] font-medium text-brand-800 hover:text-stone-900">
       {text} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
     </Link>
   );
@@ -62,7 +62,7 @@ export default async function Dashboard() {
               icon={Users}
               title="Connect your first LinkedIn account"
               body="You'll log in to LinkedIn in a secure window, and Invytra keeps the session to send invites and messages within safe daily limits."
-              action={<span className="rounded-lg bg-stone-100 px-3 py-1.5 text-[14px] font-medium text-stone-500">Coming in the next update</span>}
+              action={<span className="rounded-lg bg-stone-100 px-3 py-1.5 text-[15px] font-medium text-stone-500">Coming in the next update</span>}
             />
           </Card>
         ) : (
@@ -90,10 +90,10 @@ export default async function Dashboard() {
                   <Avatar name={m.fromName} />
                   <div className="min-w-0 flex-1">
                     <p className="flex items-baseline justify-between gap-3">
-                      <span className="truncate text-[15px] font-medium text-stone-900">{m.fromName}</span>
-                      <span className="shrink-0 text-[13px] text-stone-400">{timeAgo(m.fetchedAt)}</span>
+                      <span className="truncate text-[16px] font-medium text-stone-900">{m.fromName}</span>
+                      <span className="shrink-0 text-[14px] text-stone-400">{timeAgo(m.fetchedAt)}</span>
                     </p>
-                    <p className="line-clamp-2 text-[14px] text-stone-500">{m.text}</p>
+                    <p className="line-clamp-2 text-[15px] text-stone-500">{m.text}</p>
                   </div>
                 </li>
               ))}

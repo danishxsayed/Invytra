@@ -10,7 +10,7 @@ export default async function LoginPage() {
   return (
     <>
       <h1 className="text-xl font-semibold tracking-tight">Welcome back</h1>
-      <p className="mb-6 mt-1 text-[15px] text-stone-500">Log in to your Invytra workspace.</p>
+      <p className="mb-6 mt-1 text-[16px] text-stone-500">Log in to your Invytra workspace.</p>
       <AuthForm
         action={login}
         submit="Log in"

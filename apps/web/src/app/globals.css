@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 @layer base {
-  html { font-size: 106.25%; background: theme("colors.canvas"); color: theme("colors.stone.900"); }
+  html { font-size: 112.5%; background: theme("colors.canvas"); color: theme("colors.stone.900"); }
   body { -webkit-font-smoothing: antialiased; font-feature-settings: "cv11", "ss01"; }
   :focus-visible { outline: 2px solid theme("colors.stone.900"); outline-offset: 2px; border-radius: 8px; }
   .tabular { font-variant-numeric: tabular-nums; }

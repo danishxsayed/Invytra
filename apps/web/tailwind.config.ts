@@ -23,12 +23,12 @@ export default {
         sans: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       fontSize: {
-        xs: ["13px", "18px"],
-        sm: ["14px", "20px"],
-        base: ["16px", "24px"],
-        lg: ["19px", "27px"],
-        xl: ["23px", "30px"],
-        "2xl": ["28px", "34px"],
+        xs: ["14px", "20px"],
+        sm: ["15px", "22px"],
+        base: ["17px", "26px"],
+        lg: ["20px", "28px"],
+        xl: ["25px", "32px"],
+        "2xl": ["31px", "38px"],
       },
       boxShadow: {
         card: "0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06)",

@@ -22,8 +22,8 @@ export function Checklist({ steps }: { steps: Step[] }) {
               <Sparkles className="h-4 w-4" aria-hidden />
             </span>
             <div>
-              <h2 className="text-[16px] font-semibold text-stone-900">Get set up</h2>
-              <p className="text-[14px] text-stone-500">
+              <h2 className="text-[17px] font-semibold text-stone-900">Get set up</h2>
+              <p className="text-[15px] text-stone-500">
                 {done} of {steps.length} done
               </p>
             </div>
@@ -44,15 +44,15 @@ export function Checklist({ steps }: { steps: Step[] }) {
               )}
             >
               {s.done ? (
-                <span className="mt-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-brand-400 text-stone-900">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand-400 text-stone-900">
                   <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
                 </span>
               ) : (
-                <Circle className="mt-0.5 h-4 w-4 text-stone-300" aria-hidden />
+                <Circle className="mt-0.5 h-4 w-4 shrink-0 text-stone-300" aria-hidden />
               )}
               <div className="min-w-0">
-                <p className={cx("text-[14px] font-medium", s.done ? "text-stone-400 line-through" : "text-stone-900")}>{s.label}</p>
-                <p className="hidden text-[13px] text-stone-500 sm:block">{s.soon ? "Coming soon" : s.hint}</p>
+                <p className={cx("text-[15px] font-medium", s.done ? "text-stone-400 line-through" : "text-stone-900")}>{s.label}</p>
+                <p className="hidden text-[14px] text-stone-500 sm:block">{s.soon ? "Coming soon" : s.hint}</p>
               </div>
             </li>
           ))}

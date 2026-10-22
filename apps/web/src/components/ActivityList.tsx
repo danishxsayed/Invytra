@@ -25,7 +25,7 @@ export function ActivityList({ rows, showAccount, compact }: { rows: ActivityRow
               <Icon className="h-4 w-4" aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] text-stone-900">
+              <p className="truncate text-[16px] text-stone-900">
                 <span className="font-medium">{ACTION_LABEL[r.type] ?? r.type}</span>
                 {who && (
                   <>
@@ -46,7 +46,7 @@ export function ActivityList({ rows, showAccount, compact }: { rows: ActivityRow
                 <OutcomePill status={r.status}>{outcomeText(r)}</OutcomePill>
               </div>
             </div>
-            <div className="shrink-0 text-right text-[13px] text-stone-400">
+            <div className="shrink-0 text-right text-[14px] text-stone-400">
               <p>{timeAgo(when)}</p>
               {showAccount && <p className="mt-0.5">{r.account.label}</p>}
             </div>

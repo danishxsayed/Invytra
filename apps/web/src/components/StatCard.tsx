@@ -19,13 +19,13 @@ export function StatCard({
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between">
-        <span className="text-[14px] text-stone-500">{label}</span>
+        <span className="text-[15px] text-stone-500">{label}</span>
         <span className={cx("flex h-7 w-7 items-center justify-center rounded-lg", tone)}>
           <Icon className="h-3.5 w-3.5" aria-hidden />
         </span>
       </div>
-      <p className="tabular mt-2 text-[31px] font-semibold leading-none tracking-tight text-stone-900">{now}</p>
-      <p className="mt-2 flex flex-wrap items-center gap-x-1 text-[13px] text-stone-500">
+      <p className="tabular mt-2 text-[34px] font-semibold leading-none tracking-tight text-stone-900">{now}</p>
+      <p className="mt-2 flex flex-wrap items-center gap-x-1 text-[14px] text-stone-500">
         {now === 0 && prev === 0 ? (
           "No activity yet"
         ) : prev === 0 ? (
