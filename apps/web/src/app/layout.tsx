@@ -9,8 +9,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={GeistSans.variable}>
-      <body className="min-h-screen font-sans text-base">{children}</body>
+    // suppressHydrationWarning: browser extensions (e.g. ColorZilla's cz-shortcut-listen)
+    // add attributes to <html>/<body> before React loads. Only affects these two tags.
+    <html lang="en" className={GeistSans.variable} suppressHydrationWarning>
+      <body className="min-h-screen font-sans text-base" suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }
