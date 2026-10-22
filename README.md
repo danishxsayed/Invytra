@@ -24,9 +24,20 @@ pnpm build
 pnpm test
 ```
 
+## Dashboard (Phase 1, in progress)
+
+```bash
+pnpm web          # http://localhost:3000 — sign up, then see accounts, activity and replies
+```
+
+Keep `pnpm worker` running in another tab. The **first person to sign up** takes over the
+workspace that holds the accounts from `.env`; everyone after gets their own empty workspace.
+Plan and milestones: `docs/PHASE-1-PLAN.md`.
+
 ## Layout
 
 ```
+apps/web          dashboard (Next.js) — sign-up, overview, activity, inbox
 apps/worker       automation engine (Playwright + BullMQ)
 packages/db       Prisma schema, migrations, client
 packages/shared   limits, working hours, policy checks (pure, unit-tested)

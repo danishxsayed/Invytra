@@ -1,6 +1,6 @@
-// Invytra — Phase 0 schema.
-// Only what the proof of concept needs. Users, workspaces, campaigns and leads
-// arrive in Phase 1.
+// Invytra schema.
+// Phase 1: multi-tenant. Every tenant table carries workspace_id, and the web app
+// always filters by the signed-in user's workspace.
 
 generator client {
   provider = "prisma-client-js"
@@ -9,6 +9,52 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum MemberRole {
+  OWNER
+  MEMBER
+}
+
+/// A customer (company). Everything a customer owns hangs off a workspace.
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  plan      String   @default("trial")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  members  Membership[]
+  accounts LinkedinAccount[]
+
+  @@map("workspaces")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  /// bcrypt hash. Never log or return this.
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastLoginAt  DateTime? @map("last_login_at")
+
+  memberships Membership[]
+
+  @@map("users")
+}
+
+model Membership {
+  userId      String     @map("user_id")
+  workspaceId String     @map("workspace_id")
+  role        MemberRole @default(MEMBER)
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, workspaceId])
+  @@index([workspaceId])
+  @@map("memberships")
 }
 
 enum AccountStatus {
@@ -36,7 +82,9 @@ enum ActionStatus {
 
 model LinkedinAccount {
   id                String        @id @default(cuid())
-  label             String        @unique
+  /// Accounts from .env (Phase 0 CLI) live in the "default" workspace.
+  workspaceId       String        @default("default") @map("workspace_id")
+  label             String
   email             String?
   proxyUrl          String        @map("proxy_url")
   timezone          String        @default("Asia/Kolkata")
@@ -53,9 +101,12 @@ model LinkedinAccount {
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")
 
-  actions  Action[]
-  messages InboxMessage[]
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actions   Action[]
+  messages  InboxMessage[]
 
+  @@unique([workspaceId, label])
+  @@index([workspaceId])
   @@map("linkedin_accounts")
 }
 

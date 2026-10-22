@@ -1,5 +1,5 @@
 import { DEFAULT_LIMITS, DEFAULT_WORKING_HOURS } from "@invytra/shared";
-import type { PrismaClient } from "@invytra/db";
+import { DEFAULT_WORKSPACE_ID, type PrismaClient } from "@invytra/db";
 
 export interface AccountConfig {
   label: string;
@@ -24,11 +24,11 @@ export function readAccountsFromEnv(env: NodeJS.ProcessEnv = process.env): Accou
   return accounts;
 }
 
-/** Creates or updates the DB rows for the accounts in .env. Never touches saved sessions. */
+/** Creates or updates the DB rows for the accounts in .env (default workspace). Never touches saved sessions. */
 export async function syncAccounts(prisma: PrismaClient, accounts: AccountConfig[]): Promise<void> {
   for (const a of accounts) {
     await prisma.linkedinAccount.upsert({
-      where: { label: a.label },
+      where: { workspaceId_label: { workspaceId: DEFAULT_WORKSPACE_ID, label: a.label } },
       update: { email: a.email, proxyUrl: a.proxyUrl, timezone: a.timezone },
       create: {
         ...a,

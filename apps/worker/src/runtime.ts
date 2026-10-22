@@ -1,4 +1,4 @@
-import { prisma } from "@invytra/db";
+import { DEFAULT_WORKSPACE_ID, prisma } from "@invytra/db";
 import { Redis } from "ioredis";
 import { join, resolve } from "node:path";
 import { AccountLock } from "./browser/account-lock.js";
@@ -25,7 +25,10 @@ export async function createRuntime() {
   };
 
   const findAccount = async (label: string) => {
-    const account = await prisma.linkedinAccount.findUnique({ where: { label } });
+    // CLI commands work on the .env accounts, which live in the default workspace.
+    const account = await prisma.linkedinAccount.findUnique({
+      where: { workspaceId_label: { workspaceId: DEFAULT_WORKSPACE_ID, label } },
+    });
     if (!account) {
       throw new Error(`No account labelled "${label}". Add ACCOUNT_n_LABEL="${label}" to .env.`);
     }

@@ -19,7 +19,7 @@ Phase 0 is signed off.
 - Language: TypeScript everywhere (Node.js 20+, strict mode)
 - Monorepo: pnpm workspaces + Turborepo
 - Frontend: Next.js (App Router) + Tailwind + shadcn/ui
-- API: NestJS
+- API: Next.js server actions and route handlers (no separate API service — see docs/PHASE-1-PLAN.md)
 - Worker: Node.js + Playwright (Chromium) + BullMQ
 - Database: PostgreSQL + Prisma
 - Queue / cache: Redis
@@ -29,8 +29,7 @@ Phase 0 is signed off.
 ## Folder structure
 
 ```
-/apps/web        Next.js customer dashboard           (Phase 1+)
-/apps/api        NestJS REST API                       (Phase 1+)
+/apps/web        Next.js dashboard + API (server actions / route handlers)
 /apps/worker     Automation engine: browsers, actions, queue, worker
 /packages/db     Prisma schema + client
 /packages/shared Shared types, constants, limits
@@ -38,6 +37,11 @@ Phase 0 is signed off.
 ```
 
 ## Architecture rules (always follow)
+
+0. **Tenant isolation.** Every web query filters by the signed-in user's `workspaceId`
+   (from `requireUser()`), passed as the first argument to helpers in `apps/web/src/lib/data.ts`.
+   Never trust a workspace or account id from the URL or form without checking it belongs
+   to that workspace.
 
 1. **Every LinkedIn action is a queued job.** API routes never touch a browser.
    The worker picks jobs from BullMQ and executes them.

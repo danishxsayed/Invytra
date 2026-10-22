@@ -1,4 +1,4 @@
-import type { Action, LinkedinAccount, Prisma, PrismaClient } from "@invytra/db";
+import { usageFor, type Action, type LinkedinAccount, type Prisma, type PrismaClient } from "@invytra/db";
 import {
   DEFAULT_LIMITS,
   DEFAULT_WORKING_HOURS,
@@ -8,7 +8,6 @@ import {
   type ActionType,
   type Limits,
   type PolicyDecision,
-  type UsageCounts,
   type WorkingHours,
 } from "@invytra/shared";
 import {
@@ -23,7 +22,6 @@ import type { SessionTaskContext } from "../browser/types.js";
 import { InviteLimitReachedError, type ActionOutcome } from "../linkedin/actions.js";
 import { afterSuccess } from "./registry.js";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 export const ALWAYS: WorkingHours = { days: [1, 2, 3, 4, 5, 6, 7], startHour: 0, endHour: 24 };
 
 export interface RunActionInput {
@@ -44,36 +42,7 @@ export type RunActionResult<T> =
 /** Why an action failed — decides whether it may be retried. */
 export type FailureKind = "ACCOUNT_STOPPED" | "INVITE_LIMIT" | "BUSY" | "OTHER";
 
-/**
- * Rolling-window usage for limit checks: last 24 h per action type, and last
- * 7 days of connection requests. Rolling windows are stricter than calendar days.
- */
-export async function usageFor(prisma: PrismaClient, accountId: string, now = new Date()): Promise<UsageCounts> {
-  const [daily, weekly] = await Promise.all([
-    prisma.action.groupBy({
-      by: ["type"],
-      where: { accountId, status: "SUCCEEDED", executedAt: { gte: new Date(now.getTime() - DAY_MS) } },
-      _count: { _all: true },
-    }),
-    prisma.action.count({
-      where: {
-        accountId,
-        type: "CONNECTION_REQUEST",
-        status: "SUCCEEDED",
-        executedAt: { gte: new Date(now.getTime() - 7 * DAY_MS) },
-      },
-    }),
-  ]);
-  const count = (t: ActionType) => daily.find((d) => d.type === t)?._count._all ?? 0;
-  return {
-    today: {
-      PROFILE_VISIT: count("PROFILE_VISIT"),
-      CONNECTION_REQUEST: count("CONNECTION_REQUEST"),
-      MESSAGE: count("MESSAGE"),
-    },
-    connectionRequestsThisWeek: weekly,
-  };
-}
+export { usageFor } from "@invytra/db";
 
 export function accountSettings(account: LinkedinAccount): { limits: Limits; hours: WorkingHours } {
   return {

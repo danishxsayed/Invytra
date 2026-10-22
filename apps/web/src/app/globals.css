@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { background: theme("colors.paper"); color: theme("colors.ink.DEFAULT"); }
+  body { font-feature-settings: "tnum" 1; -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid theme("colors.pine.DEFAULT"); outline-offset: 2px; border-radius: 3px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
