@@ -23,8 +23,10 @@ model Workspace {
   plan      String   @default("trial")
   createdAt DateTime @default(now()) @map("created_at")
 
-  members  Membership[]
-  accounts LinkedinAccount[]
+  members   Membership[]
+  accounts  LinkedinAccount[]
+  leadLists LeadList[]
+  leads     Lead[]
 
   @@map("workspaces")
 }
@@ -138,6 +140,8 @@ model Action {
   // Daily/weekly limit counting: actions per account, type and time window
   @@index([accountId, type, status, executedAt])
   @@index([status, scheduledAt])
+  // Lead status: what happened to a profile
+  @@index([targetUrl])
   @@map("actions")
 }
 
@@ -157,4 +161,44 @@ model InboxMessage {
   @@unique([accountId, linkedinMessageId])
   @@index([accountId, sentAt])
   @@map("inbox_messages")
+}
+
+/// A named list of people to reach out to (CSV upload or pasted links).
+model LeadList {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  name        String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  leads     Lead[]
+
+  @@index([workspaceId])
+  @@map("lead_lists")
+}
+
+/// One person in a list. profileUrl is canonical (https://www.linkedin.com/in/<slug>/),
+/// the same form the worker stores in actions.target_url.
+model Lead {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  listId      String   @map("list_id")
+  profileUrl  String   @map("profile_url")
+  firstName   String?  @map("first_name")
+  lastName    String?  @map("last_name")
+  company     String?
+  title       String?
+  location    String?
+  /// Other columns from the uploaded file, for personalisation later
+  extra       Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  list      LeadList  @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, profileUrl])
+  @@index([workspaceId, profileUrl])
+  @@index([listId, createdAt])
+  @@map("leads")
 }

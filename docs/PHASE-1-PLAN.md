@@ -52,7 +52,19 @@ LinkedIn. One less service to build, deploy and secure.
   check; on reaching the feed the session is encrypted and saved, profile name read, account
   ACTIVE. Safe mode: daily totals vary 80–100%, 14-day warm-up for new accounts (about a third
   of limits on day 1). Sidebar switcher and checklist connect step wired. Verified end-to-end
-  against the fake LinkedIn; not yet tried on live LinkedIn
+  against the fake LinkedIn; live login confirmed by the founder on the Mac (2026-10-23)
+- [x] M3 (2026-10-23): Lead lists — `lead_lists` / `leads` tables (workspace-scoped, canonical
+  profile URL shared with the worker). New list / add leads from a CSV (auto-detected columns for
+  Sales Navigator, Apollo and Excel exports, editable mapping, headerless files, `,` `;` tab) or
+  pasted links; preview before saving (ready / duplicates in file / skipped rows with reasons);
+  re-parsed on the server; 10,000 leads and 5 MB per upload; other CSV columns kept in `extra`
+  for personalisation. List page: search, per-lead status from all of the workspace's actions
+  (not contacted / queued / visited / invited / connected / messaged / failed), remove selected,
+  rename, delete; lists page with contacted progress; checklist "Add leads" step. Sales Navigator
+  *search URL* import deliberately deferred (account would browse search pages — more risk)
+
+M4 must keep the promise shown on the Leads page: a campaign skips anyone the workspace's
+accounts have already contacted (same canonical profile URL in `actions`).
 
 ## Milestones
 

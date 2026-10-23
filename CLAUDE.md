@@ -11,8 +11,8 @@ human-like schedule with strict daily limits.
 ## Current phase
 
 **Phase 1 — Web dashboard (multi-tenant).** See `docs/PHASE-1-PLAN.md`. M1 (workspaces,
-auth, dashboard) and M2 (accounts, live in-dashboard LinkedIn login, limits/working hours)
-are built; M3 lead lists is next. Phase 0's engine is done (`docs/PHASE-0-POC.md`); its
+auth, dashboard), M2 (accounts, live in-dashboard LinkedIn login, limits/working hours) and
+M3 (lead lists: CSV / pasted links) are built; M4 campaigns is next. Phase 0's engine is done (`docs/PHASE-0-POC.md`); its
 7-day soak test still needs spare accounts and proxies.
 
 ## Tech stack

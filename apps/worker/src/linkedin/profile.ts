@@ -1,3 +1,4 @@
+import { parseProfileUrl } from "@invytra/shared";
 import type { Locator, Page } from "playwright";
 import { SELECTORS } from "./selectors.js";
 
@@ -13,17 +14,12 @@ export interface ProfileInfo {
 /**
  * Accepts any LinkedIn profile URL (with or without www, query, trailing slash)
  * and returns the canonical /in/<slug>/ URL on the configured base URL.
+ * Same rules as lead lists (@invytra/shared parseProfileUrl).
  */
 export function normalizeProfileUrl(input: string, baseUrl: string): string {
-  let url: URL;
-  try {
-    url = new URL(input.trim());
-  } catch {
-    throw new Error(`Not a valid URL: ${input}`);
-  }
-  const match = /^\/in\/([^/]+)/.exec(url.pathname);
-  if (!match) throw new Error(`Not a LinkedIn profile URL (expected /in/<name>): ${input}`);
-  return new URL(`/in/${match[1]}/`, baseUrl).toString();
+  const r = parseProfileUrl(input, baseUrl);
+  if (!r.ok) throw new Error(`${r.reason}: ${input}`);
+  return r.url;
 }
 
 /** The profile header card, in the 2026 layout or the older one. */

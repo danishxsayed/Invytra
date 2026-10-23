@@ -12,4 +12,6 @@ export default {
   distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
   serverExternalPackages: ["@prisma/client", "bcryptjs"],
   poweredByHeader: false,
+  // Lead lists are uploaded as CSV text (up to 5 MB, see LEAD_IMPORT in @invytra/shared).
+  experimental: { serverActions: { bodySizeLimit: "6mb" } },
 };
