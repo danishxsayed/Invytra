@@ -26,6 +26,13 @@ const envSchema = z.object({
   ALLOW_NO_PROXY: bool,
   /** DEV ONLY: run actions outside the account's working hours (limits still apply). */
   IGNORE_WORKING_HOURS: bool,
+  /** Port for the dashboard's live LinkedIn login window (0 = off). */
+  CONNECT_PORT: z.coerce.number().int().min(0).max(65535).default(3001),
+  /** Dashboard address(es) allowed to open login windows, comma-separated. */
+  WEB_ORIGIN: z
+    .string()
+    .default("http://localhost:3000")
+    .transform((v) => v.split(",").map((s) => s.trim().replace(/\/$/, "")).filter(Boolean)),
 });
 
 export type Env = z.infer<typeof envSchema>;

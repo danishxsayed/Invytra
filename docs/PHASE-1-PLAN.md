@@ -43,7 +43,16 @@ LinkedIn. One less service to build, deploy and secure.
   text; olive #47590A for small text/links), warm background #F5F5EB, stone greys; sidebar with LinkedIn account
   switcher, Safe-mode badge, icon nav; dashboard with get-set-up checklist, 7-day stat cards,
   account cards with usage bars, icon activity timeline, replies with avatars; searchable
-  inbox; glow-card log-in/sign-up; mobile drawer
+  inbox; glow-card log-in/sign-up; mobile drawer; text and spacing enlarged twice on request
+- [x] M2 (2026-10-23): Accounts page (add, health in plain language, pause/resume, reconnect,
+  remove) and per-account settings (daily/weekly limits, working days/hours, time zone, proxy —
+  stored encrypted); **live LinkedIn login inside the dashboard** — the worker serves a WebSocket
+  (port 3001) streaming a real Chromium via CDP screencast, the dashboard forwards mouse/keys/paste;
+  one-time 2-minute signed tickets, tenant re-check and per-account lock in the worker, origin
+  check; on reaching the feed the session is encrypted and saved, profile name read, account
+  ACTIVE. Safe mode: daily totals vary 80–100%, 14-day warm-up for new accounts (about a third
+  of limits on day 1). Sidebar switcher and checklist connect step wired. Verified end-to-end
+  against the fake LinkedIn; not yet tried on live LinkedIn
 
 ## Milestones
 

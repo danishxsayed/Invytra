@@ -36,7 +36,7 @@ async function main() {
       await rt.deps.sessions.save(account.id, await context.storageState());
       await rt.prisma.linkedinAccount.update({
         where: { id: account.id },
-        data: { status: "ACTIVE", statusReason: null },
+        data: { status: "ACTIVE", statusReason: null, connectedAt: account.connectedAt ?? new Date() },
       });
       console.log(`✔ Session saved (encrypted) for "${account.label}". The account is ACTIVE.`);
     } finally {

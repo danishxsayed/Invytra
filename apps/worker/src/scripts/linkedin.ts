@@ -9,7 +9,7 @@
  *   pnpm linkedin <label> usage
  */
 import type { ActionType } from "@invytra/shared";
-import { DEFAULT_LIMITS, limitsSchema } from "@invytra/shared";
+import { DEFAULT_LIMITS, effectiveLimits, limitsSchema } from "@invytra/shared";
 import { validateSpec } from "../actions/registry.js";
 import { runAction, usageFor, type RunActionResult } from "../actions/run-action.js";
 import type { SessionTaskContext } from "../browser/types.js";
@@ -41,7 +41,12 @@ async function main() {
 
     if (command === "usage") {
       const usage = await usageFor(rt.prisma, account.id);
-      const limits = limitsSchema.safeParse(account.limits).data ?? DEFAULT_LIMITS;
+      // Today's caps (warm-up and daily variation applied), as the worker enforces them.
+      const limits = effectiveLimits(limitsSchema.safeParse(account.limits).data ?? DEFAULT_LIMITS, {
+        accountId: account.id,
+        timeZone: account.timezone,
+        warmupUntil: account.warmupUntil,
+      });
       console.log(`Account "${label}" — ${account.status}${account.statusReason ? ` (${account.statusReason})` : ""}`);
       console.log(`  profile visits (24h):   ${usage.today.PROFILE_VISIT} / ${limits.profileVisitsPerDay}`);
       console.log(`  invites (24h):          ${usage.today.CONNECTION_REQUEST} / ${limits.connectionRequestsPerDay}`);

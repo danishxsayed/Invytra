@@ -1,4 +1,5 @@
-import { Check, Circle, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Circle, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { Card, cx } from "./ui";
 
 export interface Step {
@@ -6,6 +7,8 @@ export interface Step {
   done: boolean;
   hint: string;
   soon?: boolean;
+  /** Where to go to do this step. */
+  href?: string;
 }
 
 /** Getting-started steps. Hidden entirely once everything is done. */
@@ -53,6 +56,11 @@ export function Checklist({ steps }: { steps: Step[] }) {
               <div className="min-w-0">
                 <p className={cx("text-[15px] font-medium", s.done ? "text-stone-400 line-through" : "text-stone-900")}>{s.label}</p>
                 <p className="hidden text-[14px] text-stone-500 sm:block">{s.soon ? "Coming soon" : s.hint}</p>
+                {!s.done && s.href && (
+                  <Link href={s.href} className="mt-1 inline-flex items-center gap-1 text-[14px] font-semibold text-brand-800 hover:text-stone-900">
+                    Start <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                  </Link>
+                )}
               </div>
             </li>
           ))}

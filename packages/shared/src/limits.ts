@@ -9,6 +9,8 @@ export const limitsSchema = z.object({
   connectionRequestsPerWeek: z.number().int().min(0).max(200),
   messagesPerDay: z.number().int().min(0).max(100),
   profileVisitsPerDay: z.number().int().min(0).max(150),
+  /** Vary each day's totals a little below the limits, so no two days look the same. */
+  randomizeDaily: z.boolean().default(true),
 });
 export type Limits = z.infer<typeof limitsSchema>;
 
@@ -17,15 +19,16 @@ export const DEFAULT_LIMITS: Limits = {
   connectionRequestsPerWeek: 150,
   messagesPerDay: 50,
   profileVisitsPerDay: 80,
+  randomizeDaily: true,
 };
 
 /** Hard ceilings a customer can never configure above. */
-export const MAX_LIMITS: Limits = {
+export const MAX_LIMITS = {
   connectionRequestsPerDay: 40,
   connectionRequestsPerWeek: 200,
   messagesPerDay: 100,
   profileVisitsPerDay: 150,
-};
+} as const;
 
 /** Connection-request note limit enforced by LinkedIn. */
 export const CONNECTION_NOTE_MAX_CHARS = 300;

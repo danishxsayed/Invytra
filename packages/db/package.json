@@ -18,14 +18,17 @@
     "build": "prisma generate && tsc -p tsconfig.json",
     "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
     "prisma": "node --env-file=../../.env ./node_modules/prisma/build/index.js",
-    "migrate:deploy": "node --env-file=../../.env ./node_modules/prisma/build/index.js migrate deploy"
+    "migrate:deploy": "node --env-file=../../.env ./node_modules/prisma/build/index.js migrate deploy",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@prisma/client": "6.1.0"
+    "@prisma/client": "6.1.0",
+    "jose": "5.9.6"
   },
   "devDependencies": {
     "@types/node": "22.10.2",
     "prisma": "6.1.0",
-    "typescript": "5.7.2"
+    "typescript": "5.7.2",
+    "vitest": "2.1.8"
   }
 }

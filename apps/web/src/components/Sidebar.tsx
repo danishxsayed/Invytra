@@ -8,6 +8,7 @@ import {
   ListChecks,
   LogOut,
   Menu,
+  Plus,
   Rocket,
   Settings,
   ShieldCheck,
@@ -24,7 +25,7 @@ import { Avatar, cx } from "./ui";
 interface Props {
   workspace: string;
   user: { name: string; email: string };
-  accounts: { id: string; label: string; status: string }[];
+  accounts: { id: string; label: string; status: string; profileName: string | null }[];
 }
 
 const NAV = [
@@ -33,7 +34,7 @@ const NAV = [
   { href: "/app/leads", label: "Leads", icon: ListChecks, soon: true },
   { href: "/app/inbox", label: "Inbox", icon: Inbox },
   { href: "/app/activity", label: "Activity", icon: Activity },
-  { href: "/app/accounts", label: "Accounts", icon: Users, soon: true },
+  { href: "/app/accounts", label: "Accounts", icon: Users },
   { href: "/app/settings", label: "Settings", icon: Settings, soon: true },
 ];
 
@@ -48,7 +49,7 @@ function Logo() {
   );
 }
 
-function AccountSwitcher({ accounts }: { accounts: Props["accounts"] }) {
+function AccountSwitcher({ accounts, onNavigate }: { accounts: Props["accounts"]; onNavigate?: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -56,12 +57,18 @@ function AccountSwitcher({ accounts }: { accounts: Props["accounts"] }) {
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
-  const current = accounts[0];
+  // Show the account that most needs a look first.
+  const rank = (st: string) => (st === "NEEDS_ATTENTION" ? 0 : st === "DISCONNECTED" ? 1 : st === "PAUSED" ? 2 : 3);
+  const current = [...accounts].sort((a, b) => rank(a.status) - rank(b.status))[0];
   if (!current) {
     return (
-      <div className="rounded-xl border border-dashed border-stone-300 px-3 py-2.5 text-[15px] text-stone-500">
-        No LinkedIn account yet
-      </div>
+      <Link
+        href="/app/accounts?add=1"
+        onClick={onNavigate}
+        className="flex items-center gap-2 rounded-xl border border-dashed border-stone-300 px-3 py-2.5 text-[15px] font-medium text-stone-600 hover:border-brand-500 hover:bg-brand-50"
+      >
+        <Plus className="h-4 w-4" aria-hidden /> Connect LinkedIn
+      </Link>
     );
   }
   const statusText = (s: string) => (s === "ACTIVE" ? "Connected" : s === "NEEDS_ATTENTION" ? "Needs attention" : s === "PAUSED" ? "Paused" : "Not connected");
@@ -79,7 +86,9 @@ function AccountSwitcher({ accounts }: { accounts: Props["accounts"] }) {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[15px] font-medium text-stone-900">{current.label}</span>
-          <span className="block text-[14px] text-stone-500">{statusText(current.status)}</span>
+          <span className="block truncate text-[14px] text-stone-500">
+            {statusText(current.status)}
+          </span>
         </span>
         <ChevronsUpDown className="h-4 w-4 text-stone-400" aria-hidden />
       </button>
@@ -87,15 +96,33 @@ function AccountSwitcher({ accounts }: { accounts: Props["accounts"] }) {
         <div className="absolute left-0 right-0 z-30 mt-1.5 animate-fade-up rounded-xl border border-stone-200 bg-white p-1 shadow-pop">
           <p className="px-2.5 pb-1 pt-1.5 text-[14px] text-stone-400">LinkedIn accounts</p>
           {accounts.map((a) => (
-            <div key={a.id} className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[15px] hover:bg-stone-50">
-              <span className={cx("h-2 w-2 rounded-full", accountDot(a.status))} aria-hidden />
-              <span className="flex-1 truncate">{a.label}</span>
-              <span className="text-[14px] text-stone-400">{statusText(a.status)}</span>
-            </div>
+            <Link
+              key={a.id}
+              href={`/app/accounts/${a.id}`}
+              onClick={() => {
+                setOpen(false);
+                onNavigate?.();
+              }}
+              className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[15px] hover:bg-stone-50"
+            >
+              <span className={cx("h-2 w-2 shrink-0 rounded-full", accountDot(a.status))} aria-hidden />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-stone-900">{a.label}</span>
+                {a.profileName && <span className="block truncate text-[13px] text-stone-400">{a.profileName}</span>}
+              </span>
+              <span className="shrink-0 text-[14px] text-stone-400">{statusText(a.status)}</span>
+            </Link>
           ))}
-          <div className="mt-1 border-t border-stone-100 px-2.5 py-2 text-[14px] text-stone-400">
-            Connecting accounts from here arrives next.
-          </div>
+          <Link
+            href="/app/accounts?add=1"
+            onClick={() => {
+              setOpen(false);
+              onNavigate?.();
+            }}
+            className="mt-1 flex items-center gap-2 border-t border-stone-100 px-2.5 py-2.5 text-[15px] font-medium text-brand-800 hover:text-stone-900"
+          >
+            <Plus className="h-4 w-4" aria-hidden /> Add account
+          </Link>
         </div>
       )}
     </div>
@@ -110,11 +137,16 @@ function SidebarBody({ workspace, user, accounts, onNavigate }: Props & { onNavi
         <Logo />
       </div>
       <div className="space-y-2">
-        <AccountSwitcher accounts={accounts} />
-        <div className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-50 py-1.5 text-[14px] font-medium text-emerald-700">
+        <AccountSwitcher accounts={accounts} onNavigate={onNavigate} />
+        <Link
+          href="/app/accounts"
+          onClick={onNavigate}
+          title="Daily totals vary, new accounts warm up, actions run only in working hours, and anything unusual stops the account."
+          className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-50 py-1.5 text-[14px] font-medium text-emerald-700 hover:bg-emerald-100"
+        >
           <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
           Safe mode on
-        </div>
+        </Link>
       </div>
       <nav aria-label="Main" className="flex flex-col gap-0.5">
         {NAV.map(({ href, label, icon: Icon, soon }) => {

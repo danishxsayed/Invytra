@@ -12,3 +12,11 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* Limit sliders: lime fill up to the value, light track after it. */
+.range { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 9999px; cursor: pointer;
+  background: linear-gradient(to right, theme("colors.brand.400") var(--p, 0%), theme("colors.stone.200") var(--p, 0%)); }
+.range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 9999px;
+  background: #fff; border: 2px solid theme("colors.brand.600"); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.range::-moz-range-thumb { width: 14px; height: 14px; border-radius: 9999px; background: #fff; border: 2px solid theme("colors.brand.600"); }
+.range:focus-visible { outline: 2px solid theme("colors.stone.900"); outline-offset: 4px; }

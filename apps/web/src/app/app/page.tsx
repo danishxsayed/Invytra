@@ -1,7 +1,7 @@
 import { prisma } from "@invytra/db";
-import { Activity, ArrowRight, Eye, Inbox, MessageSquare, UserPlus, Users } from "lucide-react";
+import { Activity, ArrowRight, Eye, Inbox, MessageSquare, Plus, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
-import { AccountCard } from "@/components/AccountCard";
+import { AccountPanel } from "@/components/AccountPanel";
 import { ActivityList } from "@/components/ActivityList";
 import { Checklist } from "@/components/Checklist";
 import { StatCard } from "@/components/StatCard";
@@ -42,7 +42,7 @@ export default async function Dashboard() {
       <Checklist
         steps={[
           { label: "Create your account", done: true, hint: "You're in." },
-          { label: "Connect LinkedIn", done: connected, hint: "Log in through a secure window." },
+          { label: "Connect LinkedIn", done: connected, hint: "Log in through a secure window.", href: "/app/accounts?add=1" },
           { label: "Add leads", done: false, hint: "Upload a CSV or paste profile links.", soon: true },
           { label: "Launch a campaign", done: false, hint: "Invite, wait, message, follow up.", soon: true },
         ]}
@@ -62,11 +62,15 @@ export default async function Dashboard() {
               icon={Users}
               title="Connect your first LinkedIn account"
               body="You'll log in to LinkedIn in a secure window, and Invytra keeps the session to send invites and messages within safe daily limits."
-              action={<span className="rounded-lg bg-stone-100 px-3 py-1.5 text-[15px] font-medium text-stone-500">Coming in the next update</span>}
+              action={
+                <Link href="/app/accounts?add=1" className="inline-flex items-center gap-1.5 rounded-lg bg-brand-400 px-3.5 py-2 text-[15px] font-semibold text-stone-900 shadow-glow hover:bg-brand-300">
+                  <Plus className="h-4 w-4" aria-hidden /> Add LinkedIn account
+                </Link>
+              }
             />
           </Card>
         ) : (
-          accounts.map((a) => <AccountCard key={a.id} a={a} />)
+          accounts.map((a) => <AccountPanel key={a.id} a={a} full={false} />)
         )}
       </section>
 

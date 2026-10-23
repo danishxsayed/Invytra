@@ -71,3 +71,78 @@ d("workspaces and tenant isolation", () => {
     expect(await checkLogin(prisma, "nobody@example.com", "a-long-password")).toBeNull();
   });
 });
+
+d("account management stays inside its workspace", () => {
+  let prisma: PrismaClient;
+  let mine: string;
+  let theirs: string;
+  const KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
+  beforeAll(async () => {
+    process.env.SESSION_ENCRYPTION_KEY = KEY;
+    process.env.ALLOW_NO_PROXY = "false";
+    prisma = new PrismaClient({ datasources: { db: { url } } });
+    mine = (await prisma.workspace.create({ data: { name: "Mine" } })).id;
+    theirs = (await prisma.workspace.create({ data: { name: "Theirs" } })).id;
+  });
+  afterAll(() => prisma.$disconnect());
+
+  it("creates accounts with an encrypted proxy and warm-up, and requires a proxy", async () => {
+    const { createAccount } = await import("../src/lib/accounts");
+    const noProxy = await createAccount(prisma, mine, { label: "a", timezone: "Asia/Kolkata", proxyUrl: "", warmup: true });
+    expect(noProxy.ok).toBe(false);
+    const r = await createAccount(prisma, mine, { label: "Sales 1", timezone: "Asia/Kolkata", proxyUrl: "http://u:secret@p.example:8000", warmup: true });
+    expect(r.ok).toBe(true);
+    const row = await prisma.linkedinAccount.findUniqueOrThrow({ where: { id: (r as { value: string }).value } });
+    expect(row.proxyUrl).not.toContain("secret");
+    expect(row.status).toBe("DISCONNECTED");
+    expect(row.warmupUntil!.getTime()).toBeGreaterThan(Date.now() + 13 * 86400_000);
+    const dup = await createAccount(prisma, mine, { label: "sales 1", timezone: "Asia/Kolkata", proxyUrl: "http://p.example:1", warmup: false });
+    expect(dup).toEqual({ ok: false, error: "You already have an account with that name." });
+    // Same name in another workspace is fine
+    expect((await createAccount(prisma, theirs, { label: "Sales 1", timezone: "UTC", proxyUrl: "http://p.example:1", warmup: false })).ok).toBe(true);
+  });
+
+  it("refuses to read, change, pause or remove another workspace's account", async () => {
+    const lib = await import("../src/lib/accounts");
+    const { accountsOverview } = await import("../src/lib/data");
+    const target = await prisma.linkedinAccount.findFirstOrThrow({ where: { workspaceId: theirs } });
+    await expect(lib.getAccount(prisma, mine, target.id)).rejects.toBeInstanceOf(lib.AccountNotFoundError);
+    await expect(lib.setPaused(prisma, mine, target.id, true)).rejects.toBeInstanceOf(lib.AccountNotFoundError);
+    await expect(lib.removeAccount(prisma, mine, target.id)).rejects.toBeInstanceOf(lib.AccountNotFoundError);
+    await expect(
+      lib.updateSettings(prisma, mine, target.id, {
+        label: "hijack",
+        timezone: "UTC",
+        limits: { connectionRequestsPerDay: 40, connectionRequestsPerWeek: 200, messagesPerDay: 100, profileVisitsPerDay: 150, randomizeDaily: false },
+        workingHours: { days: [1], startHour: 0, endHour: 24 },
+        warmup: false,
+        removeProxy: false,
+      }),
+    ).rejects.toBeInstanceOf(lib.AccountNotFoundError);
+    expect(await accountsOverview(prisma, mine, target.id)).toEqual([]);
+    expect((await prisma.linkedinAccount.findUniqueOrThrow({ where: { id: target.id } })).label).toBe("Sales 1");
+  });
+
+  it("saves settings, pauses and resumes its own account", async () => {
+    const lib = await import("../src/lib/accounts");
+    const a = await prisma.linkedinAccount.findFirstOrThrow({ where: { workspaceId: mine } });
+    const r = await lib.updateSettings(prisma, mine, a.id, {
+      label: "Sales main",
+      timezone: "America/New_York",
+      limits: { connectionRequestsPerDay: 15, connectionRequestsPerWeek: 90, messagesPerDay: 30, profileVisitsPerDay: 60, randomizeDaily: true },
+      workingHours: { days: [1, 2, 3], startHour: 10, endHour: 16 },
+      warmup: false,
+      removeProxy: false,
+    });
+    expect(r.ok).toBe(true);
+    const row = await prisma.linkedinAccount.findUniqueOrThrow({ where: { id: a.id } });
+    expect(row).toMatchObject({ label: "Sales main", timezone: "America/New_York", warmupUntil: null, proxyUrl: a.proxyUrl });
+    expect(await lib.setPaused(prisma, mine, a.id, true)).toEqual({ ok: false, error: "Only a connected account can be paused." });
+    await prisma.linkedinAccount.update({ where: { id: a.id }, data: { status: "ACTIVE" } });
+    expect((await lib.setPaused(prisma, mine, a.id, true)).ok).toBe(true);
+    expect((await lib.setPaused(prisma, mine, a.id, false)).ok).toBe(true);
+    expect((await lib.removeAccount(prisma, mine, a.id)).ok).toBe(true);
+    expect(await prisma.linkedinAccount.count({ where: { workspaceId: mine } })).toBe(0);
+  });
+});

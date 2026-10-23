@@ -25,7 +25,20 @@ export const PEOPLE: Record<string, Person> = {
   nina: { name: "Nina Native", headline: "Native dialog element", kind: "native" },
   pam: { name: "Pam Premium", headline: "Out of free notes", kind: "notelimit" },
   quinn: { name: "Quinn Quota", headline: "Out of free notes too", kind: "notelimit" },
+  tess: { name: "Tess Tester", headline: "The logged-in member", kind: "open" },
 };
+
+/** Login form: any email works; the password "right-password" signs in. */
+const loginHtml = (error = "") =>
+  page(
+    "LinkedIn Login",
+    `<main><h1>Sign in</h1>${error ? `<p role="alert">${error}</p>` : ""}
+    <form method="post" action="/login">
+      <label>Email <input id="username" name="session_key" autofocus></label>
+      <label>Password <input id="password" name="session_password" type="password"></label>
+      <button type="submit">Sign in</button>
+    </form></main>`,
+  );
 
 /** Profiles rendered with LinkedIn's pre-2026 layout (h1, buttons, first <section>). */
 const OLD_LAYOUT = new Set(["olga"]);
@@ -33,6 +46,8 @@ const OLD_LAYOUT = new Set(["olga"]);
 export interface FakeState {
   invites: { slug: string; note: string | null }[];
   messages: { slug: string; text: string }[];
+  /** Emails that signed in through the login form. */
+  logins: string[];
 }
 
 const page = (title: string, body: string) =>
@@ -126,7 +141,7 @@ const inboxHtml = page(
 );
 
 export function startFakeLinkedIn(): { server: Server; state: FakeState } {
-  const state: FakeState = { invites: [], messages: [] };
+  const state: FakeState = { invites: [], messages: [], logins: [] };
   const server = createServer((req, res) => {
     const cookie = req.headers.cookie ?? "";
     const loggedIn = /li_at=valid/.test(cookie);
@@ -147,7 +162,20 @@ export function startFakeLinkedIn(): { server: Server; state: FakeState } {
       });
       return;
     }
+    if (req.method === "POST" && path === "/login") {
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        const form = new URLSearchParams(body);
+        if (form.get("session_password") !== "right-password") return send(200, loginHtml("Wrong email or password."));
+        state.logins.push(form.get("session_key") ?? "");
+        send(302, "", { location: "/feed/?trk=login", "set-cookie": "li_at=valid; Path=/; HttpOnly" });
+      });
+      return;
+    }
+    if (path.startsWith("/login")) return send(200, loginHtml());
     if (!loggedIn) return send(302, "", { location: "/login" });
+    if (path === "/in/me" || path === "/in/me/") return send(302, "", { location: "/in/tess/" });
     if (path.startsWith("/feed")) return send(200, page("Feed | LinkedIn", `${HIDDEN_CAPTCHA}<main><h1>Start a post</h1></main>`));
     if (path.startsWith("/messaging")) return send(200, inboxHtml);
     const m = /^\/in\/([^/]+)/.exec(path);
@@ -156,7 +184,6 @@ export function startFakeLinkedIn(): { server: Server; state: FakeState } {
       if (!person) return send(404, page("Page not found | LinkedIn", "<main><div><p>This page doesn’t exist</p></div></main>"));
       return send(200, profileHtml(m[1]!, person, state));
     }
-    if (path.startsWith("/login")) return send(200, page("LinkedIn Login", "Sign in"));
     send(404, page("Not found", "nope"));
   });
   return { server, state };

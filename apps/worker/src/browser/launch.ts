@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { openSecret } from "@invytra/db";
 import { chromium, type Browser, type BrowserContextOptions } from "playwright";
 import { parseProxyUrl } from "./proxy.js";
 import type { BrowserAccount, StorageState } from "./types.js";
@@ -17,9 +18,11 @@ export async function launchBrowser(account: BrowserAccount, opts: LaunchOptions
         `For local development only, set ALLOW_NO_PROXY=true.`,
     );
   }
+  // Proxies added in the dashboard are stored encrypted; .env proxies are plain.
+  const proxyUrl = account.proxyUrl ? openSecret(account.proxyUrl, process.env.SESSION_ENCRYPTION_KEY ?? "") : "";
   return chromium.launch({
     headless: opts.headless,
-    ...(account.proxyUrl && { proxy: parseProxyUrl(account.proxyUrl) }),
+    ...(proxyUrl && { proxy: parseProxyUrl(proxyUrl) }),
     args: ["--disable-blink-features=AutomationControlled"],
   });
 }

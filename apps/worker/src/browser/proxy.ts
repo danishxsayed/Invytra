@@ -27,6 +27,7 @@ export function parseProxyUrl(raw: string): ProxySettings {
 
 /** For logs: never print proxy credentials. */
 export function redactProxyUrl(raw: string): string {
+  if (raw.startsWith("enc:v1:")) return "(saved in the dashboard, encrypted)";
   try {
     const url = new URL(raw);
     return `${url.protocol}//${url.username ? "***@" : ""}${url.hostname}:${url.port}`;

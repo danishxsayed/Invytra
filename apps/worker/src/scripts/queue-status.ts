@@ -4,7 +4,7 @@
  *
  *   pnpm queue:status [label]
  */
-import { DEFAULT_LIMITS, limitsSchema } from "@invytra/shared";
+import { DEFAULT_LIMITS, effectiveLimits, limitsSchema } from "@invytra/shared";
 import { usageFor } from "../actions/run-action.js";
 import { createRuntime } from "../runtime.js";
 
@@ -22,7 +22,12 @@ async function main() {
     });
     for (const a of accounts) {
       const usage = await usageFor(rt.prisma, a.id);
-      const limits = limitsSchema.safeParse(a.limits).data ?? DEFAULT_LIMITS;
+      // Today's caps (warm-up and daily variation applied), as the worker enforces them.
+      const limits = effectiveLimits(limitsSchema.safeParse(a.limits).data ?? DEFAULT_LIMITS, {
+        accountId: a.id,
+        timeZone: a.timezone,
+        warmupUntil: a.warmupUntil,
+      });
       console.log(`\n■ ${a.label} — ${a.status}${a.statusReason ? ` (${a.statusReason})` : ""}`);
       console.log(
         `  24h: visits ${usage.today.PROFILE_VISIT}/${limits.profileVisitsPerDay} · invites ${usage.today.CONNECTION_REQUEST}/${limits.connectionRequestsPerDay} · messages ${usage.today.MESSAGE}/${limits.messagesPerDay} · invites 7d ${usage.connectionRequestsThisWeek}/${limits.connectionRequestsPerWeek}`,

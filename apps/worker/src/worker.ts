@@ -10,6 +10,7 @@ import { redisPacingStore } from "./queue/pacing.js";
 import { scheduleInboxSyncs } from "./queue/inbox-scheduler.js";
 import { processAction } from "./queue/processor.js";
 import { QUEUE_NAME, createQueue, scheduleAction, type ActionJob } from "./queue/queue.js";
+import { createConnectServer } from "./connect/server.js";
 import { createRuntime } from "./runtime.js";
 
 const INBOX_EVERY_MIN = Number(process.env.INBOX_SYNC_EVERY_MINUTES ?? 60);
@@ -78,9 +79,32 @@ async function main() {
   await syncInboxes();
   const timer = setInterval(syncInboxes, 10 * 60_000);
 
+  // Live LinkedIn login windows for the dashboard ("Connect account").
+  const connect =
+    rt.env.CONNECT_PORT > 0
+      ? createConnectServer({
+          prisma: rt.prisma,
+          sessions: rt.deps.sessions,
+          lock: rt.deps.lock,
+          tickets: rt.redis,
+          encryptionKey: rt.env.SESSION_ENCRYPTION_KEY,
+          baseUrl: rt.env.LINKEDIN_BASE_URL,
+          launch: rt.deps.launch,
+          allowedOrigins: rt.env.WEB_ORIGIN,
+          log,
+        })
+      : null;
+  if (connect) {
+    connect.server.on("error", (e) => log(`✖ Login-window server could not start: ${e.message}`));
+    connect.server.listen(rt.env.CONNECT_PORT, "127.0.0.1", () =>
+      log(`Login windows ready on port ${rt.env.CONNECT_PORT} for ${rt.env.WEB_ORIGIN.join(", ")}`),
+    );
+  }
+
   const shutdown = async () => {
     log("Stopping… (finishing the current action)");
     clearInterval(timer);
+    await connect?.closeAll();
     await worker.close();
     await queue.close();
     connection.disconnect();

@@ -1,17 +1,34 @@
 import { usageFor, type PrismaClient } from "@invytra/db";
-import { DEFAULT_LIMITS, DEFAULT_WORKING_HOURS, limitsSchema, workingHoursSchema } from "@invytra/shared";
+import { DEFAULT_LIMITS, DEFAULT_WORKING_HOURS, effectiveLimits, limitsSchema, warmupDay, workingHoursSchema } from "@invytra/shared";
+import { proxyHost } from "./accounts";
 
 /*
  * Every function here takes the workspace id FIRST and filters by it.
  * Pages must pass the id from the signed-in session — never from the URL.
  */
 
-export async function accountsOverview(prisma: PrismaClient, workspaceId: string) {
+export async function accountsOverview(prisma: PrismaClient, workspaceId: string, onlyId?: string) {
   const accounts = await prisma.linkedinAccount.findMany({
-    where: { workspaceId },
+    where: { workspaceId, ...(onlyId && { id: onlyId }) },
     orderBy: { label: "asc" },
-    select: { id: true, label: true, status: true, statusReason: true, timezone: true, limits: true, workingHours: true, lastActiveAt: true },
+    select: {
+      id: true,
+      label: true,
+      status: true,
+      statusReason: true,
+      timezone: true,
+      limits: true,
+      workingHours: true,
+      lastActiveAt: true,
+      profileName: true,
+      profileUrl: true,
+      connectedAt: true,
+      warmupUntil: true,
+      sessionUpdatedAt: true,
+      proxyUrl: true,
+    },
   });
+  const now = new Date();
   return Promise.all(
     accounts.map(async (a) => {
       const [usage, queued, lastAction] = await Promise.all([
@@ -23,6 +40,7 @@ export async function accountsOverview(prisma: PrismaClient, workspaceId: string
           select: { type: true, status: true, executedAt: true },
         }),
       ]);
+      const limits = limitsSchema.safeParse(a.limits).data ?? DEFAULT_LIMITS;
       return {
         id: a.id,
         label: a.label,
@@ -30,7 +48,17 @@ export async function accountsOverview(prisma: PrismaClient, workspaceId: string
         statusReason: a.statusReason,
         timezone: a.timezone,
         lastActiveAt: a.lastActiveAt,
-        limits: limitsSchema.safeParse(a.limits).data ?? DEFAULT_LIMITS,
+        profileName: a.profileName,
+        profileUrl: a.profileUrl,
+        connectedAt: a.connectedAt,
+        hasSession: !!a.sessionUpdatedAt,
+        proxy: proxyHost(a.proxyUrl),
+        warmupUntil: a.warmupUntil,
+        warmupDay: warmupDay(a.warmupUntil, now),
+        /** What the account is set to. */
+        settings: limits,
+        /** Today's caps as the worker enforces them (warm-up and daily variation applied). */
+        limits: effectiveLimits(limits, { accountId: a.id, timeZone: a.timezone, warmupUntil: a.warmupUntil, now }),
         workingHours: workingHoursSchema.safeParse(a.workingHours).data ?? DEFAULT_WORKING_HOURS,
         usage,
         queued,
@@ -117,6 +145,6 @@ export async function sidebarAccounts(prisma: PrismaClient, workspaceId: string)
   return prisma.linkedinAccount.findMany({
     where: { workspaceId },
     orderBy: { label: "asc" },
-    select: { id: true, label: true, status: true },
+    select: { id: true, label: true, status: true, profileName: true },
   });
 }

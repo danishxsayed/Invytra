@@ -38,7 +38,7 @@ export default {
       keyframes: {
         "fade-up": { from: { opacity: "0", transform: "translateY(6px)" }, to: { opacity: "1", transform: "none" } },
       },
-      animation: { "fade-up": "fade-up .35s ease-out both" },
+      animation: { "fade-up": "fade-up .35s ease-out backwards" },
     },
   },
   plugins: [],

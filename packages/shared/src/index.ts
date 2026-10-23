@@ -4,3 +4,4 @@ export * from "./working-hours.js";
 export * from "./policy.js";
 export * from "./schedule.js";
 export * from "./text.js";
+export * from "./daily-limits.js";

@@ -3,6 +3,7 @@ import {
   DEFAULT_LIMITS,
   DEFAULT_WORKING_HOURS,
   canExecute,
+  effectiveLimits,
   limitsSchema,
   workingHoursSchema,
   type ActionType,
@@ -59,7 +60,15 @@ export async function checkPolicy(
   now: Date,
   ignoreWorkingHours = false,
 ): Promise<PolicyDecision> {
-  const { limits, hours } = accountSettings(account);
+  const settings = accountSettings(account);
+  const hours = settings.hours;
+  // Today's caps: warm-up for new accounts and per-day variation (packages/shared/daily-limits).
+  const limits = effectiveLimits(settings.limits, {
+    accountId: account.id,
+    timeZone: account.timezone,
+    warmupUntil: account.warmupUntil,
+    now,
+  });
   return canExecute(
     type,
     { status: account.status, timeZone: account.timezone, workingHours: ignoreWorkingHours ? ALWAYS : hours, limits },
