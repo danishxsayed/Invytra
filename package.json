@@ -21,11 +21,12 @@
     "linkedin": "pnpm --filter @invytra/worker linkedin",
     "account:probe": "pnpm --filter @invytra/worker account:probe",
     "account:reactivate": "pnpm --filter @invytra/worker account:reactivate",
-    "worker": "pnpm --filter @invytra/worker worker",
+    "packages:build": "turbo run build --filter=@invytra/db --filter=@invytra/shared",
+    "worker": "pnpm packages:build && pnpm --filter @invytra/worker worker",
     "queue": "pnpm --filter @invytra/worker queue",
     "queue:status": "pnpm --filter @invytra/worker queue:status",
     "queue:cancel": "pnpm --filter @invytra/worker queue:cancel",
-    "web": "pnpm --filter @invytra/web dev",
+    "web": "pnpm packages:build && pnpm --filter @invytra/web dev",
     "web:start": "pnpm --filter @invytra/web start"
   },
   "devDependencies": {
