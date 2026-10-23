@@ -1,4 +1,4 @@
-import { usageFor, type PrismaClient } from "@invytra/db";
+import { usageFor, type Prisma, type PrismaClient } from "@invytra/db";
 import { DEFAULT_LIMITS, DEFAULT_WORKING_HOURS, effectiveLimits, limitsSchema, warmupDay, workingHoursSchema } from "@invytra/shared";
 import { proxyHost } from "./accounts";
 
@@ -71,21 +71,33 @@ export type AccountOverview = Awaited<ReturnType<typeof accountsOverview>>[numbe
 
 export interface ActivityFilter {
   status?: "SUCCEEDED" | "FAILED" | "SKIPPED" | "QUEUED";
+  type?: "PROFILE_VISIT" | "CONNECTION_REQUEST" | "CHECK_CONNECTION" | "MESSAGE" | "INBOX_SYNC";
+  accountId?: string;
+  campaignId?: string;
   take?: number;
+  skip?: number;
+}
+
+function activityWhere(workspaceId: string, f: ActivityFilter): Prisma.ActionWhereInput {
+  return {
+    account: { workspaceId },
+    ...(f.accountId && { accountId: f.accountId }),
+    ...(f.type && { type: f.type }),
+    ...(f.campaignId && { campaignLead: { campaignId: f.campaignId } }),
+    ...(f.status ? (f.status === "QUEUED" ? { status: { in: ["QUEUED", "RUNNING"] } } : { status: f.status }) : {}),
+  };
+}
+
+export async function activityCount(prisma: PrismaClient, workspaceId: string, filter: ActivityFilter = {}) {
+  return prisma.action.count({ where: activityWhere(workspaceId, filter) });
 }
 
 export async function recentActivity(prisma: PrismaClient, workspaceId: string, filter: ActivityFilter = {}) {
   return prisma.action.findMany({
-    where: {
-      account: { workspaceId },
-      ...(filter.status
-        ? filter.status === "QUEUED"
-          ? { status: { in: ["QUEUED", "RUNNING"] } }
-          : { status: filter.status }
-        : {}),
-    },
+    where: activityWhere(workspaceId, filter),
     orderBy: [{ executedAt: { sort: "desc", nulls: "first" } }, { createdAt: "desc" }],
     take: filter.take ?? 100,
+    skip: filter.skip ?? 0,
     select: {
       id: true,
       type: true,
@@ -95,7 +107,9 @@ export async function recentActivity(prisma: PrismaClient, workspaceId: string, 
       payload: true,
       scheduledAt: true,
       executedAt: true,
+      screenshotPath: true,
       account: { select: { label: true } },
+      campaignLead: { select: { firstName: true, lastName: true, linkedinName: true, campaign: { select: { id: true, name: true } } } },
     },
   });
 }
@@ -147,4 +161,51 @@ export async function sidebarAccounts(prisma: PrismaClient, workspaceId: string)
     orderBy: { label: "asc" },
     select: { id: true, label: true, status: true, profileName: true },
   });
+}
+
+export interface WeekTable {
+  days: { key: string; label: string }[];
+  rows: { label: string; counts: number[]; total: number }[];
+}
+
+/** Per-day totals for the last 7 days, in the given time zone (the dashboard's "This week" table). */
+export async function weekTable(prisma: PrismaClient, workspaceId: string, timeZone: string, now = new Date()): Promise<WeekTable> {
+  const fmt = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
+  const label = new Intl.DateTimeFormat("en-GB", { timeZone, weekday: "short", day: "numeric" });
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now.getTime() - (6 - i) * DAY);
+    return { key: fmt.format(d), label: label.format(d) };
+  });
+  const since = new Date(now.getTime() - 8 * DAY);
+  const [actions, accepted, replies] = await Promise.all([
+    prisma.$queryRaw<{ d: string; type: string; n: number }[]>`
+      SELECT to_char((a.executed_at AT TIME ZONE 'UTC') AT TIME ZONE ${timeZone}, 'YYYY-MM-DD') AS d, a.type::text AS type, COUNT(*)::int AS n
+      FROM actions a JOIN linkedin_accounts acc ON acc.id = a.account_id
+      WHERE acc.workspace_id = ${workspaceId} AND a.status = 'SUCCEEDED' AND a.executed_at >= ${since}
+        AND a.type IN ('PROFILE_VISIT', 'CONNECTION_REQUEST', 'MESSAGE')
+      GROUP BY 1, 2`,
+    prisma.$queryRaw<{ d: string; n: number }[]>`
+      SELECT to_char((connected_at AT TIME ZONE 'UTC') AT TIME ZONE ${timeZone}, 'YYYY-MM-DD') AS d, COUNT(*)::int AS n
+      FROM campaign_leads WHERE workspace_id = ${workspaceId} AND connected_at >= ${since} GROUP BY 1`,
+    prisma.$queryRaw<{ d: string; n: number }[]>`
+      SELECT to_char((m.fetched_at AT TIME ZONE 'UTC') AT TIME ZONE ${timeZone}, 'YYYY-MM-DD') AS d, COUNT(*)::int AS n
+      FROM inbox_messages m JOIN linkedin_accounts acc ON acc.id = m.account_id
+      WHERE acc.workspace_id = ${workspaceId} AND m.fetched_at >= ${since} GROUP BY 1`,
+  ]);
+  const row = (lbl: string, pick: (d: string) => number) => {
+    const counts = days.map((day) => pick(day.key));
+    return { label: lbl, counts, total: counts.reduce((a, b) => a + b, 0) };
+  };
+  const ofType = (t: string) => (d: string) => actions.find((r) => r.d === d && r.type === t)?.n ?? 0;
+  const of = (rows: { d: string; n: number }[]) => (d: string) => rows.find((r) => r.d === d)?.n ?? 0;
+  return {
+    days,
+    rows: [
+      row("Profile visits", ofType("PROFILE_VISIT")),
+      row("Invites sent", ofType("CONNECTION_REQUEST")),
+      row("Accepted", of(accepted)),
+      row("Messages sent", ofType("MESSAGE")),
+      row("Replies", of(replies)),
+    ],
+  };
 }

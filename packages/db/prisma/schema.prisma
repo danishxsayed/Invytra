@@ -153,19 +153,28 @@ model Action {
 
 /// Replies fetched by INBOX_SYNC. Deduplicated per account by LinkedIn message id.
 model InboxMessage {
-  id                String   @id @default(cuid())
-  accountId         String   @map("account_id")
-  linkedinMessageId String   @map("linkedin_message_id")
-  fromName          String   @map("from_name")
-  fromProfileUrl    String?  @map("from_profile_url")
+  id                String    @id @default(cuid())
+  accountId         String    @map("account_id")
+  linkedinMessageId String    @map("linkedin_message_id")
+  fromName          String    @map("from_name")
+  fromProfileUrl    String?   @map("from_profile_url")
   text              String
-  sentAt            DateTime @map("sent_at")
-  fetchedAt         DateTime @default(now()) @map("fetched_at")
+  sentAt            DateTime  @map("sent_at")
+  fetchedAt         DateTime  @default(now()) @map("fetched_at")
+  /// The campaign lead this reply is from (matched by name; LinkedIn's inbox list has no profile links)
+  campaignLeadId    String?   @map("campaign_lead_id")
+  /// Marked handled in Invytra
+  doneAt            DateTime? @map("done_at")
+  /// A later inbox read showed our own message as the latest in that conversation
+  answeredAt        DateTime? @map("answered_at")
 
-  account LinkedinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account      LinkedinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  campaignLead CampaignLead?   @relation(fields: [campaignLeadId], references: [id], onDelete: SetNull)
 
   @@unique([accountId, linkedinMessageId])
   @@index([accountId, sentAt])
+  @@index([accountId, fetchedAt])
+  @@index([campaignLeadId])
   @@map("inbox_messages")
 }
 
@@ -289,9 +298,10 @@ model CampaignLead {
   createdAt    DateTime          @default(now()) @map("created_at")
   updatedAt    DateTime          @updatedAt @map("updated_at")
 
-  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  lead     Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  campaign Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead     Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
   actions  Action[]
+  replies  InboxMessage[]
 
   @@unique([campaignId, profileUrl])
   @@index([campaignId, state, nextAt])

@@ -1,8 +1,11 @@
 "use client";
 
-import { Inbox, Search } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Avatar, EmptyState } from "./ui";
+import { Check, ExternalLink, Inbox, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useTransition } from "react";
+import { setDoneAction } from "@/app/app/inbox/actions";
+import { Avatar, EmptyState, cx } from "./ui";
 
 export interface ReplyItem {
   id: string;
@@ -10,49 +13,82 @@ export interface ReplyItem {
   text: string;
   when: string;
   account: string;
+  done: boolean;
+  /** Answered by you on LinkedIn (our message is the latest in the conversation). */
+  answered: boolean;
+  lead: { profileUrl: string; company: string | null; title: string | null; campaign: { id: string; name: string } } | null;
 }
 
-export function InboxList({ items, showAccount }: { items: ReplyItem[]; showAccount: boolean }) {
-  const [q, setQ] = useState("");
-  const shown = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    return s ? items.filter((i) => `${i.fromName} ${i.text}`.toLowerCase().includes(s)) : items;
-  }, [q, items]);
+export function InboxList({ items, showAccount, emptyTitle, emptyBody }: { items: ReplyItem[]; showAccount: boolean; emptyTitle: string; emptyBody: string }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const mark = (id: string, done: boolean) =>
+    start(async () => {
+      await setDoneAction([id], done);
+      router.refresh();
+    });
+
+  if (items.length === 0) return <EmptyState icon={Inbox} title={emptyTitle} body={emptyBody} />;
   return (
-    <>
-      <div className="border-b border-stone-100 p-3">
-        <label className="relative block">
-          <span className="sr-only">Search replies</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" aria-hidden />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name or message"
-            className="w-full rounded-lg border border-stone-200 bg-stone-50 py-2 pl-9 pr-3 text-[16px] placeholder:text-stone-400 focus:border-brand-600 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-200"
-          />
-        </label>
-      </div>
-      {shown.length === 0 ? (
-        <EmptyState icon={Inbox} title={q ? "No matches" : "No replies yet"} body={q ? "Try a different name or word." : "When someone answers an invite or message, it shows up here."} />
-      ) : (
-        <ul className="divide-y divide-stone-100">
-          {shown.map((m) => (
-            <li key={m.id} className="flex gap-3 px-5 py-4 hover:bg-stone-50/60">
-              <Avatar name={m.fromName} size="lg" />
-              <div className="min-w-0 flex-1">
-                <p className="flex items-baseline justify-between gap-3">
-                  <span className="truncate text-[16px] font-medium text-stone-900">{m.fromName}</span>
-                  <span className="shrink-0 text-[14px] text-stone-400">
-                    {m.when}
-                    {showAccount && ` · ${m.account}`}
-                  </span>
+    <ul className="divide-y divide-stone-100">
+      {items.map((m) => {
+        const handled = m.done || m.answered;
+        const who = m.lead ? [m.lead.title, m.lead.company].filter(Boolean).join(" · ") : "";
+        return (
+          <li key={m.id} className={cx("flex gap-3 px-5 py-4", handled ? "bg-stone-50/40" : "hover:bg-stone-50/60")}>
+            <Avatar name={m.fromName} size="lg" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                <p className="min-w-0 truncate">
+                  <span className={cx("text-[16px] font-semibold", handled ? "text-stone-500" : "text-stone-900")}>{m.fromName}</span>
+                  {who && <span className="text-[14px] text-stone-500"> · {who}</span>}
                 </p>
-                <p className="mt-0.5 max-w-prose text-[16px] text-stone-600">{m.text}</p>
+                <span className="shrink-0 text-[14px] text-stone-400">
+                  {m.when}
+                  {showAccount && ` · ${m.account}`}
+                </span>
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
+              <p className={cx("mt-0.5 max-w-prose whitespace-pre-wrap text-[16px]", handled ? "text-stone-500" : "text-stone-700")}>{m.text}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {m.lead && (
+                  <Link
+                    href={`/app/campaigns/${m.lead.campaign.id}?filter=replied`}
+                    className="rounded-full bg-brand-100 px-2.5 py-0.5 text-[13px] font-medium text-brand-800 hover:bg-brand-200"
+                  >
+                    {m.lead.campaign.name}
+                  </Link>
+                )}
+                {m.answered && !m.done && <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[13px] font-medium text-stone-600">You replied</span>}
+                <a
+                  href={m.lead?.profileUrl ?? "https://www.linkedin.com/messaging/"}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[14px] font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden /> {m.lead ? "Profile" : "Open LinkedIn"}
+                </a>
+                {handled ? (
+                  <button
+                    disabled={pending}
+                    onClick={() => mark(m.id, false)}
+                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[14px] font-medium text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Needs reply
+                  </button>
+                ) : (
+                  <button
+                    disabled={pending}
+                    onClick={() => mark(m.id, true)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-2.5 py-1 text-[14px] font-medium text-stone-700 hover:border-stone-300 hover:bg-stone-50"
+                  >
+                    <Check className="h-3.5 w-3.5" aria-hidden /> Mark done
+                  </button>
+                )}
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }

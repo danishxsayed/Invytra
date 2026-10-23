@@ -26,6 +26,8 @@ interface Props {
   workspace: string;
   user: { name: string; email: string };
   accounts: { id: string; label: string; status: string; profileName: string | null }[];
+  /** Replies waiting for an answer — shown as a badge on Inbox. */
+  needsReply?: number;
 }
 
 const NAV = [
@@ -129,7 +131,7 @@ function AccountSwitcher({ accounts, onNavigate }: { accounts: Props["accounts"]
   );
 }
 
-function SidebarBody({ workspace, user, accounts, onNavigate }: Props & { onNavigate?: () => void }) {
+function SidebarBody({ workspace, user, accounts, needsReply, onNavigate }: Props & { onNavigate?: () => void }) {
   const path = usePathname();
   return (
     <div className="flex h-full flex-col gap-5 px-3 py-5">
@@ -172,7 +174,15 @@ function SidebarBody({ workspace, user, accounts, onNavigate }: Props & { onNavi
               )}
             >
               <Icon className={cx("h-4 w-4", active ? "text-stone-900" : "text-stone-400")} aria-hidden />
-              {label}
+              <span className="flex-1">{label}</span>
+              {href === "/app/inbox" && !!needsReply && (
+                <span
+                  className={cx("min-w-[22px] rounded-full px-1.5 text-center text-[13px] font-semibold tabular-nums", active ? "bg-stone-900 text-white" : "bg-brand-400 text-stone-900")}
+                  aria-label={`${needsReply} need a reply`}
+                >
+                  {needsReply > 99 ? "99+" : needsReply}
+                </span>
+              )}
             </Link>
           );
         })}

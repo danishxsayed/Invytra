@@ -1,6 +1,8 @@
 import { Eye, Inbox, MessageSquare, Search, UserPlus, type LucideIcon } from "lucide-react";
 import type { ActivityRow } from "@/lib/data";
 import { ACTION_LABEL, outcomeText, profilePath, slugName, timeAgo } from "@/lib/format";
+import Link from "next/link";
+import { EvidenceButton } from "./EvidenceButton";
 import { OutcomePill } from "./StatusBadge";
 import { cx } from "./ui";
 
@@ -16,7 +18,8 @@ export function ActivityList({ rows, showAccount, compact }: { rows: ActivityRow
   return (
     <ul className="divide-y divide-stone-100">
       {rows.map((r) => {
-        const who = slugName(r.targetUrl);
+        const lead = r.campaignLead;
+        const who = lead?.linkedinName || [lead?.firstName, lead?.lastName].filter(Boolean).join(" ") || slugName(r.targetUrl);
         const when = r.executedAt ?? r.scheduledAt;
         const { icon: Icon, cls } = ICON[r.type] ?? ICON.CHECK_CONNECTION!;
         return (
@@ -42,8 +45,14 @@ export function ActivityList({ rows, showAccount, compact }: { rows: ActivityRow
                   </>
                 )}
               </p>
-              <div className="mt-0.5 flex min-w-0 items-center gap-2">
+              <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2">
                 <OutcomePill status={r.status}>{outcomeText(r)}</OutcomePill>
+                {lead && !compact && (
+                  <Link href={`/app/campaigns/${lead.campaign.id}`} className="truncate text-[13px] font-medium text-brand-800 hover:underline">
+                    {lead.campaign.name}
+                  </Link>
+                )}
+                {r.status === "FAILED" && r.screenshotPath && !compact && <EvidenceButton actionId={r.id} error={(r.error ?? "").split("\n")[0]!} />}
               </div>
             </div>
             <div className="shrink-0 text-right text-[14px] text-stone-400">

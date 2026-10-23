@@ -5,9 +5,11 @@ import { AccountPanel } from "@/components/AccountPanel";
 import { ActivityList } from "@/components/ActivityList";
 import { Checklist } from "@/components/Checklist";
 import { StatCard } from "@/components/StatCard";
+import { WeekTable } from "@/components/WeekTable";
 import { Avatar, Card, CardHeader, EmptyState, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { accountsOverview, recentActivity, recentReplies, weeklyStats } from "@/lib/data";
+import { isValidTimeZone } from "@/lib/accounts";
+import { accountsOverview, recentActivity, recentReplies, weekTable, weeklyStats } from "@/lib/data";
 import { timeAgo } from "@/lib/format";
 import { leadCount } from "@/lib/leads";
 import { launchedCampaignCount } from "@/lib/campaigns";
@@ -31,6 +33,8 @@ export default async function Dashboard() {
     leadCount(prisma, wid),
     launchedCampaignCount(prisma, wid),
   ]);
+  const timeZone = accounts.find((a) => isValidTimeZone(a.timezone))?.timezone ?? "Asia/Kolkata";
+  const week = await weekTable(prisma, wid, timeZone);
   const connected = accounts.some((a) => a.status === "ACTIVE");
   const many = accounts.length > 1;
   const link = (href: string, text: string) => (
@@ -58,6 +62,8 @@ export default async function Dashboard() {
         <StatCard label="Profiles visited" icon={Eye} tone="bg-teal-50 text-teal-600" {...stats.visits} />
         <StatCard label="Replies" icon={Inbox} tone="bg-amber-50 text-amber-600" {...stats.replies} />
       </div>
+
+      <WeekTable data={week} timeZone={timeZone} />
 
       <section aria-label="LinkedIn accounts" className="space-y-3">
         {accounts.length === 0 ? (

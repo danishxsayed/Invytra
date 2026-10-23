@@ -57,3 +57,31 @@ describe("format", () => {
     expect(outcomeText({ status: "QUEUED", type: "MESSAGE", error: "waiting: OUTSIDE_WORKING_HOURS", payload: {} })).toBe("Waiting for working hours");
   });
 });
+
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { evidenceFile } from "../src/lib/evidence";
+
+describe("failure screenshots", () => {
+  const base = mkdtempSync(join(tmpdir(), "inv-data-"));
+  const outside = mkdtempSync(join(tmpdir(), "inv-out-"));
+  mkdirSync(join(base, "screenshots", "failure-a-1"), { recursive: true });
+  writeFileSync(join(base, "screenshots", "failure-a-1", "page.png"), "png");
+  writeFileSync(join(base, "screenshots", "a-CHECKPOINT-1.png"), "png");
+  writeFileSync(join(outside, "secret.png"), "png");
+  symlinkSync(join(outside, "secret.png"), join(base, "screenshots", "link.png"));
+
+  it("serves a screenshot file or an evidence folder's page.png from the data folder", () => {
+    expect(evidenceFile(join(base, "screenshots", "failure-a-1"), base)).toMatch(/page\.png$/);
+    expect(evidenceFile(join(base, "screenshots", "a-CHECKPOINT-1.png"), base)).toMatch(/CHECKPOINT/);
+  });
+  it("refuses anything outside the data folder, symlinks out of it, non-PNGs and missing files", () => {
+    expect(evidenceFile(join(outside, "secret.png"), base)).toBeNull();
+    expect(evidenceFile(join(base, "screenshots", "..", "..", outside.split("/").pop()!, "secret.png"), base)).toBeNull();
+    expect(evidenceFile(join(base, "screenshots", "link.png"), base)).toBeNull();
+    expect(evidenceFile("/etc/passwd", base)).toBeNull();
+    expect(evidenceFile(join(base, "nope.png"), base)).toBeNull();
+    expect(evidenceFile(null, base)).toBeNull();
+  });
+});

@@ -1,0 +1,95 @@
+import type { Prisma, PrismaClient } from "@invytra/db";
+import type { Result } from "./accounts";
+
+/*
+ * Replies. Every query is scoped to the signed-in user's workspace through the
+ * message's account (CLAUDE.md rule 0).
+ */
+
+export const INBOX_TABS = ["needs_reply", "all", "done"] as const;
+export type InboxTab = (typeof INBOX_TABS)[number];
+
+export interface InboxQuery {
+  tab?: InboxTab;
+  accountId?: string;
+  campaignId?: string;
+  q?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+const needsReply: Prisma.InboxMessageWhereInput = { doneAt: null, answeredAt: null };
+
+function whereFor(workspaceId: string, { tab = "needs_reply", accountId, campaignId, q }: InboxQuery): Prisma.InboxMessageWhereInput {
+  const term = (q ?? "").trim().slice(0, 100);
+  return {
+    account: { workspaceId },
+    ...(accountId && { accountId }),
+    ...(campaignId && { campaignLead: { campaignId } }),
+    ...(tab === "needs_reply" ? needsReply : tab === "done" ? { OR: [{ doneAt: { not: null } }, { answeredAt: { not: null } }] } : {}),
+    ...(term && {
+      AND: [{ OR: [{ fromName: { contains: term, mode: "insensitive" } }, { text: { contains: term, mode: "insensitive" } }] }],
+    }),
+  };
+}
+
+export async function inboxPage(prisma: PrismaClient, workspaceId: string, query: InboxQuery = {}) {
+  const pageSize = query.pageSize ?? 50;
+  const where = whereFor(workspaceId, query);
+  const [total, rows] = await Promise.all([
+    prisma.inboxMessage.count({ where }),
+    prisma.inboxMessage.findMany({
+      where,
+      orderBy: [{ fetchedAt: "desc" }, { id: "asc" }],
+      skip: (Math.max(1, query.page ?? 1) - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        fromName: true,
+        text: true,
+        fetchedAt: true,
+        doneAt: true,
+        answeredAt: true,
+        account: { select: { id: true, label: true } },
+        campaignLead: {
+          select: {
+            profileUrl: true,
+            company: true,
+            title: true,
+            campaign: { select: { id: true, name: true } },
+          },
+        },
+      },
+    }),
+  ]);
+  return { total, rows };
+}
+export type InboxRow = Awaited<ReturnType<typeof inboxPage>>["rows"][number];
+
+/** For the sidebar badge and the tab counts. */
+export async function needsReplyCount(prisma: PrismaClient, workspaceId: string): Promise<number> {
+  return prisma.inboxMessage.count({ where: { account: { workspaceId }, ...needsReply } });
+}
+
+export async function inboxTabCounts(prisma: PrismaClient, workspaceId: string, query: Omit<InboxQuery, "tab" | "page">) {
+  const [needs, all, done] = await Promise.all(INBOX_TABS.map((tab) => prisma.inboxMessage.count({ where: whereFor(workspaceId, { ...query, tab }) })));
+  return { needs_reply: needs!, all: all!, done: done! };
+}
+
+/** Mark replies handled (or not). Ids from other workspaces are ignored. */
+export async function setDone(prisma: PrismaClient, workspaceId: string, ids: string[], done: boolean): Promise<Result<number>> {
+  const r = await prisma.inboxMessage.updateMany({
+    where: { id: { in: ids.slice(0, 500) }, account: { workspaceId } },
+    data: done ? { doneAt: new Date() } : { doneAt: null, answeredAt: null },
+  });
+  return { ok: true, value: r.count };
+}
+
+/** Accounts and campaigns to filter by. */
+export async function inboxFilterOptions(prisma: PrismaClient, workspaceId: string) {
+  const [accounts, campaigns] = await Promise.all([
+    prisma.linkedinAccount.findMany({ where: { workspaceId }, orderBy: { label: "asc" }, select: { id: true, label: true } }),
+    prisma.campaign.findMany({ where: { workspaceId }, orderBy: { createdAt: "desc" }, select: { id: true, name: true } }),
+  ]);
+  return { accounts, campaigns };
+}

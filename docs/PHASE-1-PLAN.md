@@ -81,6 +81,16 @@ LinkedIn. One less service to build, deploy and secure.
   leads, invited, accepted %, messaged, replied %, sequence, leads by state with step/next
   action/reason. Verified end-to-end against the fake LinkedIn (accept + reply test hooks).
   Known limit: replies matched by name (2026 inbox list has no profile links)
+- [x] M5 (2026-10-24): Inbox & activity — `inbox_messages.campaign_lead_id / done_at / answered_at`.
+  New replies are linked to their campaign lead (by name) when the inbox is read; a conversation
+  whose latest message is ours ("You: …") counts as answered. Inbox tabs Needs reply / All /
+  Done, filters by account and campaign, search, mark done / undo, lead details + campaign chip,
+  sidebar badge with the needs-reply count. Activity: filters by result, type, account and
+  campaign, pagination, lead names and campaign links, and **failure screenshots** served by
+  `/app/evidence/<actionId>` (workspace-checked, only from DATA_DIR, symlinks refused).
+  Dashboard "This week" table: visits, invites, accepted, messages, replies per day in the
+  account's time zone. Note for M6: screenshots are read from the worker's disk — on separate
+  servers they must move to shared/object storage
 
 ## Milestones
 
