@@ -8,6 +8,7 @@ import {
   CLAIM_HOLD_MS,
   MAX_ATTEMPTS,
   busyRetryAt,
+  inboxCheckRetryAt,
   inviteBlockUntil,
   notesBlockUntil,
   pollAgainAt,
@@ -56,6 +57,29 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
   if (!decision.allowed) {
     const { hours } = accountSettings(action.account);
     return defer(rescheduleFor(decision.reason, now, action.account.timezone, hours), decision.reason);
+  }
+
+  // 1b. Campaign messages: never send if they replied, and only after the inbox has been read
+  //     since we last contacted them (the reply may be sitting there unread).
+  if (action.type === "MESSAGE" && action.campaignLeadId) {
+    const lead = await prisma.campaignLead.findUnique({
+      where: { id: action.campaignLeadId },
+      select: { state: true, lastActionAt: true },
+    });
+    if (lead?.state === "REPLIED") {
+      await prisma.action.update({ where: { id: action.id }, data: { status: "SKIPPED", error: "REPLIED", executedAt: now } });
+      return { kind: "done", status: "SKIPPED", detail: "they replied — follow-up not sent" };
+    }
+    const since = lead?.lastActionAt ?? action.createdAt;
+    const inboxRead = await prisma.action.findFirst({
+      where: { accountId: action.accountId, type: "INBOX_SYNC", status: "SUCCEEDED", executedAt: { gt: since } },
+      select: { id: true },
+    });
+    if (!inboxRead) {
+      const at = inboxCheckRetryAt(now);
+      const scale = deps.gapScale ?? 1;
+      return defer(new Date(now.getTime() + Math.max(1000, (at.getTime() - now.getTime()) * scale)), "WAITING_INBOX_CHECK");
+    }
   }
 
   // 2. Invites paused after LinkedIn's weekly limit

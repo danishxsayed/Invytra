@@ -7,10 +7,11 @@
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { redisPacingStore } from "./queue/pacing.js";
-import { scheduleInboxSyncs } from "./queue/inbox-scheduler.js";
+import { ensureInboxSync, scheduleInboxSyncs } from "./queue/inbox-scheduler.js";
 import { processAction } from "./queue/processor.js";
 import { QUEUE_NAME, createQueue, scheduleAction, type ActionJob } from "./queue/queue.js";
 import { createConnectServer } from "./connect/server.js";
+import { campaignTick } from "./campaigns/engine.js";
 import { createRuntime } from "./runtime.js";
 
 const INBOX_EVERY_MIN = Number(process.env.INBOX_SYNC_EVERY_MINUTES ?? 60);
@@ -55,8 +56,10 @@ async function main() {
       );
       if (result.kind === "reschedule") {
         await scheduleAction(queue, job.data.actionId, result.runAt);
+        // A campaign message waits for a fresh look at the inbox (stop on reply).
+        if (result.reason === "WAITING_INBOX_CHECK" && action) await ensureInboxSync(rt.prisma, queue, action.accountId);
         // Waiting for the account's turn is routine — only log meaningful waits.
-        if (!["WAITING_TURN", "PACING"].includes(result.reason)) {
+        if (!["WAITING_TURN", "PACING", "WAITING_INBOX_CHECK"].includes(result.reason)) {
           log(`… ${what} — ${result.reason}, next try ${result.runAt.toLocaleString("en-GB")}`);
         }
       } else if (result.kind === "done") {
@@ -78,6 +81,25 @@ async function main() {
   };
   await syncInboxes();
   const timer = setInterval(syncInboxes, 10 * 60_000);
+
+  // Campaigns: move each lead to its next step (only queues — limits and pacing still apply).
+  let ticking = false;
+  const runCampaigns = async () => {
+    if (ticking) return;
+    ticking = true;
+    try {
+      const t = await campaignTick({ prisma: rt.prisma, queue });
+      if (t.queued || t.replied || t.cancelled) {
+        log(`Campaigns: ${t.queued} step(s) queued${t.replied ? `, ${t.replied} lead(s) replied — follow-ups stopped` : ""}${t.cancelled ? `, ${t.cancelled} cancelled (paused)` : ""}`);
+      }
+    } catch (e) {
+      log(`Campaign engine error: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      ticking = false;
+    }
+  };
+  await runCampaigns();
+  const campaignTimer = setInterval(runCampaigns, Number(process.env.CAMPAIGN_TICK_SECONDS ?? 60) * 1000);
 
   // Live LinkedIn login windows for the dashboard ("Connect account").
   const connect =
@@ -104,6 +126,7 @@ async function main() {
   const shutdown = async () => {
     log("Stopping… (finishing the current action)");
     clearInterval(timer);
+    clearInterval(campaignTimer);
     await connect?.closeAll();
     await worker.close();
     await queue.close();

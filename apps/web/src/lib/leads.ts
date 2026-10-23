@@ -44,7 +44,7 @@ export async function getList(prisma: PrismaClient, workspaceId: string, id: str
   return list;
 }
 
-/** All lists with lead counts and how many leads have been contacted by any account. */
+/** All lists with lead counts and how many leads any account has invited or messaged (same rule campaigns use). */
 export async function listSummaries(prisma: PrismaClient, workspaceId: string) {
   const rows = await prisma.$queryRaw<{ id: string; name: string; created_at: Date; total: number; contacted: number }[]>(Prisma.sql`
     SELECT l.id, l.name, l.created_at,
@@ -52,6 +52,7 @@ export async function listSummaries(prisma: PrismaClient, workspaceId: string) {
       COUNT(ld.id) FILTER (WHERE EXISTS (
         SELECT 1 FROM actions a JOIN linkedin_accounts acc ON acc.id = a.account_id
         WHERE acc.workspace_id = ${workspaceId} AND a.target_url = ld.profile_url AND a.status = 'SUCCEEDED'
+          AND a.type IN ('CONNECTION_REQUEST', 'MESSAGE')
       ))::int AS contacted
     FROM lead_lists l
     LEFT JOIN leads ld ON ld.list_id = l.id

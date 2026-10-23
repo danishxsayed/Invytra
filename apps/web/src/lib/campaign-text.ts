@@ -1,0 +1,55 @@
+import type { CampaignStep } from "@invytra/shared";
+
+/** Plain-language labels for campaigns (safe to use in client components). */
+
+export const LEAD_STATE: Record<string, { label: string; cls: string }> = {
+  QUEUED: { label: "Not started", cls: "bg-stone-100 text-stone-600" },
+  IN_PROGRESS: { label: "In progress", cls: "bg-sky-50 text-sky-700" },
+  WAITING_ACCEPT: { label: "Invite sent", cls: "bg-brand-100 text-brand-800" },
+  DONE: { label: "Sequence done", cls: "bg-teal-50 text-teal-700" },
+  REPLIED: { label: "Replied", cls: "bg-emerald-100 text-emerald-800" },
+  NOT_ACCEPTED: { label: "Didn't accept", cls: "bg-amber-50 text-amber-700" },
+  SKIPPED: { label: "Skipped", cls: "bg-stone-100 text-stone-500" },
+  FAILED: { label: "Failed", cls: "bg-rose-50 text-rose-700" },
+};
+
+export const CAMPAIGN_STATUS: Record<string, { label: string; cls: string; dot: string }> = {
+  DRAFT: { label: "Draft", cls: "bg-stone-100 text-stone-600 ring-stone-500/15", dot: "bg-stone-400" },
+  ACTIVE: { label: "Running", cls: "bg-emerald-50 text-emerald-700 ring-emerald-600/20", dot: "bg-emerald-500" },
+  PAUSED: { label: "Paused", cls: "bg-amber-50 text-amber-700 ring-amber-600/20", dot: "bg-amber-500" },
+};
+
+const REASONS: Record<string, string> = {
+  ALREADY_CONTACTED: "Already invited or messaged by one of your accounts",
+  IN_OTHER_CAMPAIGN: "Already in another campaign",
+  PROFILE_UNAVAILABLE: "Profile not found",
+  EMAIL_REQUIRED: "LinkedIn asked for their email to connect",
+  CONNECT_NOT_AVAILABLE: "No Connect option on their profile",
+  NOTE_LIMIT: "Free invite notes used up for this month",
+  NOT_CONNECTED: "Not connected, so no message was sent",
+  MISSING_DETAIL: "A placeholder had no value for this person",
+  EXPIRED: "Didn't accept in time",
+  WITHDRAWN: "Invite was withdrawn or declined",
+  CANCELLED: "Cancelled",
+};
+
+export function reasonText(code: string | null | undefined): string {
+  if (!code) return "";
+  if (code.startsWith("MISSING_DETAIL:")) return `No {${code.slice(15)}} in your list for this person`;
+  return REASONS[code] ?? code.split("\n")[0]!;
+}
+
+export function stepLabel(s: CampaignStep | undefined): string {
+  if (!s) return "";
+  return s.type === "VISIT" ? "Visit profile" : s.type === "INVITE" ? (s.note.trim() ? "Invite with note" : "Invite") : "Message";
+}
+
+/** "Step 3 of 4 · Message" for where a lead is now. */
+export function positionText(steps: CampaignStep[], state: string, step: number): string {
+  if (state === "WAITING_ACCEPT") return "Waiting for them to accept";
+  if (state === "QUEUED") return steps[0] ? `Next: ${stepLabel(steps[0]).toLowerCase()}` : "";
+  if (state !== "IN_PROGRESS") return "";
+  return steps[step] ? `Step ${step + 1} of ${steps.length} · ${stepLabel(steps[step])}` : "";
+}
+
+export const pct = (n: number, of: number) => (of > 0 ? Math.round((n / of) * 100) : 0);

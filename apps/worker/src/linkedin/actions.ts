@@ -1,4 +1,4 @@
-import { CONNECTION_NOTE_MAX_CHARS } from "@invytra/shared";
+import { CONNECTION_NOTE_MAX_CHARS, fillTemplate as fillShared, type TemplateVars } from "@invytra/shared";
 import { createHash } from "node:crypto";
 import type { SessionTaskContext } from "../browser/types.js";
 import { humanBrowse, humanClick, humanPause, humanType } from "./human.js";
@@ -19,9 +19,8 @@ export type ActionOutcome<T = Record<string, unknown>> =
   | { outcome: "SKIPPED"; reason: string; data?: T };
 
 /** Fills {firstName} / {name} from the profile. */
-export function fillTemplate(text: string, fullName: string): string {
-  const firstName = fullName.trim().split(/\s+/)[0] ?? "";
-  return text.replace(/\{firstName\}/g, firstName).replace(/\{name\}/g, fullName.trim());
+export function fillTemplate(text: string, fullName: string, vars: TemplateVars = {}): string | null {
+  return fillShared(text, vars, fullName);
 }
 
 /** LinkedIn says this account has used up its weekly invitations. Stop sending invites. */
@@ -63,12 +62,14 @@ export async function checkConnectionStatus(
 }
 
 export interface InviteOptions {
-  /** Note text; {firstName}/{name} are filled in. Max 300 characters after filling. */
+  /** Note text; placeholders like {firstName} are filled in. Max 300 characters after filling. */
   note?: string;
   /** If notes are unavailable (LinkedIn's free-note limit), skip the invite instead of sending it without the note. */
   requireNote?: boolean;
   /** Notes are known to be used up this month — don't try "Add a note" at all. */
   notesBlocked?: boolean;
+  /** Lead details for {firstName}, {company}, … (names fall back to the profile). */
+  vars?: TemplateVars;
 }
 
 export interface InviteResult {
@@ -91,12 +92,14 @@ export async function sendConnectionRequest(
   }
   const { page } = ctx;
   const info = await openProfile(ctx, profileUrl, true);
-  const filledNote = trimmedNote ? fillTemplate(trimmedNote, info.name) : undefined;
+  const filledNote = trimmedNote ? fillTemplate(trimmedNote, info.name, opts.vars) : undefined;
   if (filledNote && filledNote.length > CONNECTION_NOTE_MAX_CHARS) {
     throw new Error(`Note is ${filledNote.length} characters after filling in the name; LinkedIn allows ${CONNECTION_NOTE_MAX_CHARS}`);
   }
   const data: InviteResult = { name: info.name, withNote: false };
   if (info.status !== "NOT_CONNECTED") return { outcome: "SKIPPED", reason: info.status, data };
+  // A placeholder with no value (e.g. {company} for a lead without one): never send "Hi ,".
+  if (filledNote === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
   if (filledNote && opts.notesBlocked && opts.requireNote) return { outcome: "SKIPPED", reason: "NOTE_LIMIT", data };
 
   const inviteDialog = () =>
@@ -221,13 +224,15 @@ export async function sendMessage(
   ctx: SessionTaskContext,
   profileUrl: string,
   text: string,
+  vars: TemplateVars = {},
 ): Promise<ActionOutcome<{ name: string }>> {
   const body = text.trim();
   if (!body) throw new Error("Message text is empty");
   const { page } = ctx;
   const info = await openProfile(ctx, profileUrl, false);
   if (info.status !== "CONNECTED") return { outcome: "SKIPPED", reason: `NOT_CONNECTED (${info.status})`, data: { name: info.name } };
-  const filled = fillTemplate(body, info.name);
+  const filled = fillTemplate(body, info.name, vars);
+  if (filled === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data: { name: info.name } };
 
   await humanClick(page, control(topCard(page), SELECTORS.profile.messageControl).first());
   const box = page.locator(SELECTORS.message.composeBox).filter({ visible: true }).last();

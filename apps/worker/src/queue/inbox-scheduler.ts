@@ -34,3 +34,11 @@ export async function scheduleInboxSyncs(
   }
   return added;
 }
+
+/** Queues an inbox read for one account now, unless one is already waiting. */
+export async function ensureInboxSync(prisma: PrismaClient, queue: Queue<ActionJob>, accountId: string): Promise<boolean> {
+  const pending = await prisma.action.count({ where: { accountId, type: "INBOX_SYNC", status: { in: ["QUEUED", "RUNNING"] } } });
+  if (pending > 0) return false;
+  await enqueueAction(prisma, queue, { accountId, type: "INBOX_SYNC" });
+  return true;
+}

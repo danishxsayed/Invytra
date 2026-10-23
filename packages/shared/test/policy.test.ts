@@ -103,3 +103,11 @@ describe("randomActionDelayMs", () => {
     }
   });
 });
+
+describe("connection checks", () => {
+  it("count against the profile-visit limit (LinkedIn sees a visit)", () => {
+    const full: UsageCounts = { ...noUsage, today: { ...noUsage.today, PROFILE_VISIT: DEFAULT_LIMITS.profileVisitsPerDay } };
+    expect(canExecute("CHECK_CONNECTION", account, full, WED_MORNING_IST)).toEqual({ allowed: false, reason: "DAILY_LIMIT_REACHED" });
+    expect(canExecute("CHECK_CONNECTION", account, noUsage, WED_MORNING_IST)).toEqual({ allowed: true });
+  });
+});

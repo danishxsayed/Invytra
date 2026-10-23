@@ -60,3 +60,8 @@ export function pollAgainAt(now: Date, notBefore: Date | null, random: Random = 
 export function notesBlockUntil(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 6, 0, 0));
 }
+
+/** A campaign message waiting for a fresh inbox read: look again in 2–4 min. */
+export function inboxCheckRetryAt(now: Date, random: Random = Math.random): Date {
+  return new Date(now.getTime() + between(2, 4, random) * MIN);
+}

@@ -30,20 +30,28 @@ export async function scheduleAction(queue: Queue<ActionJob>, actionId: string, 
 export async function enqueueAction(
   prisma: PrismaClient,
   queue: Queue<ActionJob>,
-  spec: ActionSpec & { accountId: string; runAt?: Date },
+  spec: ActionSpec & { accountId: string; runAt?: Date; campaignLeadId?: string },
 ): Promise<string> {
+  const action = await createActionRow(prisma, spec);
+  await scheduleAction(queue, action.id, action.scheduledAt);
+  return action.id;
+}
+
+/** The QUEUED row only (no job yet) — for callers that create it inside a transaction. */
+export async function createActionRow(
+  prisma: Pick<PrismaClient, "action">,
+  spec: ActionSpec & { accountId: string; runAt?: Date; campaignLeadId?: string },
+) {
   validateSpec(spec);
-  const runAt = spec.runAt ?? new Date();
-  const action = await prisma.action.create({
+  return prisma.action.create({
     data: {
       accountId: spec.accountId,
       type: spec.type,
       targetUrl: spec.targetUrl ?? null,
       payload: (spec.payload ?? {}) as Prisma.InputJsonValue,
       status: "QUEUED",
-      scheduledAt: runAt,
+      scheduledAt: spec.runAt ?? new Date(),
+      campaignLeadId: spec.campaignLeadId ?? null,
     },
   });
-  await scheduleAction(queue, action.id, runAt);
-  return action.id;
 }

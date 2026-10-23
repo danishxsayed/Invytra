@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@invytra/db";
-import { outreachTextProblem, type ActionType } from "@invytra/shared";
+import { outreachTextProblem, type ActionType, type TemplateVars } from "@invytra/shared";
 import type { SessionTaskContext } from "../browser/types.js";
 import {
   checkConnectionStatus,
@@ -33,6 +33,13 @@ export function validateSpec(spec: ActionSpec): void {
   }
 }
 
+/** Lead details stored with a campaign action ({firstName}, {company}, …). */
+function varsOf(p: Record<string, unknown>): TemplateVars {
+  const v = (p.vars ?? {}) as Record<string, unknown>;
+  const str = (k: string) => (typeof v[k] === "string" ? (v[k] as string) : null);
+  return { firstName: str("firstName"), lastName: str("lastName"), company: str("company"), title: str("title") };
+}
+
 /** The browser work for one action. */
 export function workFor(spec: ActionSpec): (ctx: SessionTaskContext) => Promise<ActionOutcome<any>> {
   validateSpec(spec);
@@ -49,9 +56,10 @@ export function workFor(spec: ActionSpec): (ctx: SessionTaskContext) => Promise<
           note: typeof p.note === "string" ? p.note : undefined,
           requireNote: p.requireNote === true,
           notesBlocked: p.notesBlocked === true,
+          vars: varsOf(p),
         });
     case "MESSAGE":
-      return (ctx) => sendMessage(ctx, url, String(p.text));
+      return (ctx) => sendMessage(ctx, url, String(p.text), varsOf(p));
     case "INBOX_SYNC":
       return (ctx) => fetchInbox(ctx);
   }

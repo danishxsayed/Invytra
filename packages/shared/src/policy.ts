@@ -1,4 +1,4 @@
-import { isLimitedAction, type ActionType } from "./actions.js";
+import { limitBucket, type ActionType } from "./actions.js";
 import { ACTION_DELAY_SECONDS, type Limits } from "./limits.js";
 import { isWithinWorkingHours, type WorkingHours } from "./working-hours.js";
 
@@ -37,15 +37,16 @@ export function canExecute(
   if (!isWithinWorkingHours(now, account.timeZone, account.workingHours)) {
     return { allowed: false, reason: "OUTSIDE_WORKING_HOURS" };
   }
-  if (!isLimitedAction(type)) return { allowed: true };
+  const bucket = limitBucket(type);
+  if (!bucket) return { allowed: true };
 
   const { limits } = account;
   const dailyCap = {
     PROFILE_VISIT: limits.profileVisitsPerDay,
     CONNECTION_REQUEST: limits.connectionRequestsPerDay,
     MESSAGE: limits.messagesPerDay,
-  }[type];
-  if (usage.today[type] >= dailyCap) return { allowed: false, reason: "DAILY_LIMIT_REACHED" };
+  }[bucket];
+  if (usage.today[bucket] >= dailyCap) return { allowed: false, reason: "DAILY_LIMIT_REACHED" };
 
   if (type === "CONNECTION_REQUEST" && usage.connectionRequestsThisWeek >= limits.connectionRequestsPerWeek) {
     return { allowed: false, reason: "WEEKLY_LIMIT_REACHED" };

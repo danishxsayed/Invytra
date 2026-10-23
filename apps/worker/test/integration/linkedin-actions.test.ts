@@ -119,6 +119,17 @@ describe("LinkedIn actions (fake site)", { timeout: 60_000 }, () => {
     expect(state.invites.at(-1)).toEqual({ slug: "nina", note: "Hi Nina" });
   });
 
+  it("fills lead details, and skips instead of sending a blank placeholder", async () => {
+    expect(await run((ctx) => sendMessage(ctx, url("carol"), "Hi {firstName}, how is {company}?"))).toMatchObject({
+      outcome: "SKIPPED",
+      reason: "MISSING_DETAIL",
+    });
+    const r = await run((ctx) => sendMessage(ctx, url("carol"), "Hi {firstName}, how is {company}?", { company: "Gamma" }));
+    expect(r).toMatchObject({ outcome: "DONE" });
+    expect(state.messages.at(-1)).toEqual({ slug: "carol", text: "Hi Carol, how is Gamma?" });
+    state.messages.length = 0; // later tests count messages
+  });
+
   it("fills {firstName} in notes and messages", async () => {
     expect(fillTemplate("Hi {firstName} — {name}", "Mary Ann Lee")).toBe("Hi Mary — Mary Ann Lee");
   });

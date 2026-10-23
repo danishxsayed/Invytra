@@ -63,8 +63,24 @@ LinkedIn. One less service to build, deploy and secure.
   rename, delete; lists page with contacted progress; checklist "Add leads" step. Sales Navigator
   *search URL* import deliberately deferred (account would browse search pages — more risk)
 
-M4 must keep the promise shown on the Leads page: a campaign skips anyone the workspace's
-accounts have already contacted (same canonical profile URL in `actions`).
+- [x] M4 (2026-10-24): Campaigns — `campaigns`, `campaign_leads`, `actions.campaign_lead_id`.
+  One sending account + one lead list (leads added to the list later join). Builder with presets
+  (invite + follow-ups / invite only / message connections), visit toggle, note (300, warning
+  over 200 for free accounts), messages and follow-ups with waits, placeholders {firstName}
+  {lastName} {name} {company} {title} (lead list first, LinkedIn name as fallback; a lead whose
+  file lacks {company}/{title} is skipped, never sent "Hi ,"), live preview with real leads,
+  launch confirmation with time estimate. Worker engine (every minute, only *queues* steps —
+  limits/hours/pacing unchanged; max 2 waiting campaign actions per type per account): skips
+  anyone already invited/messaged by the workspace or in another campaign; waits for acceptance
+  with ~daily connection checks (which now count as profile visits) up to N days (default 21);
+  weekly-invite-limit holds the lead 3 days; messages never retried. **Stop on reply**: inbox
+  replies matched by name; and a campaign message is only sent after the inbox has been read
+  since that person was last contacted (otherwise an inbox read is queued first and the message
+  waits). Pause cancels queued steps; resume continues where each lead was. Launched campaigns:
+  texts/waits editable and follow-ups can be added, structure/sender/list locked. Campaign page:
+  leads, invited, accepted %, messaged, replied %, sequence, leads by state with step/next
+  action/reason. Verified end-to-end against the fake LinkedIn (accept + reply test hooks).
+  Known limit: replies matched by name (2026 inbox list has no profile links)
 
 ## Milestones
 

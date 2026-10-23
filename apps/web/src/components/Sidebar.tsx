@@ -30,7 +30,7 @@ interface Props {
 
 const NAV = [
   { href: "/app", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/app/campaigns", label: "Campaigns", icon: Rocket, soon: true },
+  { href: "/app/campaigns", label: "Campaigns", icon: Rocket },
   { href: "/app/leads", label: "Leads", icon: ListChecks },
   { href: "/app/inbox", label: "Inbox", icon: Inbox },
   { href: "/app/activity", label: "Activity", icon: Activity },

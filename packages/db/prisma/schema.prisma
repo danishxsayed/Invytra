@@ -27,17 +27,18 @@ model Workspace {
   accounts  LinkedinAccount[]
   leadLists LeadList[]
   leads     Lead[]
+  campaigns Campaign[]
 
   @@map("workspaces")
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   name         String
   /// bcrypt hash. Never log or return this.
-  passwordHash String   @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at")
+  passwordHash String    @map("password_hash")
+  createdAt    DateTime  @default(now()) @map("created_at")
   lastLoginAt  DateTime? @map("last_login_at")
 
   memberships Membership[]
@@ -83,36 +84,37 @@ enum ActionStatus {
 }
 
 model LinkedinAccount {
-  id                String        @id @default(cuid())
+  id               String        @id @default(cuid())
   /// Accounts from .env (Phase 0 CLI) live in the "default" workspace.
-  workspaceId       String        @default("default") @map("workspace_id")
-  label             String
-  email             String?
-  proxyUrl          String        @map("proxy_url")
-  timezone          String        @default("Asia/Kolkata")
-  status            AccountStatus @default(ACTIVE)
+  workspaceId      String        @default("default") @map("workspace_id")
+  label            String
+  email            String?
+  proxyUrl         String        @map("proxy_url")
+  timezone         String        @default("Asia/Kolkata")
+  status           AccountStatus @default(ACTIVE)
   /// AES-256-GCM encrypted Playwright storage state. Never log this.
-  encryptedSession  Bytes?        @map("encrypted_session")
-  sessionUpdatedAt  DateTime?     @map("session_updated_at")
+  encryptedSession Bytes?        @map("encrypted_session")
+  sessionUpdatedAt DateTime?     @map("session_updated_at")
   /// { days: number[], startHour: number, endHour: number } — validated by @invytra/shared
-  workingHours      Json          @map("working_hours")
+  workingHours     Json          @map("working_hours")
   /// Limits object — validated by @invytra/shared limitsSchema
-  limits            Json
-  statusReason      String?       @map("status_reason")
-  lastActiveAt      DateTime?     @map("last_active_at")
+  limits           Json
+  statusReason     String?       @map("status_reason")
+  lastActiveAt     DateTime?     @map("last_active_at")
   /// Read from LinkedIn after connecting (the person's display name and profile link)
-  profileName       String?       @map("profile_name")
-  profileUrl        String?       @map("profile_url")
+  profileName      String?       @map("profile_name")
+  profileUrl       String?       @map("profile_url")
   /// First successful connection through the dashboard or CLI
-  connectedAt       DateTime?     @map("connected_at")
+  connectedAt      DateTime?     @map("connected_at")
   /// Daily limits ramp up until this time (new accounts); null = no warm-up
-  warmupUntil       DateTime?     @map("warmup_until")
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
+  warmupUntil      DateTime?     @map("warmup_until")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
 
-  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   actions   Action[]
   messages  InboxMessage[]
+  campaigns Campaign[]
 
   @@unique([workspaceId, label])
   @@index([workspaceId])
@@ -134,14 +136,18 @@ model Action {
   executedAt     DateTime?    @map("executed_at")
   durationMs     Int?         @map("duration_ms")
   createdAt      DateTime     @default(now()) @map("created_at")
+  /// Set when a campaign queued this action for one of its leads
+  campaignLeadId String?      @map("campaign_lead_id")
 
-  account LinkedinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account      LinkedinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  campaignLead CampaignLead?   @relation(fields: [campaignLeadId], references: [id], onDelete: SetNull)
 
   // Daily/weekly limit counting: actions per account, type and time window
   @@index([accountId, type, status, executedAt])
   @@index([status, scheduledAt])
   // Lead status: what happened to a profile
   @@index([targetUrl])
+  @@index([campaignLeadId])
   @@map("actions")
 }
 
@@ -171,8 +177,9 @@ model LeadList {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   leads     Lead[]
+  campaigns Campaign[]
 
   @@index([workspaceId])
   @@map("lead_lists")
@@ -194,11 +201,100 @@ model Lead {
   extra       Json     @default("{}")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  list      LeadList  @relation(fields: [listId], references: [id], onDelete: Cascade)
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  list          LeadList       @relation(fields: [listId], references: [id], onDelete: Cascade)
+  campaignLeads CampaignLead[]
 
   @@unique([listId, profileUrl])
   @@index([workspaceId, profileUrl])
   @@index([listId, createdAt])
   @@map("leads")
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+enum CampaignLeadState {
+  QUEUED
+  IN_PROGRESS
+  WAITING_ACCEPT
+  DONE
+  REPLIED
+  NOT_ACCEPTED
+  SKIPPED
+  FAILED
+}
+
+/// One LinkedIn account working through one lead list with a sequence of steps.
+model Campaign {
+  id            String         @id @default(cuid())
+  workspaceId   String         @map("workspace_id")
+  name          String
+  /// The sending account. Null if it was removed — the campaign can't run until another is chosen.
+  accountId     String?        @map("account_id")
+  /// Leads added to this list later join the running campaign.
+  listId        String?        @map("list_id")
+  status        CampaignStatus @default(DRAFT)
+  /// CampaignStep[] — validated by @invytra/shared sequenceSchema
+  steps         Json
+  /// CampaignSettings — @invytra/shared campaignSettingsSchema
+  settings      Json           @default("{}")
+  startedAt     DateTime?      @map("started_at")
+  /// Last time leads were copied in from the list (re-copied when the list changes)
+  leadsSyncedAt DateTime?      @map("leads_synced_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account   LinkedinAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  list      LeadList?        @relation(fields: [listId], references: [id], onDelete: SetNull)
+  leads     CampaignLead[]
+
+  @@index([workspaceId])
+  @@index([status])
+  @@map("campaigns")
+}
+
+/// One person's progress through a campaign. Lead details are copied in, so
+/// deleting the list doesn't break a running campaign.
+model CampaignLead {
+  id           String            @id @default(cuid())
+  campaignId   String            @map("campaign_id")
+  workspaceId  String            @map("workspace_id")
+  leadId       String?           @map("lead_id")
+  profileUrl   String            @map("profile_url")
+  firstName    String?           @map("first_name")
+  lastName     String?           @map("last_name")
+  company      String?
+  title        String?
+  /// The name LinkedIn shows — used to match replies in the inbox
+  linkedinName String?           @map("linkedin_name")
+  state        CampaignLeadState @default(QUEUED)
+  /// Index of the next step to run
+  step         Int               @default(0)
+  nextAt       DateTime?         @map("next_at")
+  /// The queued/running action for this lead, if any
+  actionId     String?           @map("action_id")
+  /// Why it was skipped / failed / not accepted (a code the dashboard explains)
+  reason       String?
+  invitedAt    DateTime?         @map("invited_at")
+  connectedAt  DateTime?         @map("connected_at")
+  /// First message sent by this campaign
+  messagedAt   DateTime?         @map("messaged_at")
+  repliedAt    DateTime?         @map("replied_at")
+  lastActionAt DateTime?         @map("last_action_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead     Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  actions  Action[]
+
+  @@unique([campaignId, profileUrl])
+  @@index([campaignId, state, nextAt])
+  @@index([workspaceId, profileUrl])
+  @@map("campaign_leads")
 }

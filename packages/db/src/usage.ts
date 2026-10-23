@@ -31,7 +31,8 @@ export async function usageFor(prisma: PrismaClient, accountId: string, now = ne
   const count = (t: string) => daily.find((d) => d.type === t)?._count._all ?? 0;
   return {
     today: {
-      PROFILE_VISIT: count("PROFILE_VISIT"),
+      // A connection check opens the profile, so it counts as a visit.
+      PROFILE_VISIT: count("PROFILE_VISIT") + count("CHECK_CONNECTION"),
       CONNECTION_REQUEST: count("CONNECTION_REQUEST"),
       MESSAGE: count("MESSAGE"),
     },

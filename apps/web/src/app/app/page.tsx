@@ -10,6 +10,7 @@ import { requireUser } from "@/lib/auth";
 import { accountsOverview, recentActivity, recentReplies, weeklyStats } from "@/lib/data";
 import { timeAgo } from "@/lib/format";
 import { leadCount } from "@/lib/leads";
+import { launchedCampaignCount } from "@/lib/campaigns";
 
 export const metadata = { title: "Dashboard" };
 export const dynamic = "force-dynamic";
@@ -22,12 +23,13 @@ function greeting(): string {
 export default async function Dashboard() {
   const me = await requireUser();
   const wid = me.workspace.id;
-  const [accounts, activity, replies, stats, leads] = await Promise.all([
+  const [accounts, activity, replies, stats, leads, launched] = await Promise.all([
     accountsOverview(prisma, wid),
     recentActivity(prisma, wid, { take: 8 }),
     recentReplies(prisma, wid, 6),
     weeklyStats(prisma, wid),
     leadCount(prisma, wid),
+    launchedCampaignCount(prisma, wid),
   ]);
   const connected = accounts.some((a) => a.status === "ACTIVE");
   const many = accounts.length > 1;
@@ -46,7 +48,7 @@ export default async function Dashboard() {
           { label: "Create your account", done: true, hint: "You're in." },
           { label: "Connect LinkedIn", done: connected, hint: "Log in through a secure window.", href: "/app/accounts?add=1" },
           { label: "Add leads", done: leads > 0, hint: "Upload a CSV or paste profile links.", href: "/app/leads" },
-          { label: "Launch a campaign", done: false, hint: "Invite, wait, message, follow up.", soon: true },
+          { label: "Launch a campaign", done: launched > 0, hint: "Invite, wait, message, follow up.", href: "/app/campaigns/new" },
         ]}
       />
 

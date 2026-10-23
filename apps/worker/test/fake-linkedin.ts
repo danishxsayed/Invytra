@@ -48,6 +48,10 @@ export interface FakeState {
   messages: { slug: string; text: string }[];
   /** Emails that signed in through the login form. */
   logins: string[];
+  /** People who accepted an invite (test hook: POST /__test/accept/<slug>). */
+  accepted: string[];
+  /** Extra inbox replies (test hook: POST /__test/reply/<slug> with the text). */
+  replies: { slug: string; text: string }[];
 }
 
 const page = (title: string, body: string) =>
@@ -56,8 +60,8 @@ const page = (title: string, body: string) =>
   <body>${body}</body></html>`;
 
 function profileHtml(slug: string, p: Person, state: FakeState): string {
-  const pending = p.kind === "pending" || state.invites.some((i) => i.slug === slug);
-  const connected = p.kind === "connected";
+  const pending = !state.accepted.includes(slug) && (p.kind === "pending" || state.invites.some((i) => i.slug === slug));
+  const connected = p.kind === "connected" || state.accepted.includes(slug);
   const old = OLD_LAYOUT.has(slug);
   const invite = `aria-label="Invite ${p.name} to connect"`;
   // 2026 layout uses links for Connect/Message and a text-only "More" button; old layout uses buttons.
@@ -128,20 +132,25 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
   );
 }
 
-const inboxHtml = page(
-  "Messaging | LinkedIn",
-  `${HIDDEN_CAPTCHA}<main><h1>Messaging</h1><h2>Conversation List</h2><ul aria-label="Conversation List">
+const inboxHtml = (state: FakeState) =>
+  page(
+    "Messaging | LinkedIn",
+    `${HIDDEN_CAPTCHA}<main><h1>Messaging</h1><h2>Conversation List</h2><ul aria-label="Conversation List">
     <li></li>
+    ${state.replies
+      .map((r) => `<li><h3>${PEOPLE[r.slug]?.name ?? r.slug}</h3><time>now</time><p>${r.text}</p><span>1 new notification</span></li>`)
+      .reverse()
+      .join("")}
     <li><h3>Ashlyn Gonzales, MS</h3><time>9:07 PM</time><p>Sponsored Free Gift After Tour</p></li>
     <li><h3>Carol White</h3><time>2h</time><p>Carol: Sure, let's talk Tuesday</p><span>1 new notification . Press return to go to conversation details</span></li>
     <li><h3>Alice Smith</h3><time>Oct 12</time><p>You: Thanks for connecting!</p></li>
     <li><h3>Bob Jones</h3><time>Oct 10</time><p>Bob: Not interested, thanks</p></li>
     <li><h3>Carol White</h3><time>Oct 1</time><p>older duplicate</p></li>
   </ul></main>`,
-);
+  );
 
 export function startFakeLinkedIn(): { server: Server; state: FakeState } {
-  const state: FakeState = { invites: [], messages: [], logins: [] };
+  const state: FakeState = { invites: [], messages: [], logins: [], accepted: [], replies: [] };
   const server = createServer((req, res) => {
     const cookie = req.headers.cookie ?? "";
     const loggedIn = /li_at=valid/.test(cookie);
@@ -150,6 +159,18 @@ export function startFakeLinkedIn(): { server: Server; state: FakeState } {
       res.writeHead(status, { "content-type": "text/html; charset=utf-8", ...headers });
       res.end(body);
     };
+    // Test hooks (no login needed): someone accepts an invite, or writes back.
+    if (req.method === "POST" && path.startsWith("/__test/")) {
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        const [, , kind, slug] = path.split("/");
+        if (kind === "accept") state.accepted.push(slug!);
+        if (kind === "reply") state.replies.push({ slug: slug!, text: body || "Sounds good!" });
+        send(200, "{}", { "content-type": "application/json" });
+      });
+      return;
+    }
     if (req.method === "POST" && path.startsWith("/api/")) {
       let body = "";
       req.on("data", (c) => (body += c));
@@ -177,7 +198,7 @@ export function startFakeLinkedIn(): { server: Server; state: FakeState } {
     if (!loggedIn) return send(302, "", { location: "/login" });
     if (path === "/in/me" || path === "/in/me/") return send(302, "", { location: "/in/tess/" });
     if (path.startsWith("/feed")) return send(200, page("Feed | LinkedIn", `${HIDDEN_CAPTCHA}<main><h1>Start a post</h1></main>`));
-    if (path.startsWith("/messaging")) return send(200, inboxHtml);
+    if (path.startsWith("/messaging")) return send(200, inboxHtml(state));
     const m = /^\/in\/([^/]+)/.exec(path);
     if (m) {
       const person = PEOPLE[m[1]!];
