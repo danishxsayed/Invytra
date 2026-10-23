@@ -107,14 +107,21 @@ export function ConnectWindow({ accountId, label, onClose }: Props) {
           if (m.phase === "done") void connectFinishedAction(accountId).then(() => router.refresh());
         }
       };
-      ws.onclose = () => {
+      let opened = false;
+      ws.onopen = () => {
+        opened = true;
+      };
+      ws.onclose = (ev) => {
         if (!finished.current && !cancelled) {
           finished.current = true;
           setPhase("error");
+          const local = location.hostname === "localhost" || location.hostname === "127.0.0.1";
           setMessage(
-            location.hostname === "localhost"
-              ? "Couldn't reach the Invytra worker. Make sure `pnpm worker` is running, then try again."
-              : "The login window closed unexpectedly. Please try again.",
+            !opened && local
+              ? `Couldn't open the login window (worker refused or not running). Check the \`pnpm worker\` tab for a "Connect:" line.`
+              : !opened
+                ? "Couldn't open the login window. Please try again in a minute."
+                : `The login window closed unexpectedly (code ${ev.code}). Please try again.`,
           );
         }
       };

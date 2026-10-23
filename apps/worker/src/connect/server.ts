@@ -45,11 +45,24 @@ export function createConnectServer(deps: ConnectServerDeps): { server: Server; 
     const url = new URL(req.url ?? "/", "http://localhost");
     const origin = req.headers.origin ?? "";
     if (url.pathname !== "/connect" || !deps.allowedOrigins.includes(origin)) {
+      log(
+        url.pathname !== "/connect"
+          ? `Connect: refused a request for ${url.pathname}`
+          : `Connect: refused a login window from "${origin || "unknown"}" — allowed: ${deps.allowedOrigins.join(", ")} (set WEB_ORIGIN in .env)`,
+      );
       socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
       socket.destroy();
       return;
     }
-    wss.handleUpgrade(req, socket, head, (ws) => void onSocket(ws, req, url.searchParams.get("ticket") ?? ""));
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      onSocket(ws, req, url.searchParams.get("ticket") ?? "").catch((e) => {
+        log(`Connect: login window failed: ${e instanceof Error ? e.message : String(e)}`);
+        if (ws.readyState === ws.OPEN) {
+          ws.send(JSON.stringify({ t: "status", phase: "error", message: "Something went wrong opening the login window. Please try again." } satisfies ServerMessage));
+          ws.close(1011);
+        }
+      });
+    });
   });
 
   async function onSocket(ws: WebSocket, _req: IncomingMessage, ticket: string) {
@@ -64,6 +77,7 @@ export function createConnectServer(deps: ConnectServerDeps): { server: Server; 
     };
 
     const claims = await verifyConnectTicket(ticket, deps.encryptionKey);
+    if (!claims) log("Connect: refused an expired or invalid login link (check both apps use the same SESSION_ENCRYPTION_KEY)");
     if (!claims) return refuse("This login link has expired. Please try again.");
     if ((await deps.tickets.set(`invytra:connect-ticket:${claims.ticketId}`, "1", "EX", 600, "NX")) !== "OK") {
       return refuse("This login link was already used. Please try again.");
