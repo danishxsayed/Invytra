@@ -6,6 +6,8 @@ export const SESSION_DAYS = 14;
 export interface SessionClaims {
   userId: string;
   workspaceId: string;
+  /** When the token was signed (ms). Compared with the user's sessionsValidAfter. */
+  issuedAt?: number;
 }
 
 /** Signed (HS256) session token. Holds ids only — never secrets or personal data. */
@@ -23,7 +25,7 @@ export async function verifySession(token: string | undefined, key: Uint8Array):
   try {
     const { payload } = await jwtVerify(token, key, { algorithms: ["HS256"] });
     if (typeof payload.sub !== "string" || typeof payload.wid !== "string") return null;
-    return { userId: payload.sub, workspaceId: payload.wid };
+    return { userId: payload.sub, workspaceId: payload.wid, issuedAt: typeof payload.iat === "number" ? payload.iat * 1000 : 0 };
   } catch {
     return null;
   }

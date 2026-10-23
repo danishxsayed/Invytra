@@ -33,13 +33,15 @@ model Workspace {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  name               String
   /// bcrypt hash. Never log or return this.
-  passwordHash String    @map("password_hash")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  lastLoginAt  DateTime? @map("last_login_at")
+  passwordHash       String    @map("password_hash")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  lastLoginAt        DateTime? @map("last_login_at")
+  /// Sessions signed before this moment are no longer accepted (password change, "sign out everywhere")
+  sessionsValidAfter DateTime? @map("sessions_valid_after")
 
   memberships Membership[]
 

@@ -30,14 +30,14 @@ interface Props {
   needsReply?: number;
 }
 
-const NAV = [
+const NAV: { href: string; label: string; icon: typeof Settings; soon?: boolean }[] = [
   { href: "/app", label: "Dashboard", icon: LayoutDashboard },
   { href: "/app/campaigns", label: "Campaigns", icon: Rocket },
   { href: "/app/leads", label: "Leads", icon: ListChecks },
   { href: "/app/inbox", label: "Inbox", icon: Inbox },
   { href: "/app/activity", label: "Activity", icon: Activity },
   { href: "/app/accounts", label: "Accounts", icon: Users },
-  { href: "/app/settings", label: "Settings", icon: Settings, soon: true },
+  { href: "/app/settings", label: "Settings", icon: Settings },
 ];
 
 function Logo() {

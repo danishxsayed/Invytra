@@ -40,6 +40,8 @@ export const currentUser = cache(async (): Promise<CurrentUser | null> => {
   });
   if (!membership) return null;
   const { user, workspace } = membership;
+  // Signed out everywhere (password change or "sign out other devices"): older sessions stop working.
+  if (user.sessionsValidAfter && (claims.issuedAt ?? 0) < user.sessionsValidAfter.getTime()) return null;
   return {
     user: { id: user.id, name: user.name, email: user.email },
     workspace: { id: workspace.id, name: workspace.name, plan: workspace.plan },

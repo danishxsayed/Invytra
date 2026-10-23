@@ -9,7 +9,7 @@ const otherKey = new Uint8Array(32).fill(8);
 describe("session tokens", () => {
   it("round-trips user and workspace", async () => {
     const t = await signSession({ userId: "u1", workspaceId: "w1" }, key);
-    expect(await verifySession(t, key)).toEqual({ userId: "u1", workspaceId: "w1" });
+    expect(await verifySession(t, key)).toMatchObject({ userId: "u1", workspaceId: "w1" });
   });
   it("rejects a token signed with another key", async () => {
     const t = await signSession({ userId: "u1", workspaceId: "w1" }, otherKey);

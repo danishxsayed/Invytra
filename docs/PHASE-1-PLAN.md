@@ -91,6 +91,10 @@ LinkedIn. One less service to build, deploy and secure.
   Dashboard "This week" table: visits, invites, accepted, messages, replies per day in the
   account's time zone. Note for M6: screenshots are read from the worker's disk — on separate
   servers they must move to shared/object storage
+- [x] Settings (2026-10-24): profile (name; email change needs the current password), change
+  password (signs out every other session via `users.sessions_valid_after`, this browser stays
+  in), "sign out other devices", workspace name (owner only), team list. Team invites by email
+  wait for M6 (needs email sending)
 
 ## Milestones
 
