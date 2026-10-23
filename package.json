@@ -14,7 +14,7 @@
     "db:generate": "pnpm --filter @invytra/db generate",
     "db:migrate": "pnpm --filter @invytra/db migrate",
     "db:studio": "pnpm --filter @invytra/db studio",
-    "db:deploy": "pnpm --filter @invytra/db migrate:deploy",
+    "db:deploy": "pnpm --filter @invytra/db migrate:deploy && pnpm --filter @invytra/db build",
     "browsers:install": "pnpm --filter @invytra/worker browsers:install",
     "account:login": "pnpm --filter @invytra/worker account:login",
     "account:check": "pnpm --filter @invytra/worker account:check",
