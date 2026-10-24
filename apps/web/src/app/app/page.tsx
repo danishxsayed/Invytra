@@ -1,16 +1,14 @@
 import { prisma } from "@invytra/db";
-import { Activity, ArrowRight, Eye, Inbox, MessageSquare, Plus, UserPlus, Users } from "lucide-react";
+import { Eye, Inbox, MessageSquare, Plus, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { AccountPanel } from "@/components/AccountPanel";
-import { ActivityList } from "@/components/ActivityList";
 import { Checklist } from "@/components/Checklist";
 import { StatCard } from "@/components/StatCard";
 import { WeekTable } from "@/components/WeekTable";
-import { Avatar, Card, CardHeader, EmptyState, PageHeader } from "@/components/ui";
+import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { isValidTimeZone } from "@/lib/accounts";
-import { accountsOverview, recentActivity, recentReplies, weekTable, weeklyStats } from "@/lib/data";
-import { timeAgo } from "@/lib/format";
+import { accountsOverview, weekTable, weeklyStats } from "@/lib/data";
 import { leadCount } from "@/lib/leads";
 import { launchedCampaignCount } from "@/lib/campaigns";
 
@@ -25,10 +23,8 @@ function greeting(): string {
 export default async function Dashboard() {
   const me = await requireUser();
   const wid = me.workspace.id;
-  const [accounts, activity, replies, stats, leads, launched] = await Promise.all([
+  const [accounts, stats, leads, launched] = await Promise.all([
     accountsOverview(prisma, wid),
-    recentActivity(prisma, wid, { take: 8 }),
-    recentReplies(prisma, wid, 6),
     weeklyStats(prisma, wid),
     leadCount(prisma, wid),
     launchedCampaignCount(prisma, wid),
@@ -36,12 +32,6 @@ export default async function Dashboard() {
   const timeZone = accounts.find((a) => isValidTimeZone(a.timezone))?.timezone ?? "Asia/Kolkata";
   const week = await weekTable(prisma, wid, timeZone);
   const connected = accounts.some((a) => a.status === "ACTIVE");
-  const many = accounts.length > 1;
-  const link = (href: string, text: string) => (
-    <Link href={href} className="inline-flex items-center gap-1 text-[15px] font-medium text-brand-800 hover:text-stone-900">
-      {text} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-    </Link>
-  );
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -83,38 +73,6 @@ export default async function Dashboard() {
           accounts.map((a) => <AccountPanel key={a.id} a={a} full={false} />)
         )}
       </section>
-
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Card>
-          <CardHeader title="Recent activity" icon={Activity} action={link("/app/activity", "View all")} />
-          {activity.length === 0 ? (
-            <EmptyState icon={Activity} title="No activity yet" body="Invites, messages and inbox checks show up here as soon as they run." />
-          ) : (
-            <ActivityList rows={activity} showAccount={many} compact />
-          )}
-        </Card>
-        <Card>
-          <CardHeader title="Latest replies" icon={Inbox} action={link("/app/inbox", "Open inbox")} />
-          {replies.length === 0 ? (
-            <EmptyState icon={Inbox} title="No replies yet" body="Inboxes are checked about once an hour during working hours." />
-          ) : (
-            <ul className="divide-y divide-stone-100">
-              {replies.map((m) => (
-                <li key={m.id} className="flex gap-3 px-5 py-3">
-                  <Avatar name={m.fromName} />
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-baseline justify-between gap-3">
-                      <span className="truncate text-[16px] font-medium text-stone-900">{m.fromName}</span>
-                      <span className="shrink-0 text-[14px] text-stone-400">{timeAgo(m.fetchedAt)}</span>
-                    </p>
-                    <p className="line-clamp-2 text-[15px] text-stone-500">{m.text}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
     </div>
   );
 }
