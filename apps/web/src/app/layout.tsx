@@ -1,10 +1,13 @@
 import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
+import { SITE } from "@/lib/site";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE.url),
   title: { default: "Invytra", template: "%s · Invytra" },
-  description: "LinkedIn outreach that runs itself — safely.",
+  description: "LinkedIn outreach at a human pace: invites, messages and follow-ups inside safe daily limits, stopping when someone replies.",
+  openGraph: { siteName: "Invytra", type: "website" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -95,6 +95,14 @@ LinkedIn. One less service to build, deploy and secure.
   password (signs out every other session via `users.sessions_valid_after`, this browser stays
   in), "sign out other devices", workspace name (owner only), team list. Team invites by email
   wait for M6 (needs email sending)
+- [x] Marketing website (2026-10-24), inside apps/web (route group `(site)`, static pages):
+  Home (hero "one account, one week" pacing calendar, lead journey, safety, features, $29 band,
+  FAQ), Pricing ($29 per LinkedIn account / month, 7-day trial), Compare (Expandi, HeyReach,
+  SalesRobot, Dripify, Waalaxy — prices as published, checked Oct 2026, dated on the page; plus
+  "when another tool may suit you better"), Privacy + Terms drafts (marked draft, for legal
+  review), sitemap, robots (keeps /app out of search), share image. Business details live in
+  `apps/web/src/lib/site.ts`. Headline font Bricolage Grotesque (OFL, bundled locally).
+  Claims that depend on M6: runs in the cloud, payments in USD/INR, trial handling
 
 ## Milestones
 

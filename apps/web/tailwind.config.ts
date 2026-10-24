@@ -21,6 +21,7 @@ export default {
       },
       fontFamily: {
         sans: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-geist-sans)", "ui-sans-serif", "sans-serif"],
       },
       fontSize: {
         xs: ["14px", "20px"],
@@ -37,8 +38,9 @@ export default {
       },
       keyframes: {
         "fade-up": { from: { opacity: "0", transform: "translateY(6px)" }, to: { opacity: "1", transform: "none" } },
+        pop: { from: { opacity: "0", transform: "translateY(-50%) scale(0.3)" }, to: { opacity: "1" } },
       },
-      animation: { "fade-up": "fade-up .35s ease-out backwards" },
+      animation: { "fade-up": "fade-up .35s ease-out backwards", pop: "pop .45s cubic-bezier(.2,.9,.3,1.3) backwards" },
     },
   },
   plugins: [],
