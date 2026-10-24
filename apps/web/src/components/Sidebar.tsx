@@ -20,6 +20,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { logout } from "@/app/(auth)/actions";
 import { accountDot } from "./StatusBadge";
+import { LogoMark } from "./LogoMark";
 import { Avatar, cx } from "./ui";
 
 interface Props {
@@ -43,9 +44,7 @@ const NAV: { href: string; label: string; icon: typeof Settings; soon?: boolean 
 function Logo() {
   return (
     <Link href="/app" className="flex items-center gap-2.5">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-400 text-[17px] font-bold text-stone-900 shadow-glow">
-        I
-      </span>
+      <LogoMark size={34} />
       <span className="text-[20px] font-semibold tracking-tight text-stone-900">Invytra</span>
     </Link>
   );

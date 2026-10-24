@@ -4,6 +4,7 @@ import { Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { LogoMark } from "../LogoMark";
 import { cx } from "../ui";
 
 const NAV = [
@@ -16,7 +17,7 @@ const NAV = [
 export function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2.5" aria-label="Invytra home">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-400 font-display text-[17px] font-bold text-stone-900">I</span>
+      <LogoMark size={34} />
       <span className="font-display text-[21px] font-semibold tracking-tight text-stone-900">Invytra</span>
     </Link>
   );

@@ -1,3 +1,4 @@
+import { LogoMark } from "@/components/LogoMark";
 import { ShieldCheck, Sparkles, Timer } from "lucide-react";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -13,9 +14,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </div>
       <div className="relative w-full max-w-[464px] animate-fade-up">
         <div className="mb-6 flex items-center justify-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-400 text-base font-bold text-stone-900 shadow-glow">
-            I
-          </span>
+          <LogoMark size={40} />
           <span className="text-xl font-semibold tracking-tight">Invytra</span>
         </div>
         <div className="rounded-2xl border border-stone-200/80 bg-white/90 p-7 shadow-pop backdrop-blur">{children}</div>
