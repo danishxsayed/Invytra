@@ -9,6 +9,13 @@
 export type ProfileUrlResult = { ok: true; url: string; slug: string } | { ok: false; reason: string };
 
 const LINKEDIN_HOST = /(^|\.)linkedin\.com$/i;
+const MEMBER_ID = /^AC[ow]AA[A-Za-z0-9_-]{10,}$/;
+
+/** A profile link built from a member id (as Sales Navigator gives), not a profile name. */
+export function isMemberIdUrl(url: string): boolean {
+  const m = /\/in\/([^/?#]+)/.exec(url);
+  return !!m && MEMBER_ID.test(decodeURIComponent(m[1]!));
+}
 
 export function parseProfileUrl(input: string, baseUrl = "https://www.linkedin.com"): ProfileUrlResult {
   let raw = input.trim().replace(/^[<"'(]+|[>"')]+$/g, "");
@@ -36,7 +43,10 @@ export function parseProfileUrl(input: string, baseUrl = "https://www.linkedin.c
   } catch {
     slug = m[1]!;
   }
-  slug = slug.trim().toLowerCase();
+  slug = slug.trim();
+  // Member ids (ACoAA…, and Sales Navigator's ACwAA…) are case-sensitive; LinkedIn redirects
+  // them to the person's profile. Ordinary profile names are not, so they're lower-cased.
+  if (!MEMBER_ID.test(slug)) slug = slug.toLowerCase();
   if (!slug || slug.length > 200) return { ok: false, reason: "Not a profile link (expected linkedin.com/in/…)" };
   const canonical = new URL(`/in/${encodeURIComponent(slug)}/`, baseUrl).toString();
   return { ok: true, url: canonical, slug };

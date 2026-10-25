@@ -32,6 +32,8 @@ const REASONS: Record<string, string> = {
   EXPIRED: "Didn't accept in time",
   WITHDRAWN: "Invite was withdrawn or declined",
   CANCELLED: "Cancelled",
+  EXPIRED_WITHDRAWN: "Didn't accept in time — invite withdrawn",
+  NO_POSTS: "Hasn't posted anything to like",
   SENDER_REMOVED: "Its sending account was removed from the campaign after contacting them",
 };
 
@@ -43,12 +45,13 @@ export function reasonText(code: string | null | undefined): string {
 
 export function stepLabel(s: CampaignStep | undefined): string {
   if (!s) return "";
+  if (s.type === "LIKE_POST") return "Like latest post";
   return s.type === "VISIT" ? "Visit profile" : s.type === "INVITE" ? (s.note.trim() ? "Invite with note" : "Invite") : "Message";
 }
 
 /** "Step 3 of 4 · Message" for where a lead is now. */
-export function positionText(steps: CampaignStep[], state: string, step: number): string {
-  if (state === "WAITING_ACCEPT") return "Waiting for them to accept";
+export function positionText(steps: CampaignStep[], state: string, step: number, reason?: string | null): string {
+  if (state === "WAITING_ACCEPT") return reason === "WITHDRAW" ? "Didn't accept in time — withdrawing the invite" : "Waiting for them to accept";
   if (state === "QUEUED") return steps[0] ? `Next: ${stepLabel(steps[0]).toLowerCase()}` : "";
   if (state !== "IN_PROGRESS") return "";
   return steps[step] ? `Step ${step + 1} of ${steps.length} · ${stepLabel(steps[step])}` : "";

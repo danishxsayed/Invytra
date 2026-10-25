@@ -23,6 +23,9 @@ const TYPES: { value: NonNullable<ActivityFilter["type"]>; label: string }[] = [
   { value: "CONNECTION_REQUEST", label: "Invites" },
   { value: "CHECK_CONNECTION", label: "Connection checks" },
   { value: "MESSAGE", label: "Messages" },
+  { value: "LIKE_POST", label: "Post likes" },
+  { value: "WITHDRAW_INVITE", label: "Withdrawn invites" },
+  { value: "SEARCH_PAGE", label: "Search imports" },
   { value: "INBOX_SYNC", label: "Inbox checks" },
 ];
 const selectCls =
@@ -58,7 +61,7 @@ export default async function ActivityPage({
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <PageHeader title="Activity" description="Every visit, invite, message and inbox check — newest first. Failed actions keep a screenshot." />
+      <PageHeader title="Activity" description="Every visit, like, invite, message, inbox check and search import — newest first. Failed actions keep a screenshot." />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <nav aria-label="Filter by result" className="inline-flex rounded-xl border border-stone-200 bg-white p-1 shadow-card">
           {STATUSES.map((f) => (

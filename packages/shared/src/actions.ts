@@ -5,11 +5,14 @@ export const ACTION_TYPES = [
   "CHECK_CONNECTION",
   "MESSAGE",
   "INBOX_SYNC",
+  "SEARCH_PAGE",
+  "LIKE_POST",
+  "WITHDRAW_INVITE",
 ] as const;
 
 export type ActionType = (typeof ACTION_TYPES)[number];
 
-/** The daily limits. Inbox syncs don't count toward any. */
+/** The daily limits. Inbox syncs and withdrawals don't count toward any; search pages have their own fixed cap. */
 export type LimitedActionType = Extract<ActionType, "PROFILE_VISIT" | "CONNECTION_REQUEST" | "MESSAGE">;
 
 export function isLimitedAction(type: ActionType): type is LimitedActionType {
@@ -21,6 +24,7 @@ export function isLimitedAction(type: ActionType): type is LimitedActionType {
  * profile, so LinkedIn sees a profile visit — it counts as one.
  */
 export function limitBucket(type: ActionType): LimitedActionType | null {
-  if (type === "CHECK_CONNECTION") return "PROFILE_VISIT";
+  // These open the person's profile or their activity page, so LinkedIn sees a visit.
+  if (type === "CHECK_CONNECTION" || type === "LIKE_POST" || type === "WITHDRAW_INVITE") return "PROFILE_VISIT";
   return isLimitedAction(type) ? type : null;
 }

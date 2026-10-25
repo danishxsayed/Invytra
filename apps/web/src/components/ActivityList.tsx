@@ -1,4 +1,4 @@
-import { Eye, Inbox, MessageSquare, Search, UserPlus, type LucideIcon } from "lucide-react";
+import { Eye, Inbox, ListPlus, MessageSquare, Search, ThumbsUp, UserMinus, UserPlus, type LucideIcon } from "lucide-react";
 import type { ActivityRow } from "@/lib/data";
 import { ACTION_LABEL, outcomeText, profilePath, slugName, timeAgo } from "@/lib/format";
 import Link from "next/link";
@@ -12,14 +12,28 @@ const ICON: Record<string, { icon: LucideIcon; cls: string }> = {
   PROFILE_VISIT: { icon: Eye, cls: "bg-teal-50 text-teal-600" },
   CHECK_CONNECTION: { icon: Search, cls: "bg-stone-100 text-stone-500" },
   INBOX_SYNC: { icon: Inbox, cls: "bg-amber-50 text-amber-600" },
+  SEARCH_PAGE: { icon: ListPlus, cls: "bg-violet-50 text-violet-600" },
+  LIKE_POST: { icon: ThumbsUp, cls: "bg-rose-50 text-rose-600" },
+  WITHDRAW_INVITE: { icon: UserMinus, cls: "bg-stone-100 text-stone-500" },
 };
+
+function searchPageNo(url: string | null): number {
+  try {
+    return Number(new URL(url ?? "").searchParams.get("page") ?? "1") || 1;
+  } catch {
+    return 1;
+  }
+}
 
 export function ActivityList({ rows, showAccount, compact }: { rows: ActivityRow[]; showAccount: boolean; compact?: boolean }) {
   return (
     <ul className="divide-y divide-stone-100">
       {rows.map((r) => {
         const lead = r.campaignLead;
-        const who = lead?.linkedinName || [lead?.firstName, lead?.lastName].filter(Boolean).join(" ") || slugName(r.targetUrl);
+        const who =
+          r.type === "SEARCH_PAGE"
+            ? `Page ${searchPageNo(r.targetUrl)}`
+            : lead?.linkedinName || [lead?.firstName, lead?.lastName].filter(Boolean).join(" ") || slugName(r.targetUrl);
         const when = r.executedAt ?? r.scheduledAt;
         const { icon: Icon, cls } = ICON[r.type] ?? ICON.CHECK_CONNECTION!;
         return (

@@ -5,6 +5,7 @@ import { NewListButton } from "@/components/LeadListButtons";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { timeAgo } from "@/lib/format";
+import { importAccounts, listsImporting } from "@/lib/imports";
 import { listSummaries } from "@/lib/leads";
 
 export const metadata = { title: "Leads" };
@@ -12,20 +13,28 @@ export const dynamic = "force-dynamic";
 
 export default async function LeadsPage() {
   const me = await requireUser();
-  const lists = await listSummaries(prisma, me.workspace.id);
+  const [lists, accounts, importing] = await Promise.all([
+    listSummaries(prisma, me.workspace.id),
+    importAccounts(prisma, me.workspace.id),
+    listsImporting(prisma, me.workspace.id),
+  ]);
   const now = new Date();
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <PageHeader title="Lead lists" description="The people you want to reach — from a CSV file or pasted LinkedIn links." action={<NewListButton />} />
+      <PageHeader
+        title="Lead lists"
+        description="The people you want to reach — from a LinkedIn or Sales Navigator search, a CSV file, or pasted profile links."
+        action={<NewListButton accounts={accounts} />}
+      />
 
       {lists.length === 0 ? (
         <Card>
           <EmptyState
             icon={ListChecks}
             title="Create your first lead list"
-            body="Upload a CSV from Sales Navigator, Apollo or Excel, or paste LinkedIn profile links. You'll see exactly what will be added before anything is saved."
-            action={<NewListButton label="New lead list" />}
+            body="Paste a LinkedIn or Sales Navigator search link and Invytra collects the people for you — or upload a CSV, or paste profile links."
+            action={<NewListButton label="New lead list" accounts={accounts} />}
           />
         </Card>
       ) : (
@@ -41,6 +50,7 @@ export default async function LeadsPage() {
                   <p className="truncate text-[16px] font-semibold text-stone-900">{l.name}</p>
                   <p className="text-[14px] text-stone-500">
                     {l.total.toLocaleString()} {l.total === 1 ? "lead" : "leads"} · created {timeAgo(l.createdAt, now)}
+                    {importing.has(l.id) && <span className="ml-2 rounded-full bg-violet-50 px-2 py-0.5 text-[13px] font-medium text-violet-700">Collecting…</span>}
                   </p>
                 </div>
                 <div className="hidden w-48 sm:block">

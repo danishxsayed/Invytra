@@ -130,7 +130,7 @@ async function stopRepliedLeads(prisma: PrismaClient, c: Campaign, now: Date): P
 
 type Planned = NonNullable<ReturnType<typeof plannedAction>>;
 
-const TYPES = ["PROFILE_VISIT", "CONNECTION_REQUEST", "MESSAGE", "CHECK_CONNECTION"] as const;
+const TYPES = ["PROFILE_VISIT", "CONNECTION_REQUEST", "MESSAGE", "CHECK_CONNECTION", "LIKE_POST", "WITHDRAW_INVITE"] as const;
 
 /**
  * Queues the next step for due leads. New leads are shared out between the
@@ -194,7 +194,7 @@ async function queueDueLeads(deps: EngineDeps, c: Campaign, now: Date): Promise<
       accountId = null;
     }
 
-    const plan = plannedAction(steps, { state: lead.state as LeadState, step: lead.step, invitedAt: lead.invitedAt, connectedAt: lead.connectedAt });
+    const plan = plannedAction(steps, { state: lead.state as LeadState, step: lead.step, invitedAt: lead.invitedAt, connectedAt: lead.connectedAt, reason: lead.reason });
     if (!plan) {
       await prisma.campaignLead.update({ where: { id: lead.id }, data: { state: "DONE", nextAt: null } });
       continue;

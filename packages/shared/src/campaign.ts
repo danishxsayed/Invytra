@@ -16,6 +16,8 @@ const delay = z.number().int().min(0, "Days can't be negative").max(60, "Wait at
 
 export const stepSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("VISIT"), delayDays: delay }),
+  /** Like their most recent post — a light touch before (or after) the invite. */
+  z.object({ type: z.literal("LIKE_POST"), delayDays: delay }),
   z.object({ type: z.literal("INVITE"), delayDays: delay, note: z.string().max(NOTE_MAX, `Notes can be at most ${NOTE_MAX} characters`) }),
   z.object({ type: z.literal("MESSAGE"), delayDays: delay, text: z.string().max(MESSAGE_MAX, `Messages can be at most ${MESSAGE_MAX} characters`) }),
 ]);
@@ -28,10 +30,11 @@ export function sequenceProblems(steps: CampaignStep[]): string[] {
   if (steps.length === 0) out.push("Add at least one step.");
   if (count("INVITE") > 1) out.push("Use only one invite step.");
   if (count("VISIT") > 1) out.push("Use only one profile visit step.");
+  if (count("LIKE_POST") > 2) out.push("Use at most two “like their latest post” steps.");
   const invite = steps.findIndex((s) => s.type === "INVITE");
   const visit = steps.findIndex((s) => s.type === "VISIT");
   if (invite !== -1 && visit > invite) out.push("Put the profile visit before the invite.");
-  if (steps.length && !steps.some((s) => s.type !== "VISIT")) out.push("Add an invite or a message.");
+  if (steps.length && !steps.some((s) => s.type === "INVITE" || s.type === "MESSAGE")) out.push("Add an invite or a message.");
   steps.forEach((s, i) => {
     const n = i + 1;
     if (s.type === "MESSAGE") {
@@ -73,9 +76,15 @@ export const campaignSettingsSchema = z.object({
     .default([...WEEKDAYS]),
   /** Don't start before this moment (ISO). Null = as soon as it's launched. */
   startAt: z.string().datetime().nullable().default(null),
+  /**
+   * When an invite isn't accepted within acceptWithinDays, withdraw it. Pending
+   * invites count toward LinkedIn's limits; withdrawing frees room. (LinkedIn then
+   * blocks re-inviting that person for about three weeks.)
+   */
+  withdrawExpired: z.boolean().default(true),
 });
 export type CampaignSettings = z.infer<typeof campaignSettingsSchema>;
-export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = { acceptWithinDays: 21, days: [...WEEKDAYS], startAt: null };
+export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = { acceptWithinDays: 21, days: [...WEEKDAYS], startAt: null, withdrawExpired: true };
 
 /** Whether a launched campaign is still waiting for its start date. */
 export function waitingToStart(settings: Pick<CampaignSettings, "startAt">, now: Date): boolean {

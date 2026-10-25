@@ -154,7 +154,7 @@ export async function leadStatuses(prisma: PrismaClient, workspaceId: string, ur
   const out = new Map<string, LeadStatus>();
   if (urls.length === 0) return out;
   const actions = await prisma.action.findMany({
-    where: { targetUrl: { in: urls }, account: { workspaceId }, type: { not: "INBOX_SYNC" } },
+    where: { targetUrl: { in: urls }, account: { workspaceId }, type: { notIn: ["INBOX_SYNC", "SEARCH_PAGE", "WITHDRAW_INVITE"] } },
     select: { targetUrl: true, type: true, status: true, error: true, executedAt: true, createdAt: true },
     orderBy: { createdAt: "asc" },
   });
@@ -181,7 +181,7 @@ function stageOf(type: string, status: string, error: string | null): LeadStage 
   if (status !== "SUCCEEDED") return null;
   if (type === "MESSAGE") return "MESSAGED";
   if (type === "CONNECTION_REQUEST") return "INVITED";
-  if (type === "PROFILE_VISIT" || type === "CHECK_CONNECTION") return "VISITED";
+  if (type === "PROFILE_VISIT" || type === "CHECK_CONNECTION" || type === "LIKE_POST") return "VISITED";
   return null;
 }
 

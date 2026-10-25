@@ -1,12 +1,20 @@
 "use client";
 
 import { MESSAGE_MAX, NOTE_FREE_MAX, NOTE_MAX, type CampaignSettings, type CampaignStep } from "@invytra/shared";
-import { Eye, Hourglass, MessageSquare, Plus, Trash2, UserPlus } from "lucide-react";
+import { Eye, Hourglass, MessageSquare, Plus, ThumbsUp, Trash2, UserPlus } from "lucide-react";
 import { cx } from "../ui";
 import { TextTemplate } from "./TextTemplate";
 
-const ICON = { VISIT: Eye, INVITE: UserPlus, MESSAGE: MessageSquare } as const;
-const TONE = { VISIT: "bg-teal-50 text-teal-700", INVITE: "bg-brand-100 text-brand-800", MESSAGE: "bg-sky-50 text-sky-700" } as const;
+const ICON = { VISIT: Eye, INVITE: UserPlus, MESSAGE: MessageSquare, LIKE_POST: ThumbsUp } as const;
+const TONE = {
+  VISIT: "bg-teal-50 text-teal-700",
+  INVITE: "bg-brand-100 text-brand-800",
+  MESSAGE: "bg-sky-50 text-sky-700",
+  LIKE_POST: "bg-rose-50 text-rose-600",
+} as const;
+
+const addCls =
+  "inline-flex items-center gap-1.5 rounded-lg border border-dashed border-stone-300 px-3 py-2 text-[15px] font-medium text-stone-600 transition hover:border-stone-400 hover:bg-white hover:text-stone-900";
 
 function Days({ value, onChange, disabled, label }: { value: number; onChange: (n: number) => void; disabled?: boolean; label: string }) {
   return (
@@ -46,6 +54,13 @@ export function SequenceEditor({
   const hasVisit = steps[0]?.type === "VISIT";
   const inviteAt = steps.findIndex((s) => s.type === "INVITE");
   let messageNo = 0;
+  // A like fits best just before the invite (they see your name, then your invite). Once a campaign
+  // has started, existing steps can't move, so it goes at the end.
+  const addLike = () => {
+    const at = inviteAt >= locked && inviteAt !== -1 ? inviteAt : steps.length;
+    const like: CampaignStep = { type: "LIKE_POST", delayDays: at === 0 ? 0 : 1 };
+    onSteps([...steps.slice(0, at), like, ...steps.slice(at)]);
+  };
 
   return (
     <div>
@@ -69,7 +84,8 @@ export function SequenceEditor({
           const Icon = ICON[s.type];
           const prev = steps[i - 1];
           const n = s.type === "MESSAGE" ? ++messageNo : 0;
-          const title = s.type === "VISIT" ? "Visit profile" : s.type === "INVITE" ? "Send invite" : n === 1 ? "Message" : `Follow-up ${n - 1}`;
+          const title =
+            s.type === "VISIT" ? "Visit profile" : s.type === "INVITE" ? "Send invite" : s.type === "LIKE_POST" ? "Like their latest post" : n === 1 ? "Message" : `Follow-up ${n - 1}`;
           const when =
             i === 0 ? (
               <span>Starts as soon as the campaign runs</span>
@@ -99,7 +115,7 @@ export function SequenceEditor({
                       <p className="text-[16px] font-semibold text-stone-900">{title}</p>
                       <p className="mt-0.5 text-[14px] text-stone-500">{when}</p>
                     </div>
-                    {s.type === "MESSAGE" && i >= locked && (
+                    {(s.type === "MESSAGE" || s.type === "LIKE_POST") && i >= locked && (
                       <button type="button" onClick={() => remove(i)} className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-rose-600" aria-label={`Remove ${title}`}>
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -125,6 +141,12 @@ export function SequenceEditor({
                       </p>
                     </div>
                   )}
+                  {s.type === "LIKE_POST" && (
+                    <p className="mt-2 text-[14px] text-stone-500">
+                      Likes the newest post on their profile — a light touch that makes your name familiar. If they haven&apos;t posted, this step is
+                      skipped and the sequence carries on.
+                    </p>
+                  )}
                   {s.type === "MESSAGE" && (
                     <div className="mt-3">
                       <TextTemplate label={`${title} text`} value={s.text} onChange={(v) => set(i, { text: v })} max={MESSAGE_MAX} rows={4} placeholder="Write your message…" />
@@ -143,6 +165,18 @@ export function SequenceEditor({
                       onChange={(d) => onSettings({ ...settings, acceptWithinDays: Math.max(3, d) })}
                     />
                     days. Invytra checks about once a day; messages only go to people who accept.
+                    <label className="mt-2 flex items-start gap-2 text-[14px] text-stone-600">
+                      <input
+                        type="checkbox"
+                        checked={settings.withdrawExpired}
+                        onChange={(e) => onSettings({ ...settings, withdrawExpired: e.target.checked })}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-stone-900"
+                      />
+                      <span>
+                        Then withdraw invites that weren&apos;t accepted. Pending invites count against LinkedIn&apos;s limits, so this keeps room
+                        for new ones. (LinkedIn won&apos;t let you invite that person again for about 3 weeks.)
+                      </span>
+                    </label>
                   </span>
                 </div>
               )}
@@ -152,13 +186,20 @@ export function SequenceEditor({
       </ol>
 
       {steps.length < 10 && (
-        <button
-          type="button"
-          onClick={() => onSteps([...steps, { type: "MESSAGE", delayDays: steps.some((s) => s.type === "MESSAGE") ? 3 : 1, text: "" }])}
-          className="ml-[52px] mt-3 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-stone-300 px-3 py-2 text-[15px] font-medium text-stone-600 transition hover:border-stone-400 hover:bg-white hover:text-stone-900"
-        >
-          <Plus className="h-4 w-4" aria-hidden /> Add {steps.some((s) => s.type === "MESSAGE") ? "follow-up" : "message"}
-        </button>
+        <div className="ml-[52px] mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => onSteps([...steps, { type: "MESSAGE", delayDays: steps.some((s) => s.type === "MESSAGE") ? 3 : 1, text: "" }])}
+            className={addCls}
+          >
+            <Plus className="h-4 w-4" aria-hidden /> Add {steps.some((s) => s.type === "MESSAGE") ? "follow-up" : "message"}
+          </button>
+          {steps.filter((s) => s.type === "LIKE_POST").length < 2 && (
+            <button type="button" onClick={addLike} className={addCls}>
+              <ThumbsUp className="h-4 w-4" aria-hidden /> Like their latest post
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

@@ -143,7 +143,7 @@ const clean = (v: string | undefined) => {
   return s === "" ? null : s;
 };
 
-function splitName(full: string | null): [string | null, string | null] {
+export function splitName(full: string | null): [string | null, string | null] {
   if (!full) return [null, null];
   const parts = full.split(" ");
   return [parts[0] ?? null, parts.length > 1 ? parts.slice(1).join(" ") : null];

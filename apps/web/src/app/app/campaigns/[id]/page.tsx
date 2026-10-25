@@ -1,5 +1,5 @@
 import { prisma } from "@invytra/db";
-import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Eye, Hourglass, MessageSquare, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Eye, Hourglass, MessageSquare, ThumbsUp, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CampaignControls } from "@/components/campaign/CampaignControls";
@@ -24,7 +24,7 @@ const FILTER_LABEL: Record<LeadFilter, string> = {
   not_accepted: "Didn't accept",
   skipped: "Skipped / failed",
 };
-const STEP_ICON = { VISIT: Eye, INVITE: UserPlus, MESSAGE: MessageSquare } as const;
+const STEP_ICON = { VISIT: Eye, INVITE: UserPlus, MESSAGE: MessageSquare, LIKE_POST: ThumbsUp } as const;
 
 export default async function CampaignPage({
   params,
@@ -228,7 +228,7 @@ export default async function CampaignPage({
           <ul className="divide-y divide-stone-100">
             {rows.map((l) => {
               const name = l.linkedinName || [l.firstName, l.lastName].filter(Boolean).join(" ") || slugName(l.profileUrl) || "LinkedIn member";
-              const detail = ["SKIPPED", "FAILED", "NOT_ACCEPTED"].includes(l.state) ? reasonText(l.reason) : positionText(c.steps, l.state, l.step);
+              const detail = ["SKIPPED", "FAILED", "NOT_ACCEPTED"].includes(l.state) ? reasonText(l.reason) : positionText(c.steps, l.state, l.step, l.reason);
               const next =
                 l.actionId ? "Queued now" : l.nextAt && ["QUEUED", "IN_PROGRESS", "WAITING_ACCEPT"].includes(l.state) ? (l.nextAt <= now ? "Due now" : `Next ${timeAgo(l.nextAt, now)}`) : "";
               return (

@@ -6,6 +6,9 @@ import { ListActions } from "@/components/LeadListButtons";
 import { LeadTable } from "@/components/LeadTable";
 import { Card, EmptyState, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { ImportProgress } from "@/components/ImportProgress";
+import { timeAgo } from "@/lib/format";
+import { IMPORT_REASON, importAccounts, importsForList } from "@/lib/imports";
 import { LeadListNotFoundError, getList, leadsPage, listSummaries } from "@/lib/leads";
 
 export const metadata = { title: "Lead list" };
@@ -33,10 +36,29 @@ export default async function LeadListPage({
     if (e instanceof LeadListNotFoundError) notFound();
     throw e;
   }
-  const [{ total, rows }, summaries] = await Promise.all([
+  const [{ total, rows }, summaries, accounts, imports] = await Promise.all([
     leadsPage(prisma, me.workspace.id, id, { q, page, pageSize: PAGE_SIZE }),
     listSummaries(prisma, me.workspace.id),
+    importAccounts(prisma, me.workspace.id),
+    importsForList(prisma, me.workspace.id, id),
   ]);
+  const now = new Date();
+  const importViews = imports
+    .filter((i) => i.status === "RUNNING" || (i.finishedAt && now.getTime() - i.finishedAt.getTime() < 7 * 86400_000))
+    .map((i) => ({
+      id: i.id,
+      kind: i.kind,
+      url: i.url,
+      status: i.status,
+      maxLeads: i.maxLeads,
+      pages: i.pages,
+      found: i.found,
+      added: i.added,
+      reasonText: i.reason ? (IMPORT_REASON[i.reason] ?? i.reason) : null,
+      accountLabel: i.account.label,
+      accountActive: i.account.status === "ACTIVE",
+      when: `started ${timeAgo(i.createdAt, now)}`,
+    }));
   const summary = summaries.find((s) => s.id === id);
   const listTotal = summary?.total ?? total;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -55,9 +77,11 @@ export default async function LeadListPage({
               {listTotal.toLocaleString()} {listTotal === 1 ? "lead" : "leads"} · {(summary?.contacted ?? 0).toLocaleString()} contacted
             </p>
           </div>
-          <ListActions id={list.id} name={list.name} total={listTotal} />
+          <ListActions id={list.id} name={list.name} total={listTotal} accounts={accounts} />
         </div>
       </div>
+
+      <ImportProgress listId={list.id} imports={importViews} />
 
       <Card className="overflow-hidden">
         <form className="flex items-center gap-2 border-b border-stone-100 px-5 py-3" action={`/app/leads/${id}`}>

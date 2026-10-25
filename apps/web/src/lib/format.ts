@@ -4,6 +4,9 @@ export const ACTION_LABEL: Record<string, string> = {
   CONNECTION_REQUEST: "Invite",
   MESSAGE: "Message",
   INBOX_SYNC: "Inbox check",
+  SEARCH_PAGE: "Search import",
+  LIKE_POST: "Like latest post",
+  WITHDRAW_INVITE: "Withdraw invite",
 };
 
 /** "/in/jane-doe-123/" from a full LinkedIn URL. */
@@ -39,13 +42,19 @@ export function timeAgo(date: Date | null | undefined, now = new Date()): string
 
 /** One plain sentence about what happened to an action. */
 export function outcomeText(row: { status: string; error: string | null; payload: unknown; type: string }): string {
-  const p = (row.payload ?? {}) as { note?: string; result?: { withNote?: boolean; newReplies?: number } };
+  const p = (row.payload ?? {}) as { note?: string; result?: { withNote?: boolean; newReplies?: number; people?: unknown[] } };
   switch (row.status) {
     case "SUCCEEDED":
       if (row.type === "CONNECTION_REQUEST") {
         if (p.note && p.result?.withNote === false) return "Sent without note — LinkedIn's free-note limit";
         return p.result?.withNote ? "Sent with note" : "Sent";
       }
+      if (row.type === "SEARCH_PAGE") {
+        const n = ((p.result as { people?: unknown[] } | undefined)?.people ?? []).length;
+        return `${n} ${n === 1 ? "person" : "people"} found`;
+      }
+      if (row.type === "LIKE_POST") return "Liked";
+      if (row.type === "WITHDRAW_INVITE") return "Withdrawn";
       if (row.type === "INBOX_SYNC") return p.result?.newReplies ? `${p.result.newReplies} new repl${p.result.newReplies === 1 ? "y" : "ies"}` : "No new replies";
       return "Done";
     case "SKIPPED":
@@ -62,6 +71,11 @@ export function outcomeText(row: { status: string; error: string | null; payload
 function skipText(reason: string | null): string {
   const map: Record<string, string> = {
     PENDING: "Already invited",
+    NO_POSTS: "No posts to like",
+    ALREADY_LIKED: "Already liked",
+    NOT_PENDING: "No pending invite",
+    SEARCH_LIMIT: "LinkedIn's monthly search limit reached",
+    NO_SALES_NAV: "No Sales Navigator on this account",
     CONNECTED: "Already connected",
     PROFILE_UNAVAILABLE: "Profile not found",
     EMAIL_REQUIRED: "LinkedIn asked for their email",

@@ -26,6 +26,7 @@ model Workspace {
   members   Membership[]
   accounts  LinkedinAccount[]
   leadLists LeadList[]
+  imports   LeadImport[]
   leads     Lead[]
   campaigns Campaign[]
 
@@ -75,6 +76,25 @@ enum ActionType {
   CHECK_CONNECTION
   MESSAGE
   INBOX_SYNC
+  /// Reads one page of a LinkedIn / Sales Navigator search into a lead list
+  SEARCH_PAGE
+  /// Likes the person's most recent post
+  LIKE_POST
+  /// Withdraws a pending invitation
+  WITHDRAW_INVITE
+}
+
+enum ImportKind {
+  LINKEDIN_SEARCH
+  SALES_NAV_SEARCH
+  SALES_NAV_LIST
+}
+
+enum ImportStatus {
+  RUNNING
+  DONE
+  FAILED
+  CANCELLED
 }
 
 enum ActionStatus {
@@ -118,6 +138,7 @@ model LinkedinAccount {
   messages        InboxMessage[]
   campaignSenders CampaignSender[]
   campaignLeads   CampaignLead[]
+  imports         LeadImport[]
 
   @@unique([workspaceId, label])
   @@index([workspaceId])
@@ -189,9 +210,10 @@ model LeadList {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   leads     Lead[]
   campaigns Campaign[]
+  imports   LeadImport[]
 
   @@index([workspaceId])
   @@map("lead_lists")
@@ -328,4 +350,40 @@ model CampaignSender {
   @@id([campaignId, accountId])
   @@index([accountId])
   @@map("campaign_senders")
+}
+
+/// Collecting people from a LinkedIn or Sales Navigator search into a lead list,
+/// one results page per queued SEARCH_PAGE action (CLAUDE.md rule 1).
+model LeadImport {
+  id          String       @id @default(cuid())
+  workspaceId String       @map("workspace_id")
+  listId      String       @map("list_id")
+  /// The LinkedIn account whose browser reads the search
+  accountId   String       @map("account_id")
+  kind        ImportKind
+  url         String
+  status      ImportStatus @default(RUNNING)
+  /// Stop after this many people
+  maxLeads    Int          @default(500) @map("max_leads")
+  /// Next results page to read (1-based)
+  nextPage    Int          @default(1) @map("next_page")
+  pages       Int          @default(0)
+  /// People seen on the pages read so far, and how many were new to the list
+  found       Int          @default(0)
+  added       Int          @default(0)
+  /// The queued/running SEARCH_PAGE action, if any
+  actionId    String?      @map("action_id")
+  /// Why it stopped (a code the dashboard explains)
+  reason      String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  finishedAt  DateTime?    @map("finished_at")
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  list      LeadList        @relation(fields: [listId], references: [id], onDelete: Cascade)
+  account   LinkedinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([status])
+  @@map("lead_imports")
 }

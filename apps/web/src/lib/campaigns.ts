@@ -132,7 +132,12 @@ export async function launchProblems(prisma: PrismaClient, workspaceId: string, 
     out.push(c.senders.length === 1 ? `Connect “${c.senders[0]!.label}” to LinkedIn first.` : "Connect at least one of the chosen accounts to LinkedIn first.");
   }
   if (!c.listId) out.push("Choose a lead list.");
-  else if ((await prisma.lead.count({ where: { workspaceId, listId: c.listId } })) === 0) out.push("The lead list is empty.");
+  else if (
+    (await prisma.lead.count({ where: { workspaceId, listId: c.listId } })) === 0 &&
+    (await prisma.leadImport.count({ where: { workspaceId, listId: c.listId, status: "RUNNING" } })) === 0
+  ) {
+    out.push("The lead list is empty.");
+  }
   out.push(...sequenceProblems(c.steps));
   return out;
 }
@@ -296,7 +301,11 @@ export async function builderOptions(prisma: PrismaClient, workspaceId: string) 
       orderBy: { label: "asc" },
       select: { id: true, label: true, status: true, profileName: true, limits: true },
     }),
-    prisma.leadList.findMany({ where: { workspaceId }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, _count: { select: { leads: true } } } }),
+    prisma.leadList.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, name: true, _count: { select: { leads: true } }, imports: { where: { status: "RUNNING" }, select: { maxLeads: true, found: true } } },
+    }),
   ]);
   const samples = await Promise.all(
     lists.map((l) =>
@@ -310,7 +319,14 @@ export async function builderOptions(prisma: PrismaClient, workspaceId: string) 
   );
   return {
     accounts,
-    lists: lists.map((l, i) => ({ id: l.id, name: l.name, count: l._count.leads, sample: samples[i]! })),
+    lists: lists.map((l, i) => ({
+      id: l.id,
+      name: l.name,
+      count: l._count.leads,
+      /** People still to come from a search being collected. */
+      coming: l.imports.reduce((n, imp) => n + Math.max(0, imp.maxLeads - imp.found), 0),
+      sample: samples[i]!,
+    })),
   };
 }
 export type BuilderOptions = Awaited<ReturnType<typeof builderOptions>>;

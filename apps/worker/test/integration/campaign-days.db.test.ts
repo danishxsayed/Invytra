@@ -63,3 +63,50 @@ d("campaign days", () => {
     expect((await hoursForAction(prisma, { type: "INBOX_SYNC", accountId: "acc-d", campaignLeadId: null }, DEFAULT_WORKING_HOURS)).days).toEqual([1, 2, 3, 4, 5]);
   });
 });
+
+d("Sales Navigator leads", () => {
+  let prisma: PrismaClient;
+  const WS = "ws-sn";
+  const queue = { add: async () => undefined } as unknown as Queue<ActionJob>;
+  beforeAll(async () => {
+    prisma = new PrismaClient({ datasources: { db: { url } } });
+    await prisma.workspace.deleteMany({ where: { id: WS } });
+    await prisma.workspace.create({ data: { id: WS, name: "SN" } });
+    await prisma.linkedinAccount.create({ data: { id: "acc-sn", workspaceId: WS, label: "sn", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE" } });
+    await prisma.leadList.create({ data: { id: "list-sn", workspaceId: WS, name: "SN" } });
+    await prisma.lead.create({ data: { workspaceId: WS, listId: "list-sn", profileUrl: "https://www.linkedin.com/in/ACwAAAalice0001XyZ/", firstName: "Alice" } });
+    await prisma.campaign.create({
+      data: {
+        id: "camp-sn",
+        workspaceId: WS,
+        name: "SN",
+        listId: "list-sn",
+        status: "ACTIVE",
+        steps: [{ type: "VISIT", delayDays: 0 }, { type: "LIKE_POST", delayDays: 0 }, { type: "INVITE", delayDays: 0, note: "" }],
+        settings: { days: [1, 2, 3, 4, 5, 6, 7] },
+        senders: { create: { accountId: "acc-sn" } },
+      },
+    });
+  });
+  afterAll(async () => {
+    await prisma.workspace.deleteMany({ where: { id: WS } });
+    await prisma.$disconnect();
+  });
+
+  it("swaps the member-id link for the real profile link after the first visit, then likes a post", async () => {
+    await campaignTick({ prisma, queue });
+    const visit = await prisma.action.findFirstOrThrow({ where: { accountId: "acc-sn", type: "PROFILE_VISIT" } });
+    await prisma.action.update({
+      where: { id: visit.id },
+      data: { status: "SUCCEEDED", executedAt: new Date(), payload: { result: { url: "https://www.linkedin.com/in/alice-smith-42/", name: "Alice Smith" } } },
+    });
+    await campaignTick({ prisma, queue, now: () => new Date(Date.now() + 2 * 3600_000) });
+    await campaignTick({ prisma, queue, now: () => new Date(Date.now() + 4 * 3600_000) });
+    const lead = await prisma.campaignLead.findFirstOrThrow({ where: { campaignId: "camp-sn" } });
+    expect(lead.profileUrl).toBe("https://www.linkedin.com/in/alice-smith-42/");
+    expect(await prisma.lead.count({ where: { listId: "list-sn", profileUrl: "https://www.linkedin.com/in/alice-smith-42/" } })).toBe(1);
+    expect(await prisma.action.findFirst({ where: { accountId: "acc-sn", type: "LIKE_POST", status: "QUEUED" } })).toMatchObject({
+      targetUrl: "https://www.linkedin.com/in/alice-smith-42/",
+    });
+  });
+});

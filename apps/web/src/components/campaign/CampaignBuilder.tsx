@@ -26,6 +26,7 @@ import { Preview } from "./Preview";
 import { startText } from "@/lib/campaign-text";
 import { SendSchedule } from "./SendSchedule";
 import { SequenceEditor } from "./SequenceEditor";
+import { ImportLeads } from "../ImportLeads";
 
 export interface BuilderInitial {
   id: string;
@@ -66,6 +67,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [pending, start] = useTransition();
+  const [importing, setImporting] = useState(false);
 
   const senders = options.accounts.filter((a) => accountIds.includes(a.id));
   const list = options.lists.find((l) => l.id === listId);
@@ -78,7 +80,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
     }
     if (settings.days.length === 0) p.push("Pick at least one day to send on.");
     if (!listId) p.push("Choose a lead list.");
-    else if (list && list.count === 0) p.push("The lead list is empty.");
+    else if (list && list.count === 0 && list.coming === 0) p.push("The lead list is empty.");
     return [...p, ...sequenceProblems(steps)];
   }, [name, senders, listId, list, steps, settings.days]);
   // The start date can change until the campaign has actually started.
@@ -92,7 +94,9 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
     .filter((a) => a.status !== "DISCONNECTED")
     .reduce((n, a) => n + (limitsSchema.safeParse(a.limits).data ?? DEFAULT_LIMITS).connectionRequestsPerDay, 0);
   const usesInvites = steps.some((s) => s.type === "INVITE");
-  const days = list && invitesPerDay ? Math.max(1, Math.ceil(list.count / (usesInvites ? invitesPerDay : 40 * senders.length))) : 0;
+  // A list still being collected from a search counts what's coming too.
+  const listSize = list ? list.count + list.coming : 0;
+  const days = list && invitesPerDay ? Math.max(1, Math.ceil(listSize / (usesInvites ? invitesPerDay : 40 * senders.length))) : 0;
 
   const save = (launch: boolean) =>
     start(async () => {
@@ -123,9 +127,15 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
               {options.lists.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name} — {l.count.toLocaleString()} {l.count === 1 ? "lead" : "leads"}
+                  {l.coming ? " (collecting…)" : ""}
                 </option>
               ))}
             </select>
+            {!(launched && initial?.listId) && (
+              <button type="button" onClick={() => setImporting(true)} className="mt-1.5 text-[14px] font-medium text-brand-800 hover:underline">
+                + New list from a LinkedIn or Sales Navigator search
+              </button>
+            )}
           </Field>
         </div>
         {options.accounts.length > 0 && (
@@ -188,7 +198,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
         )}
         {list && usesInvites && invitesPerDay > 0 && (
           <p className="mt-3 text-[15px] text-stone-500">
-            At up to {invitesPerDay} invites a day{senders.length > 1 ? ` across ${senders.length} accounts` : ""}, inviting all {list.count.toLocaleString()} leads takes about {days} sending {days === 1 ? "day" : "days"}
+            At up to {invitesPerDay} invites a day{senders.length > 1 ? ` across ${senders.length} accounts` : ""}, inviting {list.coming ? "up to " : "all "}{listSize.toLocaleString()} leads takes about {days} sending {days === 1 ? "day" : "days"}
             {days > perWeek && ` (about ${Math.ceil(days / perWeek)} weeks at ${daysText(settings.days)})`}. New leads added
             to this list later join the campaign automatically.
           </p>
@@ -265,11 +275,25 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
         </div>
       </div>
 
+      {importing && (
+        <ImportLeads
+          target={{ kind: "new" }}
+          accounts={options.accounts}
+          initialTab="search"
+          onClose={() => setImporting(false)}
+          onCreated={(id) => {
+            setListId(id);
+            router.refresh();
+          }}
+        />
+      )}
+
       {confirm && senders.length > 0 && list && (
         <Modal title="Launch this campaign?" onClose={() => setConfirm(false)} busy={pending}>
           <ul className="space-y-2 text-[15px] text-stone-700">
             <li>
-              <b>{senders.length === 1 ? senders[0]!.label : `${senders.length} accounts`}</b> {senders.length === 1 ? "starts" : "start"} working through <b>{list.count.toLocaleString()}</b> leads in “{list.name}”.
+              <b>{senders.length === 1 ? senders[0]!.label : `${senders.length} accounts`}</b> {senders.length === 1 ? "starts" : "start"} working through <b>{list.coming ? `up to ${listSize.toLocaleString()}` : listSize.toLocaleString()}</b> leads in “{list.name}”
+              {list.coming ? " as they're collected" : ""}.
             </li>
             {senders.length > 1 && <li>Each lead goes to one account and stays with it, so nobody hears from two of your accounts.</li>}
             <li>

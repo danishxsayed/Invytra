@@ -12,6 +12,7 @@ import { processAction } from "./queue/processor.js";
 import { QUEUE_NAME, createQueue, scheduleAction, type ActionJob } from "./queue/queue.js";
 import { createConnectServer } from "./connect/server.js";
 import { campaignTick } from "./campaigns/engine.js";
+import { importTick } from "./imports/importer.js";
 import { createRuntime } from "./runtime.js";
 
 const INBOX_EVERY_MIN = Number(process.env.INBOX_SYNC_EVERY_MINUTES ?? 60);
@@ -88,6 +89,8 @@ async function main() {
     if (ticking) return;
     ticking = true;
     try {
+      const imp = await importTick({ prisma: rt.prisma, queue });
+      if (imp.added || imp.finished) log(`Imports: ${imp.added} new lead(s) added${imp.finished ? `, ${imp.finished} import(s) finished` : ""}`);
       const t = await campaignTick({ prisma: rt.prisma, queue });
       if (t.queued || t.replied || t.cancelled) {
         log(`Campaigns: ${t.queued} step(s) queued${t.replied ? `, ${t.replied} lead(s) replied — follow-ups stopped` : ""}${t.cancelled ? `, ${t.cancelled} cancelled (paused)` : ""}`);

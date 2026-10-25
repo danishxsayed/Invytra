@@ -3,6 +3,8 @@ import {
   DEFAULT_CAMPAIGN_SETTINGS,
   applyResult,
   campaignSettingsSchema,
+  canonicalProfileUrl,
+  isMemberIdUrl,
   stepSchema,
   type ActionResult,
   type CampaignSettings,
@@ -22,7 +24,7 @@ export function campaignPlan(c: { steps: unknown; settings: unknown }): { steps:
 const FINAL = ["SUCCEEDED", "SKIPPED", "FAILED"] as const;
 
 function resultOf(a: Action): ActionResult | null {
-  if (a.type === "INBOX_SYNC") return null;
+  if (a.type === "INBOX_SYNC" || a.type === "SEARCH_PAGE") return null;
   const r = ((a.payload ?? {}) as { result?: { status?: string } }).result;
   const connection = r?.status as ActionResult["connection"] | undefined;
   return { type: a.type, status: a.status as ActionResult["status"], error: a.error, connection };
@@ -53,9 +55,35 @@ export async function applyFinishedActions(prisma: PrismaClient, now: Date, rand
       continue;
     }
     await release(prisma, lead, updateFor(lead, action, now, random));
+    await resolveProfileUrl(prisma, lead, action);
     applied++;
   }
   return applied;
+}
+
+/**
+ * Sales Navigator gives member-id links (/in/ACwAA…/). The first time we open
+ * one, LinkedIn redirects to the person's real profile; from then on the lead
+ * (in the campaign and in its list) uses that link, so "already contacted"
+ * checks and later imports recognise them.
+ */
+async function resolveProfileUrl(prisma: PrismaClient, lead: CampaignLead, action: Action): Promise<void> {
+  if (!isMemberIdUrl(lead.profileUrl)) return;
+  const seen = ((action.payload ?? {}) as { result?: { url?: unknown } }).result?.url;
+  let real: string | null = null;
+  try {
+    // Only the path matters (the worker may run against a test site in development).
+    if (typeof seen === "string") real = canonicalProfileUrl(`https://www.linkedin.com${new URL(seen).pathname}`);
+  } catch {
+    /* not a URL */
+  }
+  if (!real || real === lead.profileUrl || isMemberIdUrl(real)) return;
+  try {
+    await prisma.campaignLead.update({ where: { id: lead.id }, data: { profileUrl: real } });
+    if (lead.leadId) await prisma.lead.update({ where: { id: lead.leadId }, data: { profileUrl: real } });
+  } catch {
+    // The same person is already in this campaign or list under their real link — keep both as they are.
+  }
 }
 
 /** Only clears/updates the lead if it still waits on this same action. */
@@ -80,7 +108,14 @@ function updateFor(
   const result = resultOf(action);
   if (!result) return common;
   const { steps, settings } = campaignPlan(lead.campaign);
-  const u = applyResult(steps, settings, { state: lead.state as LeadState, step: lead.step, invitedAt: lead.invitedAt, connectedAt: lead.connectedAt }, result, now, random);
+  const u = applyResult(
+    steps,
+    settings,
+    { state: lead.state as LeadState, step: lead.step, invitedAt: lead.invitedAt, connectedAt: lead.connectedAt, reason: lead.reason },
+    result,
+    now,
+    random,
+  );
   return {
     ...common,
     state: u.state,

@@ -1,7 +1,7 @@
 "use client";
 
 import { leadsFromCsv, leadsFromText, LEAD_IMPORT, type ColumnMapping, type LeadParseResult } from "@invytra/shared";
-import { ClipboardPaste, FileUp, Loader2, Upload } from "lucide-react";
+import { ClipboardPaste, FileUp, Loader2, Search, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { importLeadsAction } from "@/app/app/leads/actions";
@@ -10,14 +10,29 @@ import { btn } from "./AccountControls";
 import { Field, inputCls } from "./fields";
 import { ImportPreview, MappingEditor } from "./ImportPreview";
 import { Modal } from "./Modal";
+import { SearchImport, type ImportAccount } from "./SearchImport";
 import { cx } from "./ui";
 
 type Target = { kind: "new" } | { kind: "add"; listId: string; listName: string };
 
 /** Create a list (or add to one) from a CSV file or pasted LinkedIn links. */
-export function ImportLeads({ target, onClose }: { target: Target; onClose: () => void }) {
+export function ImportLeads({
+  target,
+  onClose,
+  accounts = [],
+  initialTab,
+  onCreated,
+}: {
+  target: Target;
+  onClose: () => void;
+  /** LinkedIn accounts that can read a search link. */
+  accounts?: ImportAccount[];
+  initialTab?: "csv" | "paste" | "search";
+  /** Called with the new list's id instead of opening it (used by the campaign builder). */
+  onCreated?: (listId: string) => void;
+}) {
   const router = useRouter();
-  const [tab, setTab] = useState<"csv" | "paste">("csv");
+  const [tab, setTab] = useState<"csv" | "paste" | "search">(initialTab ?? (accounts.length ? "search" : "csv"));
   const [name, setName] = useState("");
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [pasted, setPasted] = useState("");
@@ -29,6 +44,7 @@ export function ImportLeads({ target, onClose }: { target: Target; onClose: () =
   const input = useRef<HTMLInputElement>(null);
 
   const result: LeadParseResult | null = useMemo(() => {
+    if (tab === "search") return null;
     if (tab === "csv") return file ? leadsFromCsv(file.text, mapping) : null;
     return pasted.trim() ? leadsFromText(pasted) : null;
   }, [tab, file, pasted, mapping]);
@@ -51,7 +67,7 @@ export function ImportLeads({ target, onClose }: { target: Target; onClose: () =
       setError(null);
       const r = await importLeadsAction({
         ...(target.kind === "add" ? { listId: target.listId } : { name }),
-        kind: tab,
+        kind: tab === "csv" ? "csv" : "paste",
         text: tab === "csv" ? (file?.text ?? "") : pasted,
         ...(tab === "csv" && result ? { mapping: result.mapping } : {}),
       });
@@ -80,7 +96,8 @@ export function ImportLeads({ target, onClose }: { target: Target; onClose: () =
             className={btn.primary}
             onClick={() => {
               onClose();
-              if (target.kind === "new") router.push(`/app/leads/${done.listId}`);
+              if (onCreated && target.kind === "new") onCreated(done.listId);
+              else if (target.kind === "new") router.push(`/app/leads/${done.listId}`);
             }}
           >
             {target.kind === "new" ? "Open list" : "Done"}
@@ -96,7 +113,7 @@ export function ImportLeads({ target, onClose }: { target: Target; onClose: () =
       busy={pending}
       onClose={onClose}
       title={target.kind === "new" ? "New lead list" : `Add leads to ${target.listName}`}
-      description="Upload a CSV (Sales Navigator, Apollo, Excel…) or paste LinkedIn profile links."
+      description="Collect people from a LinkedIn or Sales Navigator search, upload a CSV (Sales Navigator, Apollo, Excel…), or paste profile links."
     >
       {target.kind === "new" && (
         <Field label="List name" className="mb-4">
@@ -107,6 +124,7 @@ export function ImportLeads({ target, onClose }: { target: Target; onClose: () =
       <div role="tablist" className="mb-4 inline-flex rounded-lg bg-stone-100 p-1">
         {(
           [
+            ["search", "From a search", Search],
             ["csv", "Upload CSV", FileUp],
             ["paste", "Paste links", ClipboardPaste],
           ] as const
@@ -126,7 +144,15 @@ export function ImportLeads({ target, onClose }: { target: Target; onClose: () =
         ))}
       </div>
 
-      {tab === "csv" ? (
+      {tab === "search" ? (
+        <SearchImport
+          target={target.kind === "add" ? { kind: "add", listId: target.listId } : { kind: "new" }}
+          name={name}
+          accounts={accounts}
+          onClose={onClose}
+          onCreated={onCreated}
+        />
+      ) : tab === "csv" ? (
         <>
           <button
             type="button"
@@ -168,15 +194,15 @@ export function ImportLeads({ target, onClose }: { target: Target; onClose: () =
         />
       )}
 
-      {result && <ImportPreview result={result} />}
+      {tab !== "search" && result && <ImportPreview result={result} />}
 
-      {error && (
+      {tab !== "search" && error && (
         <p role="alert" className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[15px] text-rose-700">
           {error}
         </p>
       )}
 
-      <div className="mt-6 flex flex-wrap justify-end gap-2">
+      {tab !== "search" && <div className="mt-6 flex flex-wrap justify-end gap-2">
         <button type="button" className={btn.secondary} onClick={onClose} disabled={pending}>
           Cancel
         </button>
@@ -192,7 +218,7 @@ export function ImportLeads({ target, onClose }: { target: Target; onClose: () =
               : "Add leads"
             : `${target.kind === "new" ? "Create list with" : "Add"} ${count.toLocaleString()} ${count === 1 ? "lead" : "leads"}`}
         </button>
-      </div>
+      </div>}
     </Modal>
   );
 }

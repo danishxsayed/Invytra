@@ -105,6 +105,19 @@ LinkedIn. One less service to build, deploy and secure.
   also run on any day a running campaign of that account sends, so weekend follow-ups still get
   a fresh inbox read. Launched campaigns wait for their start date ("Scheduled" badge); the start
   date can only change until it has passed. Account working days now apply to non-campaign work.
+- [x] Search imports, likes, withdrawals (2026-10-25): paste a LinkedIn people search, a Sales
+  Navigator lead search or a Sales Navigator lead list (`packages/shared/src/search-url.ts`);
+  `lead_imports` + SEARCH_PAGE actions read one results page at a time
+  (`apps/worker/src/linkedin/search.ts`, `apps/worker/src/imports/importer.ts`), max 30 pages a
+  day per account, inside working hours. Sales Navigator people are stored as member-id links
+  (`/in/ACwAA…/`, case kept) and swapped for the real profile link after the first visit.
+  Stops on LinkedIn's monthly search limit (SEARCH_LIMIT) or no Sales Navigator (NO_SALES_NAV).
+  New step LIKE_POST (latest post on the activity page; skipped if none). Setting
+  `withdrawExpired` (default on): expired invites get a WITHDRAW_INVITE before the lead ends as
+  NOT_ACCEPTED/EXPIRED_WITHDRAWN. Likes and withdrawals count as profile visits.
+  **Selectors for search results, Sales Navigator, likes and withdraw are untested on the real
+  site** — try a small import (10 people) and one campaign with a like first, and fix
+  `apps/worker/src/linkedin/selectors.ts` from what you see.
 - [x] Settings (2026-10-24): profile (name; email change needs the current password), change
   password (signs out every other session via `users.sessions_valid_after`, this browser stays
   in), "sign out other devices", workspace name (owner only), team list. Team invites by email

@@ -52,7 +52,21 @@ export interface FakeState {
   accepted: string[];
   /** Extra inbox replies (test hook: POST /__test/reply/<slug> with the text). */
   replies: { slug: string; text: string }[];
+  /** Posts liked, as "<slug>#<post>". */
+  likes: string[];
+  /** People whose pending invite was withdrawn. */
+  withdrawn: string[];
 }
+
+/** Sales Navigator member ids → profile names (LinkedIn redirects /in/<id>/ to the profile). */
+export const SALES_IDS: Record<string, string> = {
+  ACwAAAalice0001XyZ: "alice",
+  ACwAAAbob00002XyZ: "bob",
+  ACwAAAolga0003XyZ: "olga",
+};
+
+/** Whose posts the activity page shows; carol's latest is already liked. */
+const POSTS: Record<string, string[]> = { alice: ["p1", "p2"], carol: ["c1"], dave: ["d1"] };
 
 const page = (title: string, body: string) =>
   `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
@@ -60,7 +74,8 @@ const page = (title: string, body: string) =>
   <body>${body}</body></html>`;
 
 function profileHtml(slug: string, p: Person, state: FakeState): string {
-  const pending = !state.accepted.includes(slug) && (p.kind === "pending" || state.invites.some((i) => i.slug === slug));
+  const pending =
+    !state.accepted.includes(slug) && !state.withdrawn.includes(slug) && (p.kind === "pending" || state.invites.some((i) => i.slug === slug));
   const connected = p.kind === "connected" || state.accepted.includes(slug);
   const old = OLD_LAYOUT.has(slug);
   const invite = `aria-label="Invite ${p.name} to connect"`;
@@ -124,11 +139,79 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
           '<textarea name="message" maxlength="300"></textarea><button id="s" aria-label="Send invitation">Send</button>';
           document.getElementById('s').onclick=()=>send(root.querySelector('textarea').value);};
       };
+      const pend=document.querySelector('[aria-label^="Pending, click to withdraw"]'); if(pend) pend.onclick=(e)=>{e.preventDefault();
+        document.getElementById('modal-root').innerHTML='<div role="dialog"><h2>Withdraw invitation</h2><p>If you withdraw now, you won’t be able to resend to '+name+' for up to 3 weeks.</p><button id="cancel-w">Cancel</button><button id="do-w">Withdraw</button></div>';
+        document.getElementById('cancel-w').onclick=()=>{document.getElementById('modal-root').innerHTML='';};
+        document.getElementById('do-w').onclick=async()=>{await fetch('/api/withdraw/'+slug,{method:'POST'});document.getElementById('modal-root').innerHTML='';
+          document.querySelector('.actions').innerHTML= old ? '<button id="connect">Connect</button>' : '<a href="#" id="connect">Connect</a>';};};
       const m=document.getElementById('msg'); if(m) m.onclick=(e)=>{e.preventDefault();document.getElementById('chat').hidden=false;};
       const sm=document.getElementById('send-msg'); sm.onclick=async()=>{const box=document.getElementById('box');const t=box.innerText;
         await fetch('/api/message/'+slug,{method:'POST',body:JSON.stringify({text:t})});
         const li=document.createElement('li');li.textContent=t;document.getElementById('thread').appendChild(li);box.innerText='';};
     </script>`,
+  );
+}
+
+function activityHtml(slug: string, p: Person, state: FakeState): string {
+  const posts = POSTS[slug] ?? [];
+  const body = posts.length
+    ? posts
+        .map((id, i) => {
+          const liked = state.likes.includes(`${slug}#${id}`) || (slug === "carol" && i === 0);
+          return `<div data-urn="urn:li:activity:${slug}${id}" class="post"><p>${p.name} posted: thoughts number ${i + 1}</p>
+            <button aria-label="React Like" aria-pressed="${liked}" data-post="${id}">Like</button><button>Comment</button><button>Repost</button></div>`;
+        })
+        .join("")
+    : `<p>${p.name.split(" ")[0]} hasn’t posted yet</p>`;
+  return page(
+    `Activity | ${p.name} | LinkedIn`,
+    `${HIDDEN_CAPTCHA}<main><h1>All activity</h1>${body}</main>
+    <script>document.querySelectorAll('[data-post]').forEach(b=>b.onclick=async()=>{
+      await fetch('/api/like/${slug}',{method:'POST',body:JSON.stringify({post:b.dataset.post})});b.setAttribute('aria-pressed','true');});</script>`,
+  );
+}
+
+/** LinkedIn people search: page 1 has 5 results (one hidden "LinkedIn Member"), page 2 has 2; keywords=limit shows the monthly limit. */
+function searchHtml(params: URLSearchParams): string {
+  if (params.get("keywords") === "limit") {
+    return page("Search | LinkedIn", `${HIDDEN_CAPTCHA}<main><h2>You’ve reached the monthly limit for profile searches</h2><p>Upgrade to Premium</p></main>`);
+  }
+  const n = Number(params.get("page") ?? "1");
+  const slugs = n === 1 ? ["alice", "bob", "olga", "ivan"] : n === 2 ? ["nina", "pam"] : [];
+  if (!slugs.length) return page("Search | LinkedIn", `${HIDDEN_CAPTCHA}<main><h2>No results found</h2></main>`);
+  const item = (slug: string) => {
+    const p = PEOPLE[slug]!;
+    return `<li><div><a href="/in/${slug}?miniProfileUrn=urn%3Ali%3Afs_miniProfile%3AACoAAX"><img alt=""></a>
+      <a href="/in/${slug}?miniProfileUrn=x"><span aria-hidden="true">${p.name}${slug === "olga" ? ", MBA" : ""}</span><span class="visually-hidden">View ${p.name}’s profile</span></a>
+      <span>• 2nd</span><div>${p.headline}</div><div>Pune, Maharashtra, India</div><button aria-label="Invite ${p.name} to connect">Connect</button></div></li>`;
+  };
+  const member = `<li><div><span>LinkedIn Member</span><div>Head of Growth at Hidden Co</div></div></li>`;
+  return page(
+    "Search | LinkedIn",
+    `${HIDDEN_CAPTCHA}<main><ul role="list">${slugs.map(item).join("")}${n === 1 ? member : ""}</ul>
+    <div><button aria-label="Previous" ${n === 1 ? "disabled" : ""}>Previous</button><button aria-label="Next" ${n === 2 ? "disabled" : ""}>Next</button></div></main>
+    <aside><h2>People also viewed</h2></aside>`,
+  );
+}
+
+/** Sales Navigator: 2 leads on page 1, 1 on page 2. Results only appear after scrolling, like the real thing. */
+function salesHtml(params: URLSearchParams): string {
+  const n = Number(params.get("page") ?? "1");
+  const ids = n === 1 ? ["ACwAAAalice0001XyZ", "ACwAAAbob00002XyZ"] : n === 2 ? ["ACwAAAolga0003XyZ"] : [];
+  const rows = ids
+    .map((id) => {
+      const p = PEOPLE[SALES_IDS[id]!]!;
+      return `<li><a href="/sales/lead/${id},NAME_SEARCH,abcd?_ntb=x"><span data-anonymize="person-name">${p.name}</span></a>
+        <span data-anonymize="title">${p.headline.split(" at ")[0]}</span><a data-anonymize="company-name" href="/sales/company/1">${p.headline.split(" at ")[1] ?? "Self-employed"}</a>
+        <span data-anonymize="location">Mumbai, India</span></li>`;
+    })
+    .join("");
+  return page(
+    "Sales Navigator",
+    `${HIDDEN_CAPTCHA}<main><div id="search-results-container" style="height:400px;overflow:auto"><div style="height:900px"></div><ol id="res"></ol></div>
+    <button aria-label="Next" ${n >= 2 ? "disabled" : ""}>Next</button></main>
+    <script>const box=document.getElementById('search-results-container');box.addEventListener('scroll',()=>{
+      if(!document.getElementById('res').innerHTML) document.getElementById('res').innerHTML=${JSON.stringify(rows)};});</script>`,
   );
 }
 
@@ -150,7 +233,7 @@ const inboxHtml = (state: FakeState) =>
   );
 
 export function startFakeLinkedIn(): { server: Server; state: FakeState } {
-  const state: FakeState = { invites: [], messages: [], logins: [], accepted: [], replies: [] };
+  const state: FakeState = { invites: [], messages: [], logins: [], accepted: [], replies: [], likes: [], withdrawn: [] };
   const server = createServer((req, res) => {
     const cookie = req.headers.cookie ?? "";
     const loggedIn = /li_at=valid/.test(cookie);
@@ -179,6 +262,8 @@ export function startFakeLinkedIn(): { server: Server; state: FakeState } {
         const data = JSON.parse(body || "{}");
         if (kind === "invite") state.invites.push({ slug: slug!, note: data.note ?? null });
         if (kind === "message") state.messages.push({ slug: slug!, text: data.text });
+        if (kind === "like") state.likes.push(`${slug}#${data.post}`);
+        if (kind === "withdraw") state.withdrawn.push(slug!);
         send(200, "{}", { "content-type": "application/json" });
       });
       return;
@@ -199,7 +284,21 @@ export function startFakeLinkedIn(): { server: Server; state: FakeState } {
     if (path === "/in/me" || path === "/in/me/") return send(302, "", { location: "/in/tess/" });
     if (path.startsWith("/feed")) return send(200, page("Feed | LinkedIn", `${HIDDEN_CAPTCHA}<main><h1>Start a post</h1></main>`));
     if (path.startsWith("/messaging")) return send(200, inboxHtml(state));
+    const query = new URLSearchParams((req.url ?? "").split("?")[1] ?? "");
+    if (path.startsWith("/search/results/people")) return send(200, searchHtml(query));
+    if (path.startsWith("/sales/search/people") || path.startsWith("/sales/lists/people")) {
+      if ((query.get("query") ?? "").includes("nosales")) return send(302, "", { location: "/premium/products/?upsellOrderOrigin=sales" });
+      return send(200, salesHtml(query));
+    }
+    if (path.startsWith("/premium/")) return send(200, page("Premium", "<main><h1>Start your free trial of Sales Navigator</h1></main>"));
+    const act = /^\/in\/([^/]+)\/recent-activity\//.exec(path);
+    if (act) {
+      const person = PEOPLE[act[1]!];
+      if (!person) return send(404, page("Page not found | LinkedIn", "<main><p>This page doesn’t exist</p></main>"));
+      return send(200, activityHtml(act[1]!, person, state));
+    }
     const m = /^\/in\/([^/]+)/.exec(path);
+    if (m && SALES_IDS[m[1]!]) return send(302, "", { location: `/in/${SALES_IDS[m[1]!]}/` });
     if (m) {
       const person = PEOPLE[m[1]!];
       if (!person) return send(404, page("Page not found | LinkedIn", "<main><div><p>This page doesn’t exist</p></div></main>"));

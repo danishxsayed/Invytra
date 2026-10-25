@@ -4,6 +4,7 @@ import { prisma } from "@invytra/db";
 import { revalidatePath } from "next/cache";
 import type { Result } from "@/lib/accounts";
 import { requireUser } from "@/lib/auth";
+import { cancelSearchImport, searchImportSchema, startSearchImport } from "@/lib/imports";
 import {
   LeadListNotFoundError,
   deleteList,
@@ -58,5 +59,21 @@ export async function removeLeadsAction(listId: string, ids: unknown): Promise<R
   if (!Array.isArray(ids) || !ids.every((i) => typeof i === "string")) return { ok: false, error: "Nothing selected." };
   const r = await guarded(() => removeLeads(prisma, me.workspace.id, String(listId), ids as string[]));
   if (r.ok) refresh(listId);
+  return r;
+}
+
+export async function startSearchImportAction(input: unknown): Promise<Result<{ listId: string; importId: string }>> {
+  const me = await requireUser();
+  const parsed = searchImportSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
+  const r = await guarded(() => startSearchImport(prisma, me.workspace.id, parsed.data));
+  if (r.ok) refresh(r.value.listId);
+  return r;
+}
+
+export async function cancelSearchImportAction(id: string, listId: string): Promise<Result> {
+  const me = await requireUser();
+  const r = await cancelSearchImport(prisma, me.workspace.id, String(id));
+  if (r.ok) refresh(String(listId));
   return r;
 }

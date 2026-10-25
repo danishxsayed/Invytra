@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@invytra/db";
-import { outreachTextProblem, type ActionType, type TemplateVars } from "@invytra/shared";
+import { outreachTextProblem, type ActionType, type SearchKind, type TemplateVars } from "@invytra/shared";
 import type { SessionTaskContext } from "../browser/types.js";
 import {
   checkConnectionStatus,
@@ -10,6 +10,8 @@ import {
   type ActionOutcome,
   type InboxThread,
 } from "../linkedin/actions.js";
+import { likeLatestPost, withdrawInvite } from "../linkedin/engage.js";
+import { readSearchPage } from "../linkedin/search.js";
 import { storeInboxThreads } from "./inbox-store.js";
 
 export interface ActionSpec {
@@ -18,11 +20,14 @@ export interface ActionSpec {
   payload?: Record<string, unknown> | null;
 }
 
+const SEARCH_KINDS: SearchKind[] = ["LINKEDIN_SEARCH", "SALES_NAV_SEARCH", "SALES_NAV_LIST"];
+
 /** Validates an action's inputs up front (enqueue time), so bad jobs never reach LinkedIn. */
 export function validateSpec(spec: ActionSpec): void {
   const needsUrl = spec.type !== "INBOX_SYNC";
   if (needsUrl && !spec.targetUrl) throw new Error(`${spec.type} needs a profile URL`);
   if (spec.type === "MESSAGE" && !String(spec.payload?.text ?? "").trim()) throw new Error("MESSAGE needs text");
+  if (spec.type === "SEARCH_PAGE" && !SEARCH_KINDS.includes(spec.payload?.kind as SearchKind)) throw new Error("SEARCH_PAGE needs a search kind");
   // Never send placeholder text like "Hi {firstName}, …" (checked at enqueue AND before sending).
   for (const [field, label] of [["note", "Invite note"], ["text", "Message text"]] as const) {
     const value = spec.payload?.[field];
@@ -62,6 +67,12 @@ export function workFor(spec: ActionSpec): (ctx: SessionTaskContext) => Promise<
       return (ctx) => sendMessage(ctx, url, String(p.text), varsOf(p));
     case "INBOX_SYNC":
       return (ctx) => fetchInbox(ctx);
+    case "SEARCH_PAGE":
+      return (ctx) => readSearchPage(ctx, url, p.kind as SearchKind);
+    case "LIKE_POST":
+      return (ctx) => likeLatestPost(ctx, url);
+    case "WITHDRAW_INVITE":
+      return (ctx) => withdrawInvite(ctx, url);
   }
 }
 

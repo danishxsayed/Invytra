@@ -8,21 +8,22 @@ import { btn } from "./AccountControls";
 import { Field, inputCls } from "./fields";
 import { ImportLeads } from "./ImportLeads";
 import { Modal } from "./Modal";
+import type { ImportAccount } from "./SearchImport";
 
-export function NewListButton({ label = "New list" }: { label?: string }) {
+export function NewListButton({ label = "New list", accounts = [] }: { label?: string; accounts?: ImportAccount[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button className={btn.primary} onClick={() => setOpen(true)}>
         <Plus className="h-4 w-4" aria-hidden /> {label}
       </button>
-      {open && <ImportLeads target={{ kind: "new" }} onClose={() => setOpen(false)} />}
+      {open && <ImportLeads target={{ kind: "new" }} accounts={accounts} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
 /** Add leads / rename / delete, on a list's page. */
-export function ListActions({ id, name, total }: { id: string; name: string; total: number }) {
+export function ListActions({ id, name, total, accounts = [] }: { id: string; name: string; total: number; accounts?: ImportAccount[] }) {
   const router = useRouter();
   const [mode, setMode] = useState<"add" | "rename" | "delete" | null>(null);
   const [newName, setNewName] = useState(name);
@@ -45,7 +46,7 @@ export function ListActions({ id, name, total }: { id: string; name: string; tot
         <Trash2 className="h-4 w-4" aria-hidden /> Delete
       </button>
 
-      {mode === "add" && <ImportLeads target={{ kind: "add", listId: id, listName: name }} onClose={close} />}
+      {mode === "add" && <ImportLeads target={{ kind: "add", listId: id, listName: name }} accounts={accounts} onClose={close} />}
 
       {mode === "rename" && (
         <Modal title="Rename list" onClose={close} busy={pending}>

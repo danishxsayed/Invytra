@@ -31,7 +31,7 @@ export class InviteLimitReachedError extends Error {
   }
 }
 
-async function openProfile(ctx: SessionTaskContext, profileUrl: string, browse: boolean): Promise<ProfileInfo> {
+export async function openProfile(ctx: SessionTaskContext, profileUrl: string, browse: boolean): Promise<ProfileInfo> {
   const url = normalizeProfileUrl(profileUrl, ctx.baseUrl);
   await ctx.page.goto(url, { waitUntil: "domcontentloaded" });
   await humanPause(ctx.page, 1500, 3500);

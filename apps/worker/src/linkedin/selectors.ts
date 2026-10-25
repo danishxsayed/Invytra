@@ -30,6 +30,19 @@ export const TEXT_MARKERS = {
   ],
 } as const;
 
+/** Lower-case text on search pages. */
+export const SEARCH_MARKERS = {
+  /** Free accounts get a monthly "commercial use" allowance of people searches. */
+  searchLimit: [
+    "you've reached the monthly limit for profile searches",
+    "you’ve reached the monthly limit for profile searches",
+    "commercial use limit",
+  ],
+  noResults: ["no results found", "no leads matched your search", "this list is empty"],
+  /** Shown instead of Sales Navigator to members without a Sales Navigator plan. */
+  noSalesNav: ["start your free trial of sales navigator", "try sales navigator", "sales navigator is not available", "upgrade to sales navigator"],
+} as const;
+
 /** Elements whose presence means a CAPTCHA widget is on the page. */
 export const CAPTCHA_SELECTORS = [
   'iframe[src*="captcha"]',
@@ -91,6 +104,37 @@ export const SELECTORS = {
     composeBox: '[role="textbox"][contenteditable="true"]',
     sendButton: /^Send$/i,
     closeConversation: /^Close your (conversation|draft)/i,
+  },
+  search: {
+    /** LinkedIn people search: every result links to /in/<name>. "LinkedIn Member" results have no profile link. */
+    profileLink: 'main a[href*="/in/"]',
+    /** The visible name inside a result link (the rest is screen-reader text). */
+    linkName: 'span[aria-hidden="true"]',
+    /** One result, in the 2026 and older layouts. */
+    result: 'li, [role="listitem"], [data-chameleon-result-urn], [data-view-name="search-entity-result-universal-template"]',
+    hiddenMember: /^LinkedIn Member$/i,
+    nextButton: /^Next$/i,
+    /** Sales Navigator: each lead links to /sales/lead/<id>,…; fields carry data-anonymize markers. */
+    salesLeadLink: 'a[href*="/sales/lead/"]',
+    salesName: '[data-anonymize="person-name"]',
+    salesTitle: '[data-anonymize="title"]',
+    salesCompany: '[data-anonymize="company-name"]',
+    salesLocation: '[data-anonymize="location"]',
+    /** Sales Navigator loads results as you scroll this panel. */
+    salesScroller: '#search-results-container, [data-x--search-results-container], main',
+  },
+  activity: {
+    /** Appended to a profile URL: the person's posts, newest first. */
+    path: "recent-activity/all/",
+    post: '[data-urn*="urn:li:activity"], [data-id*="urn:li:activity"], [role="article"], article',
+    /** "React Like" in the 2026 feed, "Like" before; aria-pressed=true once liked. */
+    likeButton: /^(React )?Like\b/i,
+  },
+  withdraw: {
+    /** On a profile with a pending invite: the Pending control, or "Withdraw invitation" under More. */
+    menuItem: /^Withdraw( invitation)?$/i,
+    confirmButton: /^Withdraw$/i,
+    dialogText: /withdraw/i,
   },
   inbox: {
     path: "/messaging/",

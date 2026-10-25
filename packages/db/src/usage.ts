@@ -3,7 +3,7 @@ import type { PrismaClient } from "@prisma/client";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface AccountUsage {
-  today: { PROFILE_VISIT: number; CONNECTION_REQUEST: number; MESSAGE: number };
+  today: { PROFILE_VISIT: number; CONNECTION_REQUEST: number; MESSAGE: number; SEARCH_PAGE: number };
   /** Connection requests in the last 7 days. */
   connectionRequestsThisWeek: number;
 }
@@ -32,9 +32,10 @@ export async function usageFor(prisma: PrismaClient, accountId: string, now = ne
   return {
     today: {
       // A connection check opens the profile, so it counts as a visit.
-      PROFILE_VISIT: count("PROFILE_VISIT") + count("CHECK_CONNECTION"),
+      PROFILE_VISIT: count("PROFILE_VISIT") + count("CHECK_CONNECTION") + count("LIKE_POST") + count("WITHDRAW_INVITE"),
       CONNECTION_REQUEST: count("CONNECTION_REQUEST"),
       MESSAGE: count("MESSAGE"),
+      SEARCH_PAGE: count("SEARCH_PAGE"),
     },
     connectionRequestsThisWeek: weekly,
   };

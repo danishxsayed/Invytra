@@ -90,10 +90,9 @@ describe("lead flow", () => {
 
   it("gives up on invites not accepted in time, or withdrawn", () => {
     const l = lead({ state: "WAITING_ACCEPT", step: 2, invitedAt: new Date(now.getTime() - 22 * DAY) });
-    expect(applyResult(steps, S, l, { type: "CHECK_CONNECTION", status: "SUCCEEDED", error: null, connection: "PENDING" }, now)).toMatchObject({
-      state: "NOT_ACCEPTED",
-      reason: "EXPIRED",
-    });
+    expect(
+      applyResult(steps, { ...S, withdrawExpired: false }, l, { type: "CHECK_CONNECTION", status: "SUCCEEDED", error: null, connection: "PENDING" }, now),
+    ).toMatchObject({ state: "NOT_ACCEPTED", reason: "EXPIRED" });
     expect(
       applyResult(steps, S, { ...l, invitedAt: now }, { type: "CHECK_CONNECTION", status: "SUCCEEDED", error: null, connection: "NOT_CONNECTED" }, now),
     ).toMatchObject({ state: "NOT_ACCEPTED", reason: "WITHDRAWN" });
@@ -142,7 +141,7 @@ describe("reply matching names", () => {
 
 describe("campaign sending days and start date", () => {
   it("defaults to Monday–Friday, starting right away (older campaigns too)", () => {
-    expect(campaignSettingsSchema.parse({})).toEqual({ acceptWithinDays: 21, days: [1, 2, 3, 4, 5], startAt: null });
+    expect(campaignSettingsSchema.parse({})).toEqual({ acceptWithinDays: 21, days: [1, 2, 3, 4, 5], startAt: null, withdrawExpired: true });
   });
   it("allows weekends, sorted and without repeats", () => {
     expect(campaignSettingsSchema.parse({ days: [7, 6, 6, 1] }).days).toEqual([1, 6, 7]);
@@ -160,5 +159,41 @@ describe("campaign sending days and start date", () => {
     expect(waitingToStart({ startAt: "2026-10-26T18:30:00.000Z" }, now)).toBe(true);
     expect(waitingToStart({ startAt: "2026-10-24T18:30:00.000Z" }, now)).toBe(false);
     expect(waitingToStart({ startAt: null }, now)).toBe(false);
+  });
+});
+
+describe("like and withdraw steps", () => {
+  const now = new Date("2026-10-26T10:00:00Z");
+  const steps: CampaignStep[] = [
+    { type: "LIKE_POST", delayDays: 0 },
+    { type: "INVITE", delayDays: 1, note: "" },
+  ];
+  it("plans a like, and moves on whatever happens to it", () => {
+    const lead = { state: "QUEUED" as const, step: 0, invitedAt: null, connectedAt: null };
+    expect(plannedAction(steps, lead)).toEqual({ type: "LIKE_POST" });
+    for (const [status, error] of [["SUCCEEDED", null], ["SKIPPED", "NO_POSTS"], ["FAILED", "Timeout"]] as const) {
+      expect(applyResult(steps, S, lead, { type: "LIKE_POST", status, error }, now, () => 0)).toMatchObject({ state: "IN_PROGRESS", step: 1 });
+    }
+    expect(applyResult(steps, S, lead, { type: "LIKE_POST", status: "SKIPPED", error: "PROFILE_UNAVAILABLE" }, now)).toMatchObject({ state: "SKIPPED" });
+  });
+  it("needs an invite or a message besides likes", () => {
+    expect(sequenceProblems([{ type: "LIKE_POST", delayDays: 0 }])).toContain("Add an invite or a message.");
+  });
+  it("withdraws an expired invite, then stops the lead", () => {
+    const waiting = { state: "WAITING_ACCEPT" as const, step: 2, invitedAt: new Date(now.getTime() - 22 * 86400_000), connectedAt: null };
+    const u = applyResult(steps, S, waiting, { type: "CHECK_CONNECTION", status: "SUCCEEDED", error: null, connection: "PENDING" }, now, () => 0);
+    expect(u).toMatchObject({ state: "WAITING_ACCEPT", reason: "WITHDRAW" });
+    expect(u.nextAt!.getTime() - now.getTime()).toBeLessThan(3600_000);
+    const lead = { ...waiting, reason: u.reason };
+    expect(plannedAction(steps, lead)).toEqual({ type: "WITHDRAW_INVITE" });
+    expect(applyResult(steps, S, lead, { type: "WITHDRAW_INVITE", status: "SUCCEEDED", error: null }, now)).toMatchObject({ state: "NOT_ACCEPTED", reason: "EXPIRED_WITHDRAWN" });
+    expect(applyResult(steps, S, lead, { type: "WITHDRAW_INVITE", status: "SKIPPED", error: "CONNECTED" }, now)).toMatchObject({ state: "DONE" });
+    expect(applyResult(steps, S, lead, { type: "WITHDRAW_INVITE", status: "FAILED", error: "x" }, now)).toMatchObject({ state: "NOT_ACCEPTED", reason: "EXPIRED" });
+  });
+  it("leaves expired invites alone when withdrawing is off", () => {
+    const waiting = { state: "WAITING_ACCEPT" as const, step: 2, invitedAt: new Date(now.getTime() - 22 * 86400_000), connectedAt: null };
+    expect(
+      applyResult(steps, { ...S, withdrawExpired: false }, waiting, { type: "CHECK_CONNECTION", status: "SUCCEEDED", error: null, connection: "PENDING" }, now),
+    ).toMatchObject({ state: "NOT_ACCEPTED", reason: "EXPIRED" });
   });
 });

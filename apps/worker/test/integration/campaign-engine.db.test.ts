@@ -153,7 +153,9 @@ d("campaign engine", () => {
       await finishAll("SUCCEEDED", { status: "PENDING" });
     }
     await tick();
-    expect(await lead("kim")).toMatchObject({ state: "NOT_ACCEPTED", reason: "EXPIRED" });
+    // The expired invite was withdrawn (settings default), then the lead stopped.
+    expect(await lead("kim")).toMatchObject({ state: "NOT_ACCEPTED", reason: "EXPIRED_WITHDRAWN" });
+    expect(await prisma.action.count({ where: { type: "WITHDRAW_INVITE", status: "SUCCEEDED", targetUrl: U("kim") } })).toBe(1);
   });
 
   it("skips people already in another campaign, but not ones the other campaign skipped", async () => {

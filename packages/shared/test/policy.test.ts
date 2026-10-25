@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ACTION_DELAY_SECONDS,
+  SEARCH_PAGES_PER_DAY,
   DEFAULT_LIMITS,
   DEFAULT_WORKING_HOURS,
   canExecute,
@@ -109,5 +110,19 @@ describe("connection checks", () => {
     const full: UsageCounts = { ...noUsage, today: { ...noUsage.today, PROFILE_VISIT: DEFAULT_LIMITS.profileVisitsPerDay } };
     expect(canExecute("CHECK_CONNECTION", account, full, WED_MORNING_IST)).toEqual({ allowed: false, reason: "DAILY_LIMIT_REACHED" });
     expect(canExecute("CHECK_CONNECTION", account, noUsage, WED_MORNING_IST)).toEqual({ allowed: true });
+  });
+});
+
+describe("search pages and new actions", () => {
+  it("caps search pages per day on their own", () => {
+    const at = (n: number): UsageCounts => ({ ...noUsage, today: { ...noUsage.today, SEARCH_PAGE: n } });
+    expect(canExecute("SEARCH_PAGE", account, at(SEARCH_PAGES_PER_DAY - 1), WED_MORNING_IST)).toEqual({ allowed: true });
+    expect(canExecute("SEARCH_PAGE", account, at(SEARCH_PAGES_PER_DAY), WED_MORNING_IST)).toEqual({ allowed: false, reason: "DAILY_LIMIT_REACHED" });
+    expect(canExecute("PROFILE_VISIT", account, at(SEARCH_PAGES_PER_DAY), WED_MORNING_IST)).toEqual({ allowed: true });
+  });
+  it("counts likes and withdrawals as profile visits", () => {
+    const full: UsageCounts = { ...noUsage, today: { ...noUsage.today, PROFILE_VISIT: DEFAULT_LIMITS.profileVisitsPerDay } };
+    expect(canExecute("LIKE_POST", account, full, WED_MORNING_IST)).toMatchObject({ allowed: false });
+    expect(canExecute("WITHDRAW_INVITE", account, full, WED_MORNING_IST)).toMatchObject({ allowed: false });
   });
 });

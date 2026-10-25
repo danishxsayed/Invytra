@@ -24,23 +24,32 @@ export interface FlowLead {
   step: number;
   invitedAt: Date | null;
   connectedAt: Date | null;
+  /** WITHDRAW = the invite expired and is waiting to be withdrawn. */
+  reason?: string | null;
 }
+
+/** Reason on a WAITING_ACCEPT lead whose expired invite is about to be withdrawn. */
+export const WITHDRAW_PENDING = "WITHDRAW";
 
 export type PlannedAction =
   | { type: "PROFILE_VISIT" }
+  | { type: "LIKE_POST" }
+  | { type: "WITHDRAW_INVITE" }
   | { type: "CONNECTION_REQUEST"; note: string }
   | { type: "MESSAGE"; text: string }
   | { type: "CHECK_CONNECTION" };
 
 /** What the lead needs next, or null if nothing (finished or stopped). */
 export function plannedAction(steps: CampaignStep[], lead: FlowLead): PlannedAction | null {
-  if (lead.state === "WAITING_ACCEPT") return { type: "CHECK_CONNECTION" };
+  if (lead.state === "WAITING_ACCEPT") return lead.reason === WITHDRAW_PENDING ? { type: "WITHDRAW_INVITE" } : { type: "CHECK_CONNECTION" };
   if (lead.state !== "QUEUED" && lead.state !== "IN_PROGRESS") return null;
   const s = steps[lead.step];
   if (!s) return null;
   switch (s.type) {
     case "VISIT":
       return { type: "PROFILE_VISIT" };
+    case "LIKE_POST":
+      return { type: "LIKE_POST" };
     case "INVITE":
       return { type: "CONNECTION_REQUEST", note: s.note.trim() };
     case "MESSAGE":
@@ -49,7 +58,7 @@ export function plannedAction(steps: CampaignStep[], lead: FlowLead): PlannedAct
 }
 
 export interface ActionResult {
-  type: "PROFILE_VISIT" | "CONNECTION_REQUEST" | "MESSAGE" | "CHECK_CONNECTION";
+  type: "PROFILE_VISIT" | "CONNECTION_REQUEST" | "MESSAGE" | "CHECK_CONNECTION" | "LIKE_POST" | "WITHDRAW_INVITE";
   status: "SUCCEEDED" | "SKIPPED" | "FAILED";
   /** Skip reason or error text from the action row. */
   error: string | null;
@@ -147,9 +156,25 @@ export function applyResult(
       if (r.status === "SUCCEEDED" && r.connection === "UNAVAILABLE") return stop("SKIPPED", lead, "PROFILE_UNAVAILABLE");
       if (r.status === "SKIPPED" && PERMANENT_SKIPS.has(reason)) return stop("SKIPPED", lead, reason);
       // Still pending (or the check itself failed): look again tomorrow, until the window closes.
-      if (expired(lead, settings, now)) return stop("NOT_ACCEPTED", lead, "EXPIRED");
+      if (expired(lead, settings, now)) {
+        // Withdraw it first (soon, not tomorrow), then the lead ends as not accepted.
+        if (settings.withdrawExpired) return { state: "WAITING_ACCEPT", step: lead.step, nextAt: afterDays(now, 0, random), reason: WITHDRAW_PENDING };
+        return stop("NOT_ACCEPTED", lead, "EXPIRED");
+      }
       return { state: "WAITING_ACCEPT", step: lead.step, nextAt: nextCheckAt(now, random) };
     }
+
+    case "LIKE_POST":
+      // A like is a nice touch, never a reason to stop: no posts, already liked or a hiccup all move on.
+      if (r.status === "SKIPPED" && reason === "PROFILE_UNAVAILABLE") return stop("SKIPPED", lead, reason);
+      return advance(steps, lead, now, random);
+
+    case "WITHDRAW_INVITE":
+      // They accepted just in time: carry on with the steps after the invite.
+      if (r.status === "SKIPPED" && reason === "CONNECTED") return connected(steps, lead, now, random);
+      if (r.status === "SUCCEEDED") return stop("NOT_ACCEPTED", lead, "EXPIRED_WITHDRAWN");
+      // Nothing to withdraw any more, or it failed: don't retry forever.
+      return stop("NOT_ACCEPTED", lead, "EXPIRED");
 
     case "MESSAGE":
       if (r.status === "SUCCEEDED") return advance(steps, lead, now, random);

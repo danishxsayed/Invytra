@@ -1,10 +1,10 @@
 import { limitBucket, type ActionType } from "./actions.js";
-import { ACTION_DELAY_SECONDS, type Limits } from "./limits.js";
+import { ACTION_DELAY_SECONDS, SEARCH_PAGES_PER_DAY, type Limits } from "./limits.js";
 import { isWithinWorkingHours, type WorkingHours } from "./working-hours.js";
 
 /** Counts of actions already executed for one account. */
 export interface UsageCounts {
-  today: { PROFILE_VISIT: number; CONNECTION_REQUEST: number; MESSAGE: number };
+  today: { PROFILE_VISIT: number; CONNECTION_REQUEST: number; MESSAGE: number; SEARCH_PAGE?: number };
   /** Connection requests in the last 7 days. */
   connectionRequestsThisWeek: number;
 }
@@ -36,6 +36,9 @@ export function canExecute(
   if (account.status !== "ACTIVE") return { allowed: false, reason: "ACCOUNT_NOT_ACTIVE" };
   if (!isWithinWorkingHours(now, account.timeZone, account.workingHours)) {
     return { allowed: false, reason: "OUTSIDE_WORKING_HOURS" };
+  }
+  if (type === "SEARCH_PAGE" && (usage.today.SEARCH_PAGE ?? 0) >= SEARCH_PAGES_PER_DAY) {
+    return { allowed: false, reason: "DAILY_LIMIT_REACHED" };
   }
   const bucket = limitBucket(type);
   if (!bucket) return { allowed: true };

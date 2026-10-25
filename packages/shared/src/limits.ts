@@ -30,6 +30,13 @@ export const MAX_LIMITS = {
   profileVisitsPerDay: 150,
 } as const;
 
+/**
+ * Search results pages read per account per day (10 people each on LinkedIn,
+ * 25 on Sales Navigator). LinkedIn watches heavy searching; free accounts also
+ * hit a monthly "commercial use" search limit.
+ */
+export const SEARCH_PAGES_PER_DAY = 30;
+
 /** Connection-request note limit enforced by LinkedIn. */
 export const CONNECTION_NOTE_MAX_CHARS = 300;
 
