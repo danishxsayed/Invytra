@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@invytra/db";
-import { IMPORT_MAX_LEADS, parseSearchUrl } from "@invytra/shared";
+import { IMPORT_MAX_LEADS, SEARCH_PAGES_PER_DAY, parseSearchUrl } from "@invytra/shared";
+import { waitText } from "./format";
 import { z } from "zod";
 import type { Result } from "./accounts";
 import { getList, listNameSchema } from "./leads";
@@ -70,8 +71,37 @@ export async function importsForList(prisma: PrismaClient, workspaceId: string, 
     where: { workspaceId, listId },
     orderBy: { createdAt: "desc" },
     take: 10,
-    include: { account: { select: { label: true, status: true } } },
+    include: { account: { select: { label: true, status: true, timezone: true } } },
   });
+}
+
+/**
+ * What a running import is waiting for, in plain words — so a search that is
+ * paused for working hours or the daily cap doesn't look stuck.
+ */
+export async function importWaits(prisma: PrismaClient, rows: ImportRow[], now = new Date()): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const running = rows.filter((r) => r.status === "RUNNING");
+  const ids = running.map((r) => r.actionId).filter((x): x is string => !!x && x !== "pending");
+  const actions = new Map(
+    (await prisma.action.findMany({ where: { id: { in: ids } }, select: { id: true, status: true, error: true, scheduledAt: true } })).map((a) => [a.id, a]),
+  );
+  for (const r of running) {
+    const a = r.actionId ? actions.get(r.actionId) : undefined;
+    const when = (d: Date) =>
+      d.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: r.account.timezone });
+    if (!a) {
+      if (now.getTime() - r.createdAt.getTime() > 2 * 60_000) out.set(r.id, "Waiting for the worker to pick it up — check that `pnpm worker` is running");
+      continue;
+    }
+    if (a.status === "RUNNING") out.set(r.id, "Reading a page now");
+    else if (a.error === "waiting: OUTSIDE_WORKING_HOURS") out.set(r.id, `Outside ${r.account.label}'s working hours — next page around ${when(a.scheduledAt)}`);
+    else if (a.error === "waiting: DAILY_LIMIT_REACHED") out.set(r.id, `Today's ${SEARCH_PAGES_PER_DAY} search pages are used — continues around ${when(a.scheduledAt)}`);
+    else if (a.error === "waiting: ACCOUNT_NOT_ACTIVE") out.set(r.id, `Waiting for ${r.account.label} to be connected and active`);
+    else if (a.error?.startsWith("waiting: ")) out.set(r.id, `${waitText(a.error.slice(9))} — next try around ${when(a.scheduledAt)}`);
+    else out.set(r.id, "Next page coming up in a few minutes");
+  }
+  return out;
 }
 export type ImportRow = Awaited<ReturnType<typeof importsForList>>[number];
 

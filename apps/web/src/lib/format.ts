@@ -93,7 +93,7 @@ function skipText(reason: string | null): string {
   return map[reason] ?? reason;
 }
 
-function waitText(reason: string): string {
+export function waitText(reason: string): string {
   if (reason.startsWith("RETRY")) return "Will retry";
   const map: Record<string, string> = {
     OUTSIDE_WORKING_HOURS: "Waiting for working hours",

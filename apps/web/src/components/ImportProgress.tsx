@@ -20,6 +20,8 @@ export interface ImportView {
   reasonText: string | null;
   accountLabel: string;
   accountActive: boolean;
+  /** What a running import is waiting for, if anything. */
+  waiting: string | null;
   when: string;
 }
 
@@ -61,7 +63,7 @@ export function ImportProgress({ listId, imports }: { listId: string; imports: I
               <p className="text-[14px] text-stone-500">
                 {i.added.toLocaleString()} added
                 {i.found > i.added ? ` (${(i.found - i.added).toLocaleString()} were already in the list)` : ""} · {i.pages} {i.pages === 1 ? "page" : "pages"} read
-                {live && !i.accountActive && <span className="text-amber-700"> · waiting for {i.accountLabel} to be connected and active</span>}
+                {live && i.waiting && <span className="text-amber-700"> · {i.waiting}</span>}
                 {!live && i.reasonText && <span> · {i.reasonText}</span>}
               </p>
               {live && (

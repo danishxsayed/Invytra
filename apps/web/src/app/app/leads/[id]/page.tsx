@@ -8,7 +8,7 @@ import { Card, EmptyState, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { ImportProgress } from "@/components/ImportProgress";
 import { timeAgo } from "@/lib/format";
-import { IMPORT_REASON, importAccounts, importsForList } from "@/lib/imports";
+import { IMPORT_REASON, importAccounts, importWaits, importsForList } from "@/lib/imports";
 import { LeadListNotFoundError, getList, leadsPage, listSummaries } from "@/lib/leads";
 
 export const metadata = { title: "Lead list" };
@@ -43,6 +43,7 @@ export default async function LeadListPage({
     importsForList(prisma, me.workspace.id, id),
   ]);
   const now = new Date();
+  const waits = await importWaits(prisma, imports, now);
   const importViews = imports
     .filter((i) => i.status === "RUNNING" || (i.finishedAt && now.getTime() - i.finishedAt.getTime() < 7 * 86400_000))
     .map((i) => ({
@@ -57,6 +58,7 @@ export default async function LeadListPage({
       reasonText: i.reason ? (IMPORT_REASON[i.reason] ?? i.reason) : null,
       accountLabel: i.account.label,
       accountActive: i.account.status === "ACTIVE",
+      waiting: waits.get(i.id) ?? null,
       when: `started ${timeAgo(i.createdAt, now)}`,
     }));
   const summary = summaries.find((s) => s.id === id);

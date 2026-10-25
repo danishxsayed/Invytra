@@ -1,7 +1,7 @@
 import { PrismaClient } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { launchProblems, getCampaign, createCampaign } from "../src/lib/campaigns";
-import { cancelSearchImport, importsForList, startSearchImport } from "../src/lib/imports";
+import { cancelSearchImport, importWaits, importsForList, startSearchImport } from "../src/lib/imports";
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -58,6 +58,17 @@ d("search imports", () => {
     expect(c.ok).toBe(true);
     if (!c.ok) return;
     expect(await launchProblems(prisma, A, await getCampaign(prisma, A, c.value))).toEqual([]);
+  });
+
+  it("says what a running import is waiting for", async () => {
+    const later = new Date(Date.now() + 10 * 60_000);
+    expect((await importWaits(prisma, await importsForList(prisma, A, listId), later)).get(importId)).toMatch(/pnpm worker/);
+    const a = await prisma.action.create({
+      data: { accountId: "acc-imp-a", type: "SEARCH_PAGE", status: "QUEUED", error: "waiting: OUTSIDE_WORKING_HOURS", scheduledAt: new Date("2026-10-26T03:40:00Z") },
+    });
+    await prisma.leadImport.update({ where: { id: importId }, data: { actionId: a.id } });
+    await prisma.linkedinAccount.update({ where: { id: "acc-imp-a" }, data: { timezone: "Asia/Kolkata" } });
+    expect((await importWaits(prisma, await importsForList(prisma, A, listId))).get(importId)).toBe("Outside a's working hours — next page around Mon 26 Oct, 09:10");
   });
 
   it("can be stopped, only by its own workspace", async () => {
