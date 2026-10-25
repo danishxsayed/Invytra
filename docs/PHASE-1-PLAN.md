@@ -99,6 +99,12 @@ LinkedIn. One less service to build, deploy and secure.
   sender's inbox). Senders can be added/removed while running; a removed sender's queued actions
   are cancelled, its uncontacted leads move to others, contacted ones end as SKIPPED
   `SENDER_REMOVED`. Builder sender picker, per-sender table on the campaign page.
+- [x] Campaign schedule (2026-10-25): `settings.days` (any of Mon–Sun, default Mon–Fri) and
+  `settings.startAt` (optional start date). A campaign step runs on its campaign's days within
+  the sender's working hours (`apps/worker/src/campaigns/sending-days.ts`); inbox checks may
+  also run on any day a running campaign of that account sends, so weekend follow-ups still get
+  a fresh inbox read. Launched campaigns wait for their start date ("Scheduled" badge); the start
+  date can only change until it has passed. Account working days now apply to non-campaign work.
 - [x] Settings (2026-10-24): profile (name; email change needs the current password), change
   password (signs out every other session via `users.sessions_valid_after`, this browser stays
   in), "sign out other devices", workspace name (owner only), team list. Team invites by email

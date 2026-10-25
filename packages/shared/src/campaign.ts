@@ -56,12 +56,41 @@ export const sequenceSchema = z
     for (const message of sequenceProblems(steps)) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
   });
 
+export const WEEKDAYS = [1, 2, 3, 4, 5] as const;
+export const ALL_DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
+
 export const campaignSettingsSchema = z.object({
   /** Give up on an invite that hasn't been accepted after this many days. */
   acceptWithinDays: z.number().int().min(3).max(60).default(21),
+  /**
+   * Days this campaign sends on (ISO: 1 = Monday … 7 = Sunday), in each sender's own
+   * time zone. Hours, limits and pacing still come from each sender account.
+   */
+  days: z
+    .array(z.number().int().min(1).max(7))
+    .min(1, "Pick at least one day to send on.")
+    .transform((d) => [...new Set(d)].sort((a, b) => a - b))
+    .default([...WEEKDAYS]),
+  /** Don't start before this moment (ISO). Null = as soon as it's launched. */
+  startAt: z.string().datetime().nullable().default(null),
 });
 export type CampaignSettings = z.infer<typeof campaignSettingsSchema>;
-export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = { acceptWithinDays: 21 };
+export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = { acceptWithinDays: 21, days: [...WEEKDAYS], startAt: null };
+
+/** Whether a launched campaign is still waiting for its start date. */
+export function waitingToStart(settings: Pick<CampaignSettings, "startAt">, now: Date): boolean {
+  return !!settings.startAt && new Date(settings.startAt) > now;
+}
+
+const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+/** "Every day", "Mon–Fri", "Mon–Sat", "Sat, Sun", "Mon, Wed, Fri". */
+export function daysText(days: readonly number[]): string {
+  const d = [...new Set(days)].sort((a, b) => a - b);
+  if (d.length === 7) return "Every day";
+  const run = d.length >= 3 && d[d.length - 1]! - d[0]! === d.length - 1;
+  if (run) return `${DAY_SHORT[d[0]! - 1]}–${DAY_SHORT[d[d.length - 1]! - 1]}`;
+  return d.map((x) => DAY_SHORT[x - 1]).join(", ");
+}
 
 /** Starting points in the builder. Texts are left for the person to write — never send generic copy. */
 export const SEQUENCE_PRESETS = {

@@ -150,7 +150,7 @@ export function SettingsForm({ id, zones, proxyRequired, initial, defaults, max 
         />
       </Section>
 
-      <Section title="Working hours" description="Actions only run in these hours, in the account's own time zone.">
+      <Section title="Working hours" description="Actions only run in these hours, in the account's own time zone. Each campaign picks its own sending days; these days apply to everything else.">
         <div>
           <span className="text-[15px] font-medium text-stone-700">Days</span>
           <div className="mt-2 flex flex-wrap gap-1.5">

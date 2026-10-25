@@ -4,6 +4,7 @@ import {
   campaignSettingsSchema,
   sequenceProblems,
   stepSchema,
+  waitingToStart,
   type CampaignSettings,
   type CampaignStep,
 } from "@invytra/shared";
@@ -33,7 +34,7 @@ export const campaignInputSchema = z.object({
 });
 export type CampaignInput = z.input<typeof campaignInputSchema>;
 
-const SENDERS = { orderBy: { createdAt: "asc" }, select: { account: { select: { id: true, label: true, status: true } } } } as const;
+const SENDERS = { orderBy: { createdAt: "asc" }, select: { account: { select: { id: true, label: true, status: true, timezone: true } } } } as const;
 
 export function readSteps(raw: unknown): CampaignStep[] {
   return z.array(stepSchema).safeParse(raw).data ?? [];
@@ -100,6 +101,8 @@ export async function updateCampaign(prisma: PrismaClient, workspaceId: string, 
     const reordered = current.steps.some((s, i) => input.steps[i]?.type !== s.type);
     if (reordered) return { ok: false, error: "This campaign has started: steps can be edited or added at the end, but not removed or reordered." };
     if (senderIds(input).length === 0) return { ok: false, error: "Keep at least one LinkedIn account sending." };
+    // Once it has really started, a new start date would silently pause it — keep the old one.
+    if (!waitingToStart(current.settings, new Date())) input = { ...input, settings: { ...input.settings, startAt: current.settings.startAt } };
     if (current.listId && input.listId !== current.listId) return { ok: false, error: "The lead list can't change after launch." };
     const problems = sequenceProblems(input.steps);
     if (problems.length) return { ok: false, error: problems[0]! };
@@ -238,6 +241,7 @@ export async function listCampaigns(prisma: PrismaClient, workspaceId: string) {
     ...r,
     senders: senders.map((s) => s.account),
     steps: readSteps(r.steps),
+    settings: readSettings(r.settings),
     stats: stats.get(r.id)!,
     listSize: listSizes.find((l) => l.listId === r.listId)?._count._all ?? 0,
   }));

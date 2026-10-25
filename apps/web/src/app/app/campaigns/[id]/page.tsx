@@ -6,9 +6,10 @@ import { CampaignControls } from "@/components/campaign/CampaignControls";
 import { CampaignStatusBadge, LeadStateBadge, Metric } from "@/components/campaign/CampaignBits";
 import { Avatar, Card, EmptyState, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { pct, positionText, reasonText, stepLabel } from "@/lib/campaign-text";
+import { pct, positionText, reasonText, startText, stepLabel } from "@/lib/campaign-text";
 import { CampaignNotFoundError, LEAD_FILTERS, campaignLeadsPage, campaignStats, getCampaign, launchProblems, senderStats, type LeadFilter } from "@/lib/campaigns";
 import { slugName, timeAgo } from "@/lib/format";
+import { daysText, waitingToStart } from "@invytra/shared";
 
 export const metadata = { title: "Campaign" };
 export const dynamic = "force-dynamic";
@@ -52,6 +53,9 @@ export default async function CampaignPage({
     senderStats(prisma, me.workspace.id, c.id),
   ]);
   const multi = c.senders.length > 1;
+  const scheduled = c.status === "ACTIVE" && waitingToStart(c.settings, new Date());
+  const zone = c.senders[0]?.timezone;
+  const sendDays = daysText(c.settings.days).replace("Every day", "every day");
   const now = new Date();
   const count = (f: LeadFilter) => (f === "all" ? stats.total : LEAD_FILTERS[f].reduce((n, s) => n + (stats.byState[s] ?? 0), 0));
   const contacted = Math.max(stats.invited, stats.messaged);
@@ -78,7 +82,7 @@ export default async function CampaignPage({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="truncate text-[34px] font-semibold tracking-tight text-stone-900">{c.name}</h1>
-              <CampaignStatusBadge status={c.status} />
+              <CampaignStatusBadge status={scheduled ? "SCHEDULED" : c.status} />
             </div>
             <p className="mt-1 text-[16px] text-stone-500">
               {c.senders.length === 0
@@ -99,13 +103,20 @@ export default async function CampaignPage({
               ) : (
                 "list removed"
               )}
-              {c.startedAt && ` · started ${timeAgo(c.startedAt, now)}`}
+              {` · sends ${sendDays}`}
+              {scheduled && c.settings.startAt ? ` · starts ${startText(c.settings.startAt, zone)}` : c.startedAt && ` · started ${timeAgo(c.startedAt, now)}`}
             </p>
           </div>
           <CampaignControls id={c.id} name={c.name} status={c.status} problems={problems} />
         </div>
       </div>
 
+      {scheduled && c.settings.startAt && (
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3.5 text-[15px] text-sky-900">
+          Scheduled to start on <b>{startText(c.settings.startAt, zone)}</b>. Leads join and the first steps go out then, {sendDays}, in each
+          account's working hours.
+        </div>
+      )}
       {c.status !== "DRAFT" && accountProblem && <Banner>{accountProblem}</Banner>}
       {c.status === "DRAFT" && problems.length > 0 && <Banner>Before launching: {problems[0]}</Banner>}
 
@@ -204,9 +215,9 @@ export default async function CampaignPage({
         {rows.length === 0 ? (
           <EmptyState
             icon={Users}
-            title={c.status === "DRAFT" ? "Leads join when you launch" : stats.total === 0 ? "Adding leads…" : "No leads here"}
+            title={c.status === "DRAFT" ? "Leads join when you launch" : scheduled ? "Leads join on the start date" : stats.total === 0 ? "Adding leads…" : "No leads here"}
             body={
-              c.status === "DRAFT"
+              c.status === "DRAFT" || scheduled
                 ? "Everyone in the list is added when the campaign starts. New leads added to the list later join automatically."
                 : stats.total === 0
                   ? "The worker adds the list's leads within a minute. Make sure `pnpm worker` is running."

@@ -1,5 +1,5 @@
 import { Prisma, type Campaign, type CampaignLead, type PrismaClient } from "@invytra/db";
-import { hasInvite, missingVariables, nameKey, plannedAction, type CampaignStep, type LeadState } from "@invytra/shared";
+import { campaignSettingsSchema, hasInvite, missingVariables, waitingToStart, nameKey, plannedAction, type CampaignStep, type LeadState } from "@invytra/shared";
 import type { Queue } from "bullmq";
 import { createActionRow, scheduleAction, type ActionJob } from "../queue/queue.js";
 import { applyFinishedActions, campaignPlan } from "./results.js";
@@ -37,6 +37,8 @@ export async function campaignTick(deps: EngineDeps): Promise<TickSummary> {
   summary.applied = await applyFinishedActions(deps.prisma, now, deps.random);
   const running = await deps.prisma.campaign.findMany({ where: { status: "ACTIVE", senders: { some: {} } } });
   for (const c of running) {
+    // Launched with a start date that hasn't come yet: nothing happens until then.
+    if (waitingToStart(campaignSettingsSchema.safeParse(c.settings ?? {}).data ?? { startAt: null }, now)) continue;
     await syncLeads(deps.prisma, c);
     summary.replied += await stopRepliedLeads(deps.prisma, c, now);
     summary.queued += await queueDueLeads(deps, c, now);

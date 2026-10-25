@@ -3,6 +3,8 @@
 import {
   DEFAULT_CAMPAIGN_SETTINGS,
   DEFAULT_LIMITS,
+  daysText,
+  waitingToStart,
   SEQUENCE_PRESETS,
   limitsSchema,
   sequenceProblems,
@@ -21,6 +23,8 @@ import { Field, inputCls } from "../fields";
 import { Modal } from "../Modal";
 import { Card, cx } from "../ui";
 import { Preview } from "./Preview";
+import { startText } from "@/lib/campaign-text";
+import { SendSchedule } from "./SendSchedule";
 import { SequenceEditor } from "./SequenceEditor";
 
 export interface BuilderInitial {
@@ -72,10 +76,15 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
     else if (senders.every((a) => a.status === "DISCONNECTED")) {
       p.push(senders.length === 1 ? `Connect “${senders[0]!.label}” to LinkedIn first.` : "Connect at least one of the chosen accounts to LinkedIn first.");
     }
+    if (settings.days.length === 0) p.push("Pick at least one day to send on.");
     if (!listId) p.push("Choose a lead list.");
     else if (list && list.count === 0) p.push("The lead list is empty.");
     return [...p, ...sequenceProblems(steps)];
-  }, [name, senders, listId, list, steps]);
+  }, [name, senders, listId, list, steps, settings.days]);
+  // The start date can change until the campaign has actually started.
+  const canChangeStart = !launched || waitingToStart(initial!.settings, new Date());
+  // Working days a week, to turn "working days" into a rough count.
+  const perWeek = settings.days.length || 5;
 
   const toggleSender = (id: string) => setAccountIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   // Each sender keeps its own daily limit, so together they invite the sum.
@@ -103,7 +112,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
 
   return (
     <div className="space-y-5">
-      <Section n={1} title="Who sends, and to whom">
+      <Section n={1} title="Who sends, to whom, and when">
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Campaign name">
             <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="e.g. Pune founders – Q4" />
@@ -160,6 +169,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
             </div>
           </fieldset>
         )}
+        <SendSchedule settings={settings} onSettings={setSettings} canChangeStart={canChangeStart} />
         {(options.accounts.length === 0 || options.lists.length === 0) && (
           <p className="mt-3 text-[15px] text-stone-500">
             {options.accounts.length === 0 && (
@@ -178,7 +188,8 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
         )}
         {list && usesInvites && invitesPerDay > 0 && (
           <p className="mt-3 text-[15px] text-stone-500">
-            At up to {invitesPerDay} invites a day{senders.length > 1 ? ` across ${senders.length} accounts` : ""}, inviting all {list.count.toLocaleString()} leads takes about {days} working {days === 1 ? "day" : "days"}. New leads added
+            At up to {invitesPerDay} invites a day{senders.length > 1 ? ` across ${senders.length} accounts` : ""}, inviting all {list.count.toLocaleString()} leads takes about {days} sending {days === 1 ? "day" : "days"}
+            {days > perWeek && ` (about ${Math.ceil(days / perWeek)} weeks at ${daysText(settings.days)})`}. New leads added
             to this list later join the campaign automatically.
           </p>
         )}
@@ -261,7 +272,11 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
               <b>{senders.length === 1 ? senders[0]!.label : `${senders.length} accounts`}</b> {senders.length === 1 ? "starts" : "start"} working through <b>{list.count.toLocaleString()}</b> leads in “{list.name}”.
             </li>
             {senders.length > 1 && <li>Each lead goes to one account and stays with it, so nobody hears from two of your accounts.</li>}
-            {usesInvites && invitesPerDay > 0 && <li>Up to {invitesPerDay} invites a day, only in working hours — about {days} working {days === 1 ? "day" : "days"} to invite everyone.</li>}
+            <li>
+              Sends {daysText(settings.days).replace("Every day", "every day")}, in each account's working hours
+              {settings.startAt && waitingToStart(settings, new Date()) ? `, starting ${startText(settings.startAt)}` : ""}.
+            </li>
+            {usesInvites && invitesPerDay > 0 && <li>Up to {invitesPerDay} invites a day — about {days} sending {days === 1 ? "day" : "days"} to invite everyone.</li>}
             <li>Anyone already contacted, or in another campaign, is skipped. Follow-ups stop when someone replies.</li>
             <li>You can pause at any time.</li>
           </ul>

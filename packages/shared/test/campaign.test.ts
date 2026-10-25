@@ -3,6 +3,9 @@ import {
   DEFAULT_CAMPAIGN_SETTINGS as S,
   SEQUENCE_PRESETS,
   applyResult,
+  campaignSettingsSchema,
+  daysText,
+  waitingToStart,
   nameKey,
   plannedAction,
   sequenceProblems,
@@ -134,5 +137,28 @@ describe("reply matching names", () => {
   it("ignores case, emoji and extra spaces", () => {
     expect(nameKey("  Jane   DOE 🚀 ")).toBe(nameKey("jane doe"));
     expect(nameKey("José Núñez")).toBe("josé núñez");
+  });
+});
+
+describe("campaign sending days and start date", () => {
+  it("defaults to Monday–Friday, starting right away (older campaigns too)", () => {
+    expect(campaignSettingsSchema.parse({})).toEqual({ acceptWithinDays: 21, days: [1, 2, 3, 4, 5], startAt: null });
+  });
+  it("allows weekends, sorted and without repeats", () => {
+    expect(campaignSettingsSchema.parse({ days: [7, 6, 6, 1] }).days).toEqual([1, 6, 7]);
+    expect(campaignSettingsSchema.safeParse({ days: [] }).success).toBe(false);
+    expect(campaignSettingsSchema.safeParse({ days: [8] }).success).toBe(false);
+  });
+  it("describes the days in words", () => {
+    expect(daysText([1, 2, 3, 4, 5])).toBe("Mon–Fri");
+    expect(daysText([1, 2, 3, 4, 5, 6, 7])).toBe("Every day");
+    expect(daysText([6, 7])).toBe("Sat, Sun");
+    expect(daysText([1, 3, 5])).toBe("Mon, Wed, Fri");
+  });
+  it("waits for a start date in the future", () => {
+    const now = new Date("2026-10-25T10:00:00Z");
+    expect(waitingToStart({ startAt: "2026-10-26T18:30:00.000Z" }, now)).toBe(true);
+    expect(waitingToStart({ startAt: "2026-10-24T18:30:00.000Z" }, now)).toBe(false);
+    expect(waitingToStart({ startAt: null }, now)).toBe(false);
   });
 });

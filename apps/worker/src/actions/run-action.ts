@@ -59,9 +59,11 @@ export async function checkPolicy(
   type: ActionType,
   now: Date,
   ignoreWorkingHours = false,
+  /** Working hours to use instead of the account's (a campaign step uses its campaign's days). */
+  hoursOverride?: WorkingHours,
 ): Promise<PolicyDecision> {
   const settings = accountSettings(account);
-  const hours = settings.hours;
+  const hours = hoursOverride ?? settings.hours;
   // Today's caps: warm-up for new accounts and per-day variation (packages/shared/daily-limits).
   const limits = effectiveLimits(settings.limits, {
     accountId: account.id,

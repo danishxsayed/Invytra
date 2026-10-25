@@ -1,4 +1,5 @@
 import { prisma } from "@invytra/db";
+import { waitingToStart } from "@invytra/shared";
 import { ChevronRight, Plus, Rocket } from "lucide-react";
 import Link from "next/link";
 import { CampaignStatusBadge } from "@/components/campaign/CampaignBits";
@@ -43,7 +44,7 @@ export default async function CampaignsPage() {
                 <div className="min-w-0 flex-1 basis-full md:basis-auto">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-[16px] font-semibold text-stone-900">{c.name}</p>
-                    <CampaignStatusBadge status={c.status} />
+                    <CampaignStatusBadge status={c.status === "ACTIVE" && waitingToStart(c.settings, new Date()) ? "SCHEDULED" : c.status} />
                   </div>
                   <p className="mt-0.5 truncate text-[14px] text-stone-500">
                     {c.senders.length === 0 ? "No account" : c.senders.length === 1 ? c.senders[0]!.label : `${c.senders.length} accounts`} → {c.list?.name ?? "No list"} · {total.toLocaleString()} {total === 1 ? "lead" : "leads"}

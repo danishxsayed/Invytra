@@ -16,6 +16,7 @@ export const LEAD_STATE: Record<string, { label: string; cls: string }> = {
 export const CAMPAIGN_STATUS: Record<string, { label: string; cls: string; dot: string }> = {
   DRAFT: { label: "Draft", cls: "bg-stone-100 text-stone-600 ring-stone-500/15", dot: "bg-stone-400" },
   ACTIVE: { label: "Running", cls: "bg-emerald-50 text-emerald-700 ring-emerald-600/20", dot: "bg-emerald-500" },
+  SCHEDULED: { label: "Scheduled", cls: "bg-sky-50 text-sky-700 ring-sky-600/20", dot: "bg-sky-500" },
   PAUSED: { label: "Paused", cls: "bg-amber-50 text-amber-700 ring-amber-600/20", dot: "bg-amber-500" },
 };
 
@@ -54,3 +55,8 @@ export function positionText(steps: CampaignStep[], state: string, step: number)
 }
 
 export const pct = (n: number, of: number) => (of > 0 ? Math.round((n / of) * 100) : 0);
+
+/** "Monday 26 October", in the given time zone (the sender's) or the viewer's own. */
+export function startText(iso: string, timeZone?: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", ...(timeZone && { timeZone }) });
+}
