@@ -22,7 +22,7 @@ export default async function OpengraphImage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <div style={{ fontSize: 84, fontWeight: 700, lineHeight: 1, letterSpacing: -2, color: "#1C1917", maxWidth: 900 }}>LinkedIn outreach at a human pace.</div>
-          <div style={{ fontSize: 32, color: "#57534E" }}>Safe daily limits, office hours, and it stops when they reply. $29 per account.</div>
+          <div style={{ fontSize: 32, color: "#57534E" }}>Safe daily limits, office hours, and it stops when they reply. From $29 per account.</div>
         </div>
         <div style={{ display: "flex", gap: 14, alignItems: "flex-end", height: 40 }}>
           {bars.map((b, i) => (

@@ -1,12 +1,14 @@
+import { BYO_PROXY_DISCOUNT, PRICE_TIERS, TRIAL, YEARLY_MONTHS_PAID, formatMoney } from "@invytra/shared";
 import { Check } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Faq } from "@/components/site/Faq";
+import { PriceCalculator } from "@/components/site/PriceCalculator";
 import { SITE } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: `One plan: $${SITE.price.usd} per LinkedIn account a month, with every feature and a ${SITE.trialDays}-day free trial.`,
+  description: `From $${SITE.price.usd} per LinkedIn account a month, down to $${SITE.price.lowestUsd} as you add more. Every feature in every package, and a ${TRIAL.days}-day free trial.`,
 };
 
 const INCLUDED = [
@@ -14,73 +16,132 @@ const INCLUDED = [
   "Profile visits, invites with notes, messages and follow-ups",
   "Waits for acceptance and stops on reply",
   "Daily limits, warm-up and office hours, set per account",
-  "Lead import from CSV, with a preview before saving",
+  "A managed proxy for every account",
   "Inbox with “Needs reply”, and a full activity log with screenshots",
-  "Runs in the cloud: one browser per account, no extension",
-  "Your whole team in one workspace",
+  "Runs in the cloud: no extension, nothing to keep open",
+  "Unlimited teammates",
 ];
+
+const yearly = (v: number, round: (n: number) => number) => round((v * YEARLY_MONTHS_PAID) / 12);
+const usd = (n: number) => Math.round(n * 100) / 100;
 
 const FAQ = [
   {
-    q: "What counts as an account?",
-    a: "Each LinkedIn profile you connect to Invytra. Teammates who log in to Invytra don't cost anything; only connected LinkedIn accounts do.",
+    q: "What's a sender?",
+    a: "A LinkedIn account connected to Invytra. You pay per sender; teammates who log in to Invytra are free.",
+  },
+  {
+    q: "How is my package chosen?",
+    a: "By how many senders you have. The package's rate applies to all of them: 5 senders are 5 × $24. Add or remove senders whenever you like and the price follows.",
   },
   {
     q: "How does the free trial work?",
-    a: `You get ${SITE.trialDays} days with every feature. If you don't choose a plan by the end, campaigns pause and nothing is charged.`,
+    a: `${TRIAL.days} days with every feature and up to ${TRIAL.maxSenders} senders, no card needed. If you don't choose a package by the end, campaigns pause and nothing is charged.`,
   },
-  { q: "Can I cancel any time?", a: "Yes. Plans are monthly. Cancel from your settings and your campaigns stop at the end of the month you've paid for." },
+  { q: "Can I cancel any time?", a: "Yes. Monthly packages can be cancelled whenever you like; your campaigns stop at the end of the month you've paid for." },
+  {
+    q: "How do yearly packages work?",
+    a: `You pay for ${YEARLY_MONTHS_PAID} months and get 12. Senders added during the year are charged for the months that are left.`,
+  },
   {
     q: "Which currencies can I pay in?",
-    a: "Cards in US dollars, and customers in India can pay in rupees through Razorpay. Taxes such as GST are added where they apply.",
+    a: "US dollars by card, and Indian rupees through Razorpay (UPI, cards, net banking). GST is added to rupee prices.",
   },
-  { q: "I run outreach for many clients. Is there a volume price?", a: `Write to ${SITE.email} with how many accounts you run and we'll work something out.` },
+  {
+    q: "Can I use my own proxies?",
+    a: `On the Agency and Scale packages, yes, and you save ${formatMoney(BYO_PROXY_DISCOUNT.USD, "USD")} per sender a month. Otherwise every sender gets a managed proxy.`,
+  },
 ];
 
 export default function PricingPage() {
   return (
     <div className="mx-auto max-w-[1180px] px-5 pb-24 pt-16">
-      <div className="max-w-[640px]">
-        <h1 className="font-display text-[44px] font-bold leading-[1.05] tracking-[-0.025em] text-stone-900 sm:text-[58px]">One plan, everything in it</h1>
+      <div className="max-w-[680px]">
+        <h1 className="font-display text-[44px] font-bold leading-[1.05] tracking-[-0.025em] text-stone-900 sm:text-[58px]">
+          Pay per sender. Add more, pay less for each.
+        </h1>
         <p className="mt-5 text-[19px] leading-relaxed text-stone-600">
-          Pay for each LinkedIn account you connect. Every feature is included from the start, and there are no setup fees.
+          Every package has every feature. The only difference is how many LinkedIn accounts you connect, and the price per account drops as you
+          grow.
         </p>
       </div>
 
-      <div className="mt-12 grid overflow-hidden rounded-[28px] border border-stone-900/10 bg-white lg:grid-cols-[0.85fr_1.15fr]">
-        <div className="bg-brand-400 p-8 sm:p-10">
-          <p className="text-[17px] font-semibold text-stone-900">Invytra</p>
-          <p className="mt-6 flex items-end gap-2">
-            <span className="font-display text-[84px] font-bold leading-[0.85] tracking-[-0.04em] text-stone-900">${SITE.price.usd}</span>
-            <span className="pb-1 text-[17px] text-stone-800">per account
-              <br />
-              per month
-            </span>
-          </p>
-          <p className="mt-6 max-w-[320px] text-[16px] leading-relaxed text-stone-800">
-            Start with a {SITE.trialDays}-day free trial. Add or remove accounts whenever you like.
-          </p>
-          <Link href="/signup" className="mt-8 inline-flex rounded-xl bg-stone-900 px-5 py-3 text-[16px] font-semibold text-white hover:bg-stone-700">
-            Start your free trial
-          </Link>
-        </div>
-        <ul className="grid content-center gap-4 p-8 sm:p-10">
-          {INCLUDED.map((i) => (
-            <li key={i} className="flex items-start gap-3 text-[17px] text-stone-800">
-              <Check className="mt-1 h-5 w-5 shrink-0 text-brand-800" strokeWidth={2.5} aria-hidden />
-              {i}
-            </li>
-          ))}
-        </ul>
+      <div className="mt-12">
+        <PriceCalculator />
       </div>
 
-      <p className="mt-6 text-[15px] text-stone-500">
-        Invytra does LinkedIn only: no cold email or WhatsApp. See how it compares on{" "}
-        <Link href="/compare" className="font-medium text-stone-800 underline decoration-brand-500 decoration-2 underline-offset-4">
-          price and features
-        </Link>
-        .
-      </p>
+      <div className="mt-6 overflow-x-auto rounded-2xl border border-stone-900/10 bg-white">
+        <table className="w-full min-w-[680px] text-left text-[16px]">
+          <caption className="sr-only">Price per sender for each package</caption>
+          <thead>
+            <tr className="border-b border-stone-900/10 text-[14px] text-stone-500">
+              <th className="px-5 py-3.5 font-medium">Package</th>
+              <th className="px-5 py-3.5 font-medium">Senders</th>
+              <th className="px-5 py-3.5 font-medium">Per sender, monthly</th>
+              <th className="px-5 py-3.5 font-medium">Per sender, paid yearly</th>
+              <th className="px-5 py-3.5 font-medium">In India (+ GST)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-stone-900/[0.07]">
+            {PRICE_TIERS.map((t) => (
+              <tr key={t.id}>
+                <th scope="row" className="px-5 py-3.5 font-display text-[18px] font-semibold text-stone-900">
+                  {t.name}
+                </th>
+                <td className="px-5 py-3.5 tabular-nums text-stone-700">
+                  {t.maxSenders === null ? `${t.minSenders}+` : t.minSenders === t.maxSenders ? "1" : `${t.minSenders}–${t.maxSenders}`}
+                </td>
+                <td className="px-5 py-3.5 font-semibold tabular-nums text-stone-900">{formatMoney(t.perSender.USD, "USD")}</td>
+                <td className="px-5 py-3.5 tabular-nums text-stone-700">{formatMoney(yearly(t.perSender.USD, usd), "USD")}</td>
+                <td className="px-5 py-3.5 tabular-nums text-stone-700">{formatMoney(t.perSender.INR, "INR")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-[14px] text-stone-500">More than 100 senders? Prices are by quote, write to {SITE.email}.</p>
+
+      <section className="mt-20 grid gap-10 lg:grid-cols-2">
+        <div>
+          <h2 className="font-display text-[30px] font-bold tracking-[-0.02em] text-stone-900">In every package</h2>
+          <ul className="mt-6 grid gap-3.5">
+            {INCLUDED.map((i) => (
+              <li key={i} className="flex items-start gap-3 text-[17px] text-stone-800">
+                <Check className="mt-1 h-5 w-5 shrink-0 text-brand-800" strokeWidth={2.5} aria-hidden />
+                {i}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h2 className="font-display text-[30px] font-bold tracking-[-0.02em] text-stone-900">Also on Agency and Scale</h2>
+          <ul className="mt-6 grid gap-3.5 text-[17px] text-stone-800">
+            <li className="flex items-start gap-3">
+              <Check className="mt-1 h-5 w-5 shrink-0 text-brand-800" strokeWidth={2.5} aria-hidden />
+              Use your own proxies, {formatMoney(BYO_PROXY_DISCOUNT.USD, "USD")} less per sender
+            </li>
+            <li className="flex items-start gap-3">
+              <Check className="mt-1 h-5 w-5 shrink-0 text-brand-800" strokeWidth={2.5} aria-hidden />
+              Priority support on WhatsApp and email
+            </li>
+            <li className="flex items-start gap-3 text-stone-500">
+              <span className="mt-0.5 shrink-0 rounded-md bg-stone-200/70 px-1.5 text-[13px] font-medium text-stone-600">Soon</span>
+              A separate workspace for each client
+            </li>
+            <li className="flex items-start gap-3 text-stone-500">
+              <span className="mt-0.5 shrink-0 rounded-md bg-stone-200/70 px-1.5 text-[13px] font-medium text-stone-600">Soon</span>
+              White-label: your brand instead of Invytra's
+            </li>
+          </ul>
+          <p className="mt-8 rounded-2xl bg-white px-5 py-4 text-[16px] leading-relaxed text-stone-700">
+            Free trial: {TRIAL.days} days, up to {TRIAL.maxSenders} senders, no card.{" "}
+            <Link href="/compare" className="font-medium text-stone-900 underline decoration-brand-500 decoration-2 underline-offset-4">
+              See how this compares
+            </Link>{" "}
+            with Expandi, HeyReach and others.
+          </p>
+        </div>
+      </section>
 
       <section className="mt-20 max-w-[860px]">
         <h2 className="font-display text-[34px] font-bold tracking-[-0.02em] text-stone-900">Billing questions</h2>

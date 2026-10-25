@@ -53,8 +53,9 @@ const SECTIONS: LegalSection[] = [
   {
     title: "Trial, fees and billing",
     body: [
-      `New workspaces get a ${SITE.trialDays}-day free trial. After that, Invytra costs $${SITE.price.usd} per connected LinkedIn account per month, or the price shown at checkout, plus applicable taxes such as GST.`,
-      "Subscriptions renew monthly until cancelled. You can cancel any time; the service continues until the end of the paid month. Fees already paid aren't refunded for partial months, except where the law requires.",
+      `New workspaces get a ${SITE.trialDays}-day free trial for up to ${SITE.trialSenders} connected LinkedIn accounts. After that, Invytra is charged per connected LinkedIn account ("sender") at the rate for your package on our pricing page, or the price shown at checkout, plus applicable taxes such as GST.`,
+      "Monthly subscriptions renew monthly and yearly subscriptions yearly, until cancelled. Senders added during a period are charged for the part of the period that's left.",
+      "Subscriptions can be cancelled any time; the service continues until the end of the period you have paid for. Fees already paid aren't refunded for partial periods, except where the law requires.",
       "We'll give you at least 30 days' notice of any price change.",
     ],
   },

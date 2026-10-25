@@ -7,7 +7,7 @@ import { SITE } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: { absolute: "Invytra — LinkedIn outreach at a human pace" },
-  description: `Invytra visits profiles, sends invites and follows up on LinkedIn for you, inside working hours and safe daily limits, and stops when someone replies. $${SITE.price.usd} per account a month.`,
+  description: `Invytra visits profiles, sends invites and follows up on LinkedIn for you, inside working hours and safe daily limits, and stops when someone replies. From $${SITE.price.usd} per account a month, less as you add more.`,
 };
 
 const JOURNEY: { when: string; title: string; body: string; icon: LucideIcon }[] = [
@@ -79,7 +79,10 @@ const FAQ = [
     a: "LinkedIn gives free accounts a few custom notes a month. When they run out, Invytra sends the invite without a note and tells you so in the activity log.",
   },
   { q: "Does Invytra send emails or WhatsApp messages?", a: "No. Invytra is LinkedIn only, and does that one thing carefully." },
-  { q: "Can I cancel any time?", a: `Yes. Plans are monthly with no contract, and every plan starts with a ${SITE.trialDays}-day free trial.` },
+  {
+    q: "Can I cancel any time?",
+    a: `Yes. Monthly packages have no contract, and everyone starts with a ${SITE.trialDays}-day free trial for up to ${SITE.trialSenders} accounts, no card needed.`,
+  },
 ];
 
 function Cta({ href, children, dark }: { href: string; children: React.ReactNode; dark?: boolean }) {
@@ -116,7 +119,7 @@ export default function Home() {
             <Cta href="/pricing">See pricing</Cta>
           </div>
           <p className="mt-5 text-[15px] text-stone-500">
-            ${SITE.price.usd} per LinkedIn account a month. {SITE.trialDays}-day free trial. No browser extension.
+            From ${SITE.price.usd} per LinkedIn account a month. {SITE.trialDays}-day free trial, no card. No browser extension.
           </p>
         </div>
         <PacingWeek />
@@ -189,16 +192,20 @@ export default function Home() {
       <section className="mx-auto max-w-[1180px] px-5 py-20">
         <div className="grid items-center gap-10 rounded-[28px] bg-brand-400 px-7 py-10 sm:px-12 sm:py-12 lg:grid-cols-[1fr_auto]">
           <div>
-            <p className="font-display text-[56px] font-bold leading-none tracking-[-0.03em] text-stone-900 sm:text-[72px]">${SITE.price.usd}</p>
-            <p className="mt-3 max-w-[520px] text-[19px] leading-relaxed text-stone-900">
-              per LinkedIn account, per month. Every feature, unlimited campaigns and lead lists, and your whole team at no extra cost.
+            <p className="font-display text-[56px] font-bold leading-none tracking-[-0.03em] text-stone-900 sm:text-[72px]">
+              ${SITE.price.usd}
+              <span className="text-[0.5em] font-semibold tracking-normal"> to ${SITE.price.lowestUsd}</span>
+            </p>
+            <p className="mt-3 max-w-[540px] text-[19px] leading-relaxed text-stone-900">
+              per LinkedIn account, per month. The more accounts you connect, the less each one costs. Every feature, a managed proxy, and your
+              whole team at no extra cost.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 lg:flex-col">
             <Cta href="/signup" dark>
               Start your free trial
             </Cta>
-            <Cta href="/compare">Compare with others</Cta>
+            <Cta href="/pricing">Work out your price</Cta>
           </div>
         </div>
       </section>

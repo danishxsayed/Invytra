@@ -5,8 +5,10 @@ export const SITE = {
   email: "hello@invytra.com",
   company: "Crawlers Technologies Pvt Ltd",
   companyPlace: "Hubballi, Karnataka, India",
-  price: { usd: 29 },
-  trialDays: 7,
+  /** Starting price per sender (see PRICE_TIERS in @invytra/shared for the full list). */
+  price: { usd: 29, lowestUsd: 12 },
+  trialDays: 14,
+  trialSenders: 3,
   /** When competitor prices on /compare were last checked. */
   compareCheckedOn: "October 2026",
 };
