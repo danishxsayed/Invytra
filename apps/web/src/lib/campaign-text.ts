@@ -31,6 +31,7 @@ const REASONS: Record<string, string> = {
   EXPIRED: "Didn't accept in time",
   WITHDRAWN: "Invite was withdrawn or declined",
   CANCELLED: "Cancelled",
+  SENDER_REMOVED: "Its sending account was removed from the campaign after contacting them",
 };
 
 export function reasonText(code: string | null | undefined): string {

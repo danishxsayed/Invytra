@@ -91,6 +91,14 @@ LinkedIn. One less service to build, deploy and secure.
   Dashboard "This week" table: visits, invites, accepted, messages, replies per day in the
   account's time zone. Note for M6: screenshots are read from the worker's disk — on separate
   servers they must move to shared/object storage
+- [x] Pricing + multi-sender (2026-10-25): per-sender packages in `packages/shared/src/pricing.ts`
+  (Solo $29 → Scale $12, 14-day trial up to 3 senders) on the website. Campaigns can send from
+  several accounts: `campaign_senders` (migration `20261027000000_campaign_senders` moves the old
+  `campaigns.account_id` over). New leads go to the connected sender with the fewest leads that
+  has room; `campaign_leads.account_id` then pins the lead to it (replies are matched in that
+  sender's inbox). Senders can be added/removed while running; a removed sender's queued actions
+  are cancelled, its uncontacted leads move to others, contacted ones end as SKIPPED
+  `SENDER_REMOVED`. Builder sender picker, per-sender table on the campaign page.
 - [x] Settings (2026-10-24): profile (name; email change needs the current password), change
   password (signs out every other session via `users.sessions_valid_after`, this browser stays
   in), "sign out other devices", workspace name (owner only), team list. Team invites by email

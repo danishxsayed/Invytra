@@ -22,7 +22,7 @@ export default async function CampaignsPage() {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <PageHeader title="Campaigns" description="Sequences of visits, invites and messages, sent from one account to one lead list." action={newButton} />
+      <PageHeader title="Campaigns" description="Sequences of visits, invites and messages, sent from one or more of your accounts to a lead list." action={newButton} />
       {campaigns.length === 0 ? (
         <Card>
           <EmptyState
@@ -46,7 +46,7 @@ export default async function CampaignsPage() {
                     <CampaignStatusBadge status={c.status} />
                   </div>
                   <p className="mt-0.5 truncate text-[14px] text-stone-500">
-                    {c.account?.label ?? "No account"} → {c.list?.name ?? "No list"} · {total.toLocaleString()} {total === 1 ? "lead" : "leads"}
+                    {c.senders.length === 0 ? "No account" : c.senders.length === 1 ? c.senders[0]!.label : `${c.senders.length} accounts`} → {c.list?.name ?? "No list"} · {total.toLocaleString()} {total === 1 ? "lead" : "leads"}
                   </p>
                 </div>
                 <Stat label="Invited" value={s.invited} />

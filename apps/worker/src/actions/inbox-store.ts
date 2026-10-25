@@ -46,7 +46,7 @@ export async function linkReplies(prisma: PrismaClient, accountId: string, now =
   });
   if (unlinked.length === 0) return 0;
   const leads = await prisma.campaignLead.findMany({
-    where: { campaign: { accountId } },
+    where: { accountId },
     select: { id: true, linkedinName: true, firstName: true, lastName: true },
     orderBy: { updatedAt: "asc" },
   });

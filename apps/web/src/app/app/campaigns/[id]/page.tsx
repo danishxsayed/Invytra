@@ -7,7 +7,7 @@ import { CampaignStatusBadge, LeadStateBadge, Metric } from "@/components/campai
 import { Avatar, Card, EmptyState, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { pct, positionText, reasonText, stepLabel } from "@/lib/campaign-text";
-import { CampaignNotFoundError, LEAD_FILTERS, campaignLeadsPage, campaignStats, getCampaign, launchProblems, type LeadFilter } from "@/lib/campaigns";
+import { CampaignNotFoundError, LEAD_FILTERS, campaignLeadsPage, campaignStats, getCampaign, launchProblems, senderStats, type LeadFilter } from "@/lib/campaigns";
 import { slugName, timeAgo } from "@/lib/format";
 
 export const metadata = { title: "Campaign" };
@@ -45,17 +45,28 @@ export default async function CampaignPage({
     if (e instanceof CampaignNotFoundError) notFound();
     throw e;
   }
-  const [stats, { total, rows }, problems] = await Promise.all([
+  const [stats, { total, rows }, problems, bySender] = await Promise.all([
     campaignStats(prisma, me.workspace.id, [c.id]).then((m) => m.get(c.id)!),
     campaignLeadsPage(prisma, me.workspace.id, c.id, { filter, page, pageSize: PAGE_SIZE }),
     launchProblems(prisma, me.workspace.id, c),
+    senderStats(prisma, me.workspace.id, c.id),
   ]);
+  const multi = c.senders.length > 1;
   const now = new Date();
   const count = (f: LeadFilter) => (f === "all" ? stats.total : LEAD_FILTERS[f].reduce((n, s) => n + (stats.byState[s] ?? 0), 0));
   const contacted = Math.max(stats.invited, stats.messaged);
   const href = (f: LeadFilter, p = 1) => `/app/campaigns/${c.id}?${new URLSearchParams({ ...(f !== "all" && { filter: f }), ...(p > 1 && { page: String(p) }) })}`;
+  const idle = c.senders.filter((a) => a.status !== "ACTIVE");
   const accountProblem =
-    !c.account ? "The sending account was removed. Edit the campaign to choose another." : c.account.status !== "ACTIVE" ? `“${c.account.label}” isn't connected and active, so nothing is sent until it is.` : null;
+    c.senders.length === 0
+      ? "No account is sending. Edit the campaign to choose one."
+      : idle.length === c.senders.length
+        ? c.senders.length === 1
+          ? `“${idle[0]!.label}” isn't connected and active, so nothing is sent until it is.`
+          : "None of the sending accounts is connected and active, so nothing is sent until one is."
+        : idle.length
+          ? `${idle.map((a) => `“${a.label}”`).join(", ")} ${idle.length === 1 ? "isn't" : "aren't"} connected and active. New leads go to the other accounts; leads already with ${idle.length === 1 ? "it" : "them"} wait.`
+          : null;
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -70,13 +81,16 @@ export default async function CampaignPage({
               <CampaignStatusBadge status={c.status} />
             </div>
             <p className="mt-1 text-[16px] text-stone-500">
-              {c.account ? (
-                <Link href={`/app/accounts/${c.account.id}`} className="font-medium text-stone-700 hover:underline">
-                  {c.account.label}
-                </Link>
-              ) : (
-                "No account"
-              )}{" "}
+              {c.senders.length === 0
+                ? "No account"
+                : c.senders.map((a, i) => (
+                    <span key={a.id}>
+                      {i > 0 && ", "}
+                      <Link href={`/app/accounts/${a.id}`} className="font-medium text-stone-700 hover:underline">
+                        {a.label}
+                      </Link>
+                    </span>
+                  ))}{" "}
               →{" "}
               {c.list ? (
                 <Link href={`/app/leads/${c.list.id}`} className="font-medium text-stone-700 hover:underline">
@@ -92,7 +106,7 @@ export default async function CampaignPage({
         </div>
       </div>
 
-      {c.status === "ACTIVE" && accountProblem && <Banner>{accountProblem}</Banner>}
+      {c.status !== "DRAFT" && accountProblem && <Banner>{accountProblem}</Banner>}
       {c.status === "DRAFT" && problems.length > 0 && <Banner>Before launching: {problems[0]}</Banner>}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -134,6 +148,43 @@ export default async function CampaignPage({
           })}
         </ol>
       </Card>
+
+      {multi && c.status !== "DRAFT" && (
+        <Card className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-left text-[15px]">
+            <thead>
+              <tr className="border-b border-stone-100 text-[13px] uppercase tracking-wide text-stone-400">
+                <th className="px-5 py-3 font-medium">Sender</th>
+                {["Leads", "Invited", "Accepted", "Messaged", "Replied"].map((h) => (
+                  <th key={h} className="px-3 py-3 text-right font-medium">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {c.senders.map((a) => {
+                const s = bySender.get(a.id) ?? { leads: 0, invited: 0, accepted: 0, messaged: 0, replied: 0 };
+                return (
+                  <tr key={a.id}>
+                    <td className="px-5 py-3">
+                      <Link href={`/app/accounts/${a.id}`} className="font-medium text-stone-900 hover:underline">
+                        {a.label}
+                      </Link>
+                      {a.status !== "ACTIVE" && <span className="ml-2 text-[13px] text-amber-700">not active</span>}
+                    </td>
+                    {[s.leads, s.invited, s.accepted, s.messaged, s.replied].map((n, i) => (
+                      <td key={i} className="px-3 py-3 text-right tabular-nums text-stone-700">
+                        {n.toLocaleString()}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Card>
+      )}
 
       <Card className="overflow-hidden">
         <nav className="flex gap-1 overflow-x-auto border-b border-stone-100 px-3 py-2" aria-label="Filter leads">
@@ -177,7 +228,10 @@ export default async function CampaignPage({
                       <span className="truncate">{name}</span>
                       <ExternalLink className="h-3.5 w-3.5 shrink-0 text-stone-400" aria-hidden />
                     </a>
-                    <p className="truncate text-[14px] text-stone-500">{detail || [l.title, l.company].filter(Boolean).join(" · ")}</p>
+                    <p className="truncate text-[14px] text-stone-500">
+                      {detail || [l.title, l.company].filter(Boolean).join(" · ")}
+                      {multi && l.account && <span className="text-stone-400"> · via {l.account.label}</span>}
+                    </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <LeadStateBadge state={l.state} />

@@ -56,7 +56,7 @@ const FEATURES: { title: string; body: string; icon: LucideIcon }[] = [
   {
     title: "Several accounts, one workspace",
     icon: UsersRound,
-    body: "Run your team's LinkedIn accounts side by side, each with its own limits, hours and time zone.",
+    body: "Run one campaign from several accounts to go faster. Each lead stays with one sender, and every account keeps its own limits and hours.",
   },
 ];
 

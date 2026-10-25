@@ -35,7 +35,7 @@ export default async function EditCampaignPage({ params }: { params: Promise<{ i
       </div>
       <CampaignBuilder
         options={options}
-        initial={{ id: c.id, name: c.name, accountId: c.accountId, listId: c.listId, steps: c.steps, settings: c.settings, status: c.status }}
+        initial={{ id: c.id, name: c.name, accountIds: c.senders.map((a) => a.id), listId: c.listId, steps: c.steps, settings: c.settings, status: c.status }}
       />
     </div>
   );

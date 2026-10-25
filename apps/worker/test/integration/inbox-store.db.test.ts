@@ -23,9 +23,9 @@ d("inbox storage", () => {
     await prisma.workspace.deleteMany({ where: { id: WS } });
     await prisma.workspace.create({ data: { id: WS, name: "Inbox" } });
     await prisma.linkedinAccount.create({ data: { id: "acc-in", workspaceId: WS, label: "in", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE" } });
-    await prisma.campaign.create({ data: { id: "camp-in", workspaceId: WS, name: "C", accountId: "acc-in", status: "ACTIVE", steps: [] } });
+    await prisma.campaign.create({ data: { id: "camp-in", workspaceId: WS, name: "C", senders: { create: { accountId: "acc-in" } }, status: "ACTIVE", steps: [] } });
     await prisma.campaignLead.create({
-      data: { id: "cl-jane", campaignId: "camp-in", workspaceId: WS, profileUrl: "https://www.linkedin.com/in/jane/", linkedinName: "Jane Doe", state: "IN_PROGRESS" },
+      data: { id: "cl-jane", campaignId: "camp-in", accountId: "acc-in", workspaceId: WS, profileUrl: "https://www.linkedin.com/in/jane/", linkedinName: "Jane Doe", state: "IN_PROGRESS" },
     });
   });
   afterAll(async () => {

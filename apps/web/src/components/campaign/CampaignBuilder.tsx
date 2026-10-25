@@ -10,7 +10,7 @@ import {
   type CampaignStep,
   type SequencePreset,
 } from "@invytra/shared";
-import { AlertCircle, Loader2, Rocket } from "lucide-react";
+import { AlertCircle, Check, Loader2, Rocket } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -26,7 +26,7 @@ import { SequenceEditor } from "./SequenceEditor";
 export interface BuilderInitial {
   id: string;
   name: string;
-  accountId: string | null;
+  accountIds: string[];
   listId: string | null;
   steps: CampaignStep[];
   settings: CampaignSettings;
@@ -54,7 +54,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
   const router = useRouter();
   const launched = !!initial && initial.status !== "DRAFT";
   const [name, setName] = useState(initial?.name ?? "");
-  const [accountId, setAccountId] = useState(initial?.accountId ?? (options.accounts.length === 1 ? options.accounts[0]!.id : ""));
+  const [accountIds, setAccountIds] = useState<string[]>(initial?.accountIds ?? (options.accounts.length === 1 ? [options.accounts[0]!.id] : []));
   const [listId, setListId] = useState(initial?.listId ?? presetListId ?? "");
   const [preset, setPreset] = useState<SequencePreset | null>(initial ? null : "invite_followups");
   const [steps, setSteps] = useState<CampaignStep[]>(initial?.steps ?? (SEQUENCE_PRESETS.invite_followups.steps as CampaignStep[]));
@@ -63,26 +63,32 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
   const [confirm, setConfirm] = useState(false);
   const [pending, start] = useTransition();
 
-  const account = options.accounts.find((a) => a.id === accountId);
+  const senders = options.accounts.filter((a) => accountIds.includes(a.id));
   const list = options.lists.find((l) => l.id === listId);
   const problems = useMemo(() => {
     const p: string[] = [];
     if (!name.trim()) p.push("Give the campaign a name.");
-    if (!accountId) p.push("Choose the LinkedIn account that sends.");
-    else if (account?.status === "DISCONNECTED") p.push(`Connect “${account.label}” to LinkedIn first.`);
+    if (senders.length === 0) p.push("Choose at least one LinkedIn account to send from.");
+    else if (senders.every((a) => a.status === "DISCONNECTED")) {
+      p.push(senders.length === 1 ? `Connect “${senders[0]!.label}” to LinkedIn first.` : "Connect at least one of the chosen accounts to LinkedIn first.");
+    }
     if (!listId) p.push("Choose a lead list.");
     else if (list && list.count === 0) p.push("The lead list is empty.");
     return [...p, ...sequenceProblems(steps)];
-  }, [name, accountId, account, listId, list, steps]);
+  }, [name, senders, listId, list, steps]);
 
-  const invitesPerDay = (limitsSchema.safeParse(account?.limits).data ?? DEFAULT_LIMITS).connectionRequestsPerDay;
+  const toggleSender = (id: string) => setAccountIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  // Each sender keeps its own daily limit, so together they invite the sum.
+  const invitesPerDay = senders
+    .filter((a) => a.status !== "DISCONNECTED")
+    .reduce((n, a) => n + (limitsSchema.safeParse(a.limits).data ?? DEFAULT_LIMITS).connectionRequestsPerDay, 0);
   const usesInvites = steps.some((s) => s.type === "INVITE");
-  const days = list ? Math.max(1, Math.ceil(list.count / (usesInvites ? invitesPerDay : 40))) : 0;
+  const days = list && invitesPerDay ? Math.max(1, Math.ceil(list.count / (usesInvites ? invitesPerDay : 40 * senders.length))) : 0;
 
   const save = (launch: boolean) =>
     start(async () => {
       setError(null);
-      const r = await saveCampaignAction(initial?.id ?? null, { name, accountId: accountId || null, listId: listId || null, steps, settings }, launch);
+      const r = await saveCampaignAction(initial?.id ?? null, { name, accountIds, listId: listId || null, steps, settings }, launch);
       if (!r.ok) return setError(r.error);
       setConfirm(false);
       if (r.value.launchError) setError(`Saved as a draft. ${r.value.launchError}`);
@@ -98,20 +104,9 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
   return (
     <div className="space-y-5">
       <Section n={1} title="Who sends, and to whom">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <Field label="Campaign name">
             <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="e.g. Pune founders – Q4" />
-          </Field>
-          <Field label="LinkedIn account">
-            <select className={inputCls} value={accountId} onChange={(e) => setAccountId(e.target.value)} disabled={launched && !!initial?.accountId}>
-              <option value="">Choose…</option>
-              {options.accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label}
-                  {a.profileName ? ` (${a.profileName})` : ""} — {STATUS_TEXT[a.status] ?? a.status}
-                </option>
-              ))}
-            </select>
           </Field>
           <Field label="Lead list">
             <select className={inputCls} value={listId} onChange={(e) => setListId(e.target.value)} disabled={launched && !!initial?.listId}>
@@ -124,6 +119,47 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
             </select>
           </Field>
         </div>
+        {options.accounts.length > 0 && (
+          <fieldset className="mt-5">
+            <legend className="text-[15px] font-medium text-stone-700">
+              Send from {senders.length > 1 && <span className="font-normal text-stone-500">· {senders.length} accounts share the leads</span>}
+            </legend>
+            <p className="mb-2.5 text-[14px] text-stone-500">
+              Pick one account, or several to go faster. Each lead is given to one of them and stays with it; every account keeps its own limits and hours.
+              {launched && " Accounts can be added or removed while the campaign runs."}
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {options.accounts.map((a) => {
+                const on = accountIds.includes(a.id);
+                const limit = (limitsSchema.safeParse(a.limits).data ?? DEFAULT_LIMITS).connectionRequestsPerDay;
+                return (
+                  <label
+                    key={a.id}
+                    className={cx(
+                      "flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-2.5 transition",
+                      on ? "border-stone-900 bg-white ring-1 ring-stone-900" : "border-stone-200 bg-stone-50/60 hover:border-stone-300",
+                    )}
+                  >
+                    <input type="checkbox" className="sr-only" checked={on} onChange={() => toggleSender(a.id)} />
+                    <span
+                      aria-hidden
+                      className={cx("flex h-5 w-5 shrink-0 items-center justify-center rounded-md border", on ? "border-stone-900 bg-stone-900 text-white" : "border-stone-300 bg-white")}
+                    >
+                      {on && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold text-stone-900">{a.label}</span>
+                      <span className="block truncate text-[13px] text-stone-500">
+                        {a.profileName ? `${a.profileName} · ` : ""}
+                        <span className={a.status === "ACTIVE" ? "" : "text-amber-700"}>{STATUS_TEXT[a.status] ?? a.status}</span> · {limit} invites/day
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+        )}
         {(options.accounts.length === 0 || options.lists.length === 0) && (
           <p className="mt-3 text-[15px] text-stone-500">
             {options.accounts.length === 0 && (
@@ -140,9 +176,9 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
             first.
           </p>
         )}
-        {list && usesInvites && (
+        {list && usesInvites && invitesPerDay > 0 && (
           <p className="mt-3 text-[15px] text-stone-500">
-            At up to {invitesPerDay} invites a day, inviting all {list.count.toLocaleString()} leads takes about {days} working {days === 1 ? "day" : "days"}. New leads added
+            At up to {invitesPerDay} invites a day{senders.length > 1 ? ` across ${senders.length} accounts` : ""}, inviting all {list.count.toLocaleString()} leads takes about {days} working {days === 1 ? "day" : "days"}. New leads added
             to this list later join the campaign automatically.
           </p>
         )}
@@ -218,13 +254,14 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
         </div>
       </div>
 
-      {confirm && account && list && (
+      {confirm && senders.length > 0 && list && (
         <Modal title="Launch this campaign?" onClose={() => setConfirm(false)} busy={pending}>
           <ul className="space-y-2 text-[15px] text-stone-700">
             <li>
-              <b>{account.label}</b> starts working through <b>{list.count.toLocaleString()}</b> leads in “{list.name}”.
+              <b>{senders.length === 1 ? senders[0]!.label : `${senders.length} accounts`}</b> {senders.length === 1 ? "starts" : "start"} working through <b>{list.count.toLocaleString()}</b> leads in “{list.name}”.
             </li>
-            {usesInvites && <li>Up to {invitesPerDay} invites a day, only in working hours — about {days} working {days === 1 ? "day" : "days"} to invite everyone.</li>}
+            {senders.length > 1 && <li>Each lead goes to one account and stays with it, so nobody hears from two of your accounts.</li>}
+            {usesInvites && invitesPerDay > 0 && <li>Up to {invitesPerDay} invites a day, only in working hours — about {days} working {days === 1 ? "day" : "days"} to invite everyone.</li>}
             <li>Anyone already contacted, or in another campaign, is skipped. Follow-ups stop when someone replies.</li>
             <li>You can pause at any time.</li>
           </ul>

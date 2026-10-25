@@ -113,10 +113,11 @@ model LinkedinAccount {
   createdAt        DateTime      @default(now()) @map("created_at")
   updatedAt        DateTime      @updatedAt @map("updated_at")
 
-  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  actions   Action[]
-  messages  InboxMessage[]
-  campaigns Campaign[]
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actions         Action[]
+  messages        InboxMessage[]
+  campaignSenders CampaignSender[]
+  campaignLeads   CampaignLead[]
 
   @@unique([workspaceId, label])
   @@index([workspaceId])
@@ -244,8 +245,6 @@ model Campaign {
   id            String         @id @default(cuid())
   workspaceId   String         @map("workspace_id")
   name          String
-  /// The sending account. Null if it was removed — the campaign can't run until another is chosen.
-  accountId     String?        @map("account_id")
   /// Leads added to this list later join the running campaign.
   listId        String?        @map("list_id")
   status        CampaignStatus @default(DRAFT)
@@ -260,9 +259,10 @@ model Campaign {
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
   workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  account   LinkedinAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   list      LeadList?        @relation(fields: [listId], references: [id], onDelete: SetNull)
   leads     CampaignLead[]
+  /// The LinkedIn accounts sending for this campaign. Leads are shared out between them.
+  senders   CampaignSender[]
 
   @@index([workspaceId])
   @@index([status])
@@ -276,6 +276,9 @@ model CampaignLead {
   campaignId   String            @map("campaign_id")
   workspaceId  String            @map("workspace_id")
   leadId       String?           @map("lead_id")
+  /// The sender this lead belongs to for its whole journey (a LinkedIn connection is per account).
+  /// Assigned when the lead starts; null until then, or if that account was deleted.
+  accountId    String?           @map("account_id")
   profileUrl   String            @map("profile_url")
   firstName    String?           @map("first_name")
   lastName     String?           @map("last_name")
@@ -300,13 +303,29 @@ model CampaignLead {
   createdAt    DateTime          @default(now()) @map("created_at")
   updatedAt    DateTime          @updatedAt @map("updated_at")
 
-  campaign Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  lead     Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  campaign Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead     Lead?            @relation(fields: [leadId], references: [id], onDelete: SetNull)
   actions  Action[]
   replies  InboxMessage[]
+  account  LinkedinAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
   @@unique([campaignId, profileUrl])
   @@index([campaignId, state, nextAt])
   @@index([workspaceId, profileUrl])
+  @@index([accountId, state])
   @@map("campaign_leads")
+}
+
+/// One LinkedIn account sending for one campaign.
+model CampaignSender {
+  campaignId String   @map("campaign_id")
+  accountId  String   @map("account_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  campaign Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  account  LinkedinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, accountId])
+  @@index([accountId])
+  @@map("campaign_senders")
 }

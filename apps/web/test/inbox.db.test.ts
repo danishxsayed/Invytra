@@ -22,7 +22,7 @@ d("inbox and activity", () => {
         { id: "acc-inb-b", workspaceId: B, label: "b", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE" },
       ],
     });
-    await prisma.campaign.create({ data: { id: "camp-inb", workspaceId: A, name: "Founders", accountId: "acc-inb-a", status: "ACTIVE", steps: [] } });
+    await prisma.campaign.create({ data: { id: "camp-inb", workspaceId: A, name: "Founders", senders: { create: { accountId: "acc-inb-a" } }, status: "ACTIVE", steps: [] } });
     await prisma.campaignLead.create({
       data: { id: "cl-inb", campaignId: "camp-inb", workspaceId: A, profileUrl: "https://www.linkedin.com/in/jane/", company: "Acme", state: "REPLIED", connectedAt: now },
     });

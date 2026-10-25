@@ -59,7 +59,7 @@ d("campaign engine", () => {
         id: "camp-1",
         workspaceId: WS,
         name: "Q4",
-        accountId: "acc-c",
+        senders: { create: { accountId: "acc-c" } },
         listId: list.id,
         status: "ACTIVE",
         steps: [
@@ -158,7 +158,7 @@ d("campaign engine", () => {
 
   it("skips people already in another campaign, but not ones the other campaign skipped", async () => {
     await prisma.campaign.create({
-      data: { id: "camp-2", workspaceId: WS, name: "Dup", accountId: "acc-c", listId: "list-c", status: "ACTIVE", steps: [{ type: "INVITE", delayDays: 0, note: "" }] },
+      data: { id: "camp-2", workspaceId: WS, name: "Dup", senders: { create: { accountId: "acc-c" } }, listId: "list-c", status: "ACTIVE", steps: [{ type: "INVITE", delayDays: 0, note: "" }] },
     });
     await tick();
     const rows = await prisma.campaignLead.findMany({ where: { campaignId: "camp-2" }, select: { profileUrl: true, state: true, reason: true } });

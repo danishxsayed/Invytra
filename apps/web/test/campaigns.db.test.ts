@@ -27,7 +27,7 @@ d("campaigns", () => {
   let id = "";
   const input = (o: Partial<CampaignInput> = {}): CampaignInput => ({
     name: "Q4 founders",
-    accountId: "acc-camp-a",
+    accountIds: ["acc-camp-a"],
     listId: "list-camp-a",
     steps: [
       { type: "VISIT", delayDays: 0 },
@@ -57,7 +57,7 @@ d("campaigns", () => {
   });
 
   it("creates a draft with its own account and list only", async () => {
-    expect(await createCampaign(prisma, A, input({ accountId: "acc-camp-b" }))).toMatchObject({ ok: false });
+    expect(await createCampaign(prisma, A, input({ accountIds: ["acc-camp-a", "acc-camp-b"] }))).toMatchObject({ ok: false });
     expect(await createCampaign(prisma, A, input({ listId: "list-camp-b" }))).toMatchObject({ ok: false });
     const r = await createCampaign(prisma, A, input());
     expect(r.ok).toBe(true);
@@ -77,14 +77,27 @@ d("campaigns", () => {
   it("after launch, keeps steps, sender and list in place but allows text changes and new follow-ups", async () => {
     const steps = input().steps;
     expect(await updateCampaign(prisma, A, id, input({ steps: steps.slice(1) }))).toMatchObject({ ok: false });
-    expect(await updateCampaign(prisma, A, id, input({ accountId: null }))).toMatchObject({ ok: false });
+    expect(await updateCampaign(prisma, A, id, input({ accountIds: [] }))).toMatchObject({ ok: false });
     const more = [...steps.slice(0, 2), { type: "MESSAGE" as const, delayDays: 2, text: "New text" }, { type: "MESSAGE" as const, delayDays: 4, text: "One more" }];
     expect(await updateCampaign(prisma, A, id, input({ steps: more }))).toEqual({ ok: true, value: undefined });
   });
 
+  it("lets senders be added and removed while it runs", async () => {
+    const a2 = await prisma.linkedinAccount.create({
+      data: { id: "acc-camp-a2", workspaceId: A, label: "a2", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE" },
+    });
+    const steps = (await getCampaign(prisma, A, id)).steps;
+    expect(await updateCampaign(prisma, A, id, input({ steps, accountIds: ["acc-camp-a", a2.id, a2.id] }))).toEqual({ ok: true, value: undefined });
+    expect((await getCampaign(prisma, A, id)).senders.map((s) => s.id).sort()).toEqual(["acc-camp-a", "acc-camp-a2"]);
+    expect(await updateCampaign(prisma, A, id, input({ steps, accountIds: [a2.id] }))).toEqual({ ok: true, value: undefined });
+    expect((await getCampaign(prisma, A, id)).senders.map((s) => s.id)).toEqual(["acc-camp-a2"]);
+    expect((await listCampaigns(prisma, A))[0]!.senders.map((s) => s.label)).toEqual(["a2"]);
+    await updateCampaign(prisma, A, id, input({ steps }));
+  });
+
   it("never lets another workspace see, change, start, stop or delete it", async () => {
     await expect(getCampaign(prisma, B, id)).rejects.toBeInstanceOf(CampaignNotFoundError);
-    await expect(updateCampaign(prisma, B, id, input({ accountId: "acc-camp-b", listId: "list-camp-b" }))).rejects.toBeInstanceOf(CampaignNotFoundError);
+    await expect(updateCampaign(prisma, B, id, input({ accountIds: ["acc-camp-b"], listId: "list-camp-b" }))).rejects.toBeInstanceOf(CampaignNotFoundError);
     await expect(setCampaignStatus(prisma, B, id, "PAUSED")).rejects.toBeInstanceOf(CampaignNotFoundError);
     await expect(deleteCampaign(prisma, B, id)).rejects.toBeInstanceOf(CampaignNotFoundError);
     await expect(campaignLeadsPage(prisma, B, id)).rejects.toBeInstanceOf(CampaignNotFoundError);
