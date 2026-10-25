@@ -21,7 +21,7 @@
     "linkedin": "pnpm --filter @invytra/worker linkedin",
     "account:probe": "pnpm --filter @invytra/worker account:probe",
     "account:reactivate": "pnpm --filter @invytra/worker account:reactivate",
-    "packages:build": "pnpm --filter @invytra/db migrate:deploy && turbo run build --filter=@invytra/db --filter=@invytra/shared",
+    "packages:build": "pnpm --filter @invytra/db migrate:deploy && pnpm --filter @invytra/db generate && turbo run build --filter=@invytra/db --filter=@invytra/shared",
     "worker": "pnpm packages:build && pnpm --filter @invytra/worker worker",
     "queue": "pnpm --filter @invytra/worker queue",
     "queue:status": "pnpm --filter @invytra/worker queue:status",
