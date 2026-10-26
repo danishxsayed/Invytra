@@ -40,7 +40,10 @@ export function ConversationView({ c, suggestions, backHref }: { c: Conversation
     const t = setInterval(() => router.refresh(), 4000);
     return () => clearInterval(t);
   }, [sending, router]);
-  useEffect(() => bottom.current?.scrollIntoView({ block: "end" }), [c.id, c.messages.length, c.pending.length]);
+  // Newer browsers return a promise from scrollIntoView; an effect must return nothing.
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ block: "end" });
+  }, [c.id, c.messages.length, c.pending.length]);
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
     start(async () => {
