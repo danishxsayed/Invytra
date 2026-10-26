@@ -58,8 +58,8 @@ export function canExecute(
 }
 
 /** Random, non-uniform-looking delay in ms between two actions on one account. */
-export function randomActionDelayMs(random: () => number = Math.random): number {
-  const { min, max } = ACTION_DELAY_SECONDS;
+export function randomActionDelayMs(random: () => number = Math.random, range: { min: number; max: number } = ACTION_DELAY_SECONDS): number {
+  const { min, max } = range;
   // Average of two uniforms → values cluster mid-range like human pacing.
   const r = (random() + random()) / 2;
   return Math.round((min + r * (max - min)) * 1000);

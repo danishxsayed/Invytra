@@ -66,6 +66,15 @@ async function main() {
       } else if (result.kind === "done") {
         const icon = result.status === "SUCCEEDED" ? "✔" : result.status === "SKIPPED" ? "–" : "✖";
         log(`${icon} ${what} — ${result.status}${result.detail ? `: ${result.detail}` : ""}`);
+        // A search page finished: add its people and queue the next page now, not at the next tick.
+        if (action?.type === "SEARCH_PAGE") {
+          try {
+            const imp = await importTick({ prisma: rt.prisma, queue });
+            if (imp.added || imp.finished) log(`Imports: ${imp.added} new lead(s) added${imp.finished ? `, ${imp.finished} import(s) finished` : ""}`);
+          } catch (e) {
+            log(`Import error: ${e instanceof Error ? e.message : e}`);
+          }
+        }
       }
     },
     { connection, concurrency: CONCURRENCY },

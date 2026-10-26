@@ -35,10 +35,13 @@ export const MAX_LIMITS = {
  * 25 on Sales Navigator). LinkedIn watches heavy searching; free accounts also
  * hit a monthly "commercial use" search limit.
  */
-export const SEARCH_PAGES_PER_DAY = 30;
+export const SEARCH_PAGES_PER_DAY = 50;
 
 /** Connection-request note limit enforced by LinkedIn. */
 export const CONNECTION_NOTE_MAX_CHARS = 300;
 
 /** Random gap between two actions on the same account, in seconds. */
 export const ACTION_DELAY_SECONDS = { min: 45, max: 240 } as const;
+
+/** Gap after reading a search results page: people click "Next" much sooner than they send invites. */
+export const SEARCH_DELAY_SECONDS = { min: 15, max: 45 } as const;

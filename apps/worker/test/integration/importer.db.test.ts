@@ -54,6 +54,15 @@ d("search imports", () => {
     expect(await prisma.lead.findFirst({ where: { listId: "list-i", profileUrl: U("ann") } })).toMatchObject({ firstName: "Ann", company: "Acme", location: "Pune" });
   });
 
+  it("counts a finished page once, even when two runs see it at the same moment", async () => {
+    await prisma.leadImport.update({ where: { id: "imp-1" }, data: { maxLeads: 50 } });
+    await finishPage({ people: [person("fay", "Fay")], hasNext: true });
+    await Promise.all([tick(), tick()]);
+    expect(await imp()).toMatchObject({ pages: 2, found: 4, added: 3, nextPage: 3 });
+    expect(await prisma.action.count({ where: { type: "SEARCH_PAGE", status: "QUEUED", account: { workspaceId: WS } } })).toBe(1);
+    await prisma.leadImport.update({ where: { id: "imp-1" }, data: { maxLeads: 5 } });
+  });
+
   it("stops at the number of people asked for", async () => {
     await finishPage({ people: [person("cy", "Cy"), person("di", "Di"), person("ed", "Ed")], hasNext: true });
     await tick();

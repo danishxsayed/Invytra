@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@invytra/db";
-import { randomActionDelayMs } from "@invytra/shared";
+import { ACTION_DELAY_SECONDS, SEARCH_DELAY_SECONDS, randomActionDelayMs } from "@invytra/shared";
 import type { SessionManagerDeps } from "../browser/session-manager.js";
 import { isRetryable, workFor } from "../actions/registry.js";
 import { accountSettings, checkPolicy, executeActionRow } from "../actions/run-action.js";
@@ -131,7 +131,7 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
   if (result.status !== "FAILED" && (result.data as { noteLimitHit?: boolean } | undefined)?.noteLimitHit) {
     await deps.pacing.set(action.accountId, "notesBlockedUntil", notesBlockUntil(finished));
   }
-  const gap = randomActionDelayMs() * (deps.gapScale ?? 1);
+  const gap = randomActionDelayMs(Math.random, action.type === "SEARCH_PAGE" ? SEARCH_DELAY_SECONDS : ACTION_DELAY_SECONDS) * (deps.gapScale ?? 1);
   await deps.pacing.set(action.accountId, "nextActionAt", new Date(finished.getTime() + gap));
   if (result.status !== "FAILED") return { kind: "done", status: result.status };
   if (result.errorKind === "INVITE_LIMIT") {

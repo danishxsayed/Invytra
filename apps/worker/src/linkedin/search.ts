@@ -41,7 +41,7 @@ export async function readSearchPage(ctx: SessionTaskContext, url: string, kind:
   // Same path and filters on the site this worker talks to (LinkedIn, or the test site in development).
   const target = new URL(url);
   await page.goto(new URL(target.pathname + target.search, ctx.baseUrl).toString(), { waitUntil: "domcontentloaded" });
-  await humanPause(page, 2500, 4500);
+  await humanPause(page, 1500, 2500);
   await ctx.assertHealthy();
 
   const sales = kind !== "LINKEDIN_SEARCH";
@@ -50,12 +50,14 @@ export async function readSearchPage(ctx: SessionTaskContext, url: string, kind:
   }
   if (await mentions(ctx, SEARCH_MARKERS.searchLimit)) return { outcome: "SKIPPED", reason: "SEARCH_LIMIT" };
 
-  // Scroll down through the results, pausing, until no new ones appear.
+  // Scroll down through the results until no new ones appear (Sales Navigator loads them as you
+  // scroll; a LinkedIn search page has them all at once, so it stops after a glance).
   const linkSel = sales ? SELECTORS.search.salesLeadLink : SELECTORS.search.profileLink;
+  const enough = RESULTS_PER_PAGE[kind];
   let last = -1;
   for (let i = 0; i < 12; i++) {
     const n = await page.locator(linkSel).count();
-    if (n === last && i > 1) break;
+    if ((n === last && i > 0) || (!sales && n >= enough && i > 0)) break;
     last = n;
     await page.evaluate((sel) => {
       const boxes = sel.split(",").map((s) => document.querySelector(s.trim())).filter(Boolean) as HTMLElement[];
@@ -63,7 +65,7 @@ export async function readSearchPage(ctx: SessionTaskContext, url: string, kind:
       if (box) box.scrollBy(0, box.clientHeight * 0.8);
       window.scrollBy(0, window.innerHeight * 0.8);
     }, SELECTORS.search.salesScroller);
-    await humanPause(page, 700, 1600);
+    await humanPause(page, 500, 1100);
   }
 
   const raw = sales ? await readSales(ctx) : await readLinkedIn(ctx);

@@ -108,7 +108,7 @@ LinkedIn. One less service to build, deploy and secure.
 - [x] Search imports, likes, withdrawals (2026-10-25): paste a LinkedIn people search, a Sales
   Navigator lead search or a Sales Navigator lead list (`packages/shared/src/search-url.ts`);
   `lead_imports` + SEARCH_PAGE actions read one results page at a time
-  (`apps/worker/src/linkedin/search.ts`, `apps/worker/src/imports/importer.ts`), max 30 pages a
+  (`apps/worker/src/linkedin/search.ts`, `apps/worker/src/imports/importer.ts`), max 50 pages a
   day per account, inside working hours. Sales Navigator people are stored as member-id links
   (`/in/ACwAA…/`, case kept) and swapped for the real profile link after the first visit.
   Stops on LinkedIn's monthly search limit (SEARCH_LIMIT) or no Sales Navigator (NO_SALES_NAV).

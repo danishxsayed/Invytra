@@ -23,7 +23,11 @@ export async function importTick(deps: ImportDeps): Promise<{ queued: number; ad
   const out = { queued: 0, added: 0, finished: 0 };
   const running = await prisma.leadImport.findMany({ where: { status: "RUNNING" }, orderBy: { createdAt: "asc" }, take: 100 });
   for (const imp of running) {
-    if (imp.actionId) {
+    // Another run is queueing or applying this one right now; if it got stuck (crash), start that page over.
+    if (imp.actionId === "pending" || imp.actionId === "applying") {
+      if (now.getTime() - imp.updatedAt.getTime() < 2 * 60_000) continue;
+      await prisma.leadImport.updateMany({ where: { id: imp.id, actionId: imp.actionId }, data: { actionId: null } });
+    } else if (imp.actionId) {
       const action = await prisma.action.findUnique({ where: { id: imp.actionId } });
       if (action && (action.status === "QUEUED" || action.status === "RUNNING")) continue;
       if (action) {
@@ -67,6 +71,9 @@ type Finished = { status: string; error: string | null; payload: unknown };
 
 /** Adds a finished page's people to the list and decides what happens next. */
 export async function applyPage(prisma: PrismaClient, imp: LeadImport, action: Finished, now: Date): Promise<{ added: number; finished: boolean }> {
+  // Claim it, so a page is only ever counted once even if two ticks see it finish.
+  const claimed = await prisma.leadImport.updateMany({ where: { id: imp.id, actionId: imp.actionId }, data: { actionId: "applying" } });
+  if (claimed.count === 0) return { added: 0, finished: true };
   const finish = async (status: "DONE" | "FAILED", reason: string, extra: Record<string, number> = {}) => {
     await prisma.leadImport.update({ where: { id: imp.id }, data: { status, reason, actionId: null, finishedAt: now, ...extra } });
   };
