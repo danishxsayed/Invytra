@@ -3,7 +3,7 @@ import { MessagesSquare } from "lucide-react";
 import Link from "next/link";
 import { ConversationView, type ConversationViewData } from "@/components/inbox/ConversationView";
 import { FilterBar } from "@/components/inbox/FilterBar";
-import { Avatar, Card, EmptyState, PageHeader, cx } from "@/components/ui";
+import { Avatar, EmptyState, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { progressText } from "@/lib/campaign-text";
 import { dayLabel, shortWhen } from "@/lib/format";
@@ -57,12 +57,11 @@ export default async function InboxPage({
   };
 
   return (
-    <div className="space-y-5 animate-fade-up">
-      <PageHeader title="Inbox" description="Your LinkedIn conversations, checked about once an hour and before every campaign message. Reply right here." />
-
-      <Card className="overflow-hidden lg:grid lg:min-w-0 lg:h-[calc(100vh-190px)] lg:min-h-[560px] lg:grid-cols-[400px_1fr]">
+    <div className="h-full animate-fade-up">
+      <h1 className="sr-only">Inbox</h1>
+      <div className="h-full overflow-hidden bg-white lg:grid lg:min-w-0 lg:grid-cols-[380px_1fr]">
         {/* Conversation list */}
-        <div className={cx("flex min-h-0 min-w-0 flex-col overflow-hidden border-stone-100 lg:border-r", open && "hidden lg:flex")}>
+        <div className={cx("flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-stone-200/80 lg:border-r", open && "hidden lg:flex")}>
           <FilterBar accounts={options.accounts} campaigns={options.campaigns} tags={options.tags} />
           <nav className="flex gap-1 overflow-x-auto whitespace-nowrap border-b border-stone-100 px-3 py-2" aria-label="Show">
             {INBOX_FILTERS.map((f) => (
@@ -153,7 +152,7 @@ export default async function InboxPage({
         </div>
 
         {/* Open conversation */}
-        <div className={cx("min-h-0 min-w-0", !open && "hidden lg:block")}>
+        <div className={cx("h-full min-h-0 min-w-0", !open && "hidden lg:block")}>
           {open ? (
             <ConversationView key={open.id} c={toView(open, now)} suggestions={[...new Set([...options.tags, ...SUGGESTED_TAGS])]} backHref={href({ c: null })} />
           ) : (
@@ -166,7 +165,7 @@ export default async function InboxPage({
             </div>
           )}
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

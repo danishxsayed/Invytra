@@ -8,6 +8,8 @@ import {
   ListChecks,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Rocket,
   Settings,
@@ -19,6 +21,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { logout } from "@/app/(auth)/actions";
+import { SIDEBAR_COOKIE } from "@/lib/ui-prefs";
 import { accountDot } from "./StatusBadge";
 import { LogoMark } from "./LogoMark";
 import { Avatar, cx } from "./ui";
@@ -27,8 +30,10 @@ interface Props {
   workspace: string;
   user: { name: string; email: string };
   accounts: { id: string; label: string; status: string; profileName: string | null }[];
-  /** Replies waiting for an answer — shown as a badge on Inbox. */
+  /** Replies waiting for an answer, shown as a badge on Inbox. */
   needsReply?: number;
+  /** Desktop sidebar starts narrow (icons only); remembered in a cookie. */
+  collapsed?: boolean;
 }
 
 const NAV: { href: string; label: string; icon: typeof Settings; soon?: boolean }[] = [
@@ -130,12 +135,17 @@ function AccountSwitcher({ accounts, onNavigate }: { accounts: Props["accounts"]
   );
 }
 
-function SidebarBody({ workspace, user, accounts, needsReply, onNavigate }: Props & { onNavigate?: () => void }) {
+function SidebarBody({ workspace, user, accounts, needsReply, onNavigate, onCollapse }: Props & { onNavigate?: () => void; onCollapse?: () => void }) {
   const path = usePathname();
   return (
     <div className="flex h-full flex-col gap-5 px-3 py-5">
-      <div className="px-1.5">
+      <div className="flex items-center justify-between px-1.5">
         <Logo />
+        {onCollapse && (
+          <button onClick={onCollapse} title="Collapse sidebar" aria-label="Collapse sidebar" className="rounded-lg p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-800">
+            <PanelLeftClose className="h-5 w-5" />
+          </button>
+        )}
       </div>
       <div className="space-y-2">
         <AccountSwitcher accounts={accounts} onNavigate={onNavigate} />
@@ -202,12 +212,84 @@ function SidebarBody({ workspace, user, accounts, needsReply, onNavigate }: Prop
   );
 }
 
+/** The narrow sidebar: icons only, names on hover. */
+function SidebarRail({ accounts, user, needsReply, onExpand }: Props & { onExpand: () => void }) {
+  const path = usePathname();
+  const rank = (st: string) => (st === "NEEDS_ATTENTION" ? 0 : st === "DISCONNECTED" ? 1 : st === "PAUSED" ? 2 : 3);
+  const current = [...accounts].sort((a, b) => rank(a.status) - rank(b.status))[0];
+  return (
+    <div className="flex h-full flex-col items-center gap-4 py-5">
+      <Link href="/app" title="Invytra" aria-label="Invytra home">
+        <LogoMark size={34} />
+      </Link>
+      <button onClick={onExpand} title="Expand sidebar" aria-label="Expand sidebar" className="rounded-lg p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-800">
+        <PanelLeftOpen className="h-5 w-5" />
+      </button>
+      {current ? (
+        <Link href={`/app/accounts/${current.id}`} title={current.label} className="relative">
+          <Avatar name={current.label} />
+          <span className={cx("absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white", accountDot(current.status))} />
+        </Link>
+      ) : (
+        <Link href="/app/accounts?add=1" title="Connect LinkedIn" className="rounded-lg border border-dashed border-stone-300 p-2 text-stone-500 hover:border-brand-500">
+          <Plus className="h-4 w-4" />
+        </Link>
+      )}
+      <Link href="/app/accounts" title="Safe mode on" className="rounded-lg bg-emerald-50 p-2 text-emerald-700 hover:bg-emerald-100">
+        <ShieldCheck className="h-4 w-4" aria-label="Safe mode on" />
+      </Link>
+      <nav aria-label="Main" className="flex flex-col items-center gap-1">
+        {NAV.filter((n) => !n.soon).map(({ href, label, icon: Icon }) => {
+          const active = href === "/app" ? path === "/app" : path.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              title={label}
+              aria-label={label}
+              aria-current={active ? "page" : undefined}
+              className={cx("relative rounded-lg p-2.5 transition-colors", active ? "bg-brand-400 text-stone-900" : "text-stone-500 hover:bg-stone-100 hover:text-stone-900")}
+            >
+              <Icon className="h-5 w-5" aria-hidden />
+              {href === "/app/inbox" && !!needsReply && (
+                <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-stone-900 px-1 text-center text-[11px] font-semibold leading-[18px] text-white">
+                  {needsReply > 99 ? "99+" : needsReply}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+      <div className="mt-auto flex flex-col items-center gap-2">
+        <span title={user.name}>
+          <Avatar name={user.name} />
+        </span>
+        <form action={logout}>
+          <button title="Log out" aria-label="Log out" className="rounded-lg p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-700">
+            <LogOut className="h-4 w-4" />
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function Sidebar(props: Props) {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(!!props.collapsed);
+  const toggle = (v: boolean) => {
+    setCollapsed(v);
+    document.cookie = `${SIDEBAR_COOKIE}=${v ? "collapsed" : "open"}; path=/; max-age=31536000; samesite=lax`;
+  };
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-[284px] shrink-0 border-r border-stone-200/80 bg-white lg:block">
-        <SidebarBody {...props} />
+      <aside
+        className={cx(
+          "sticky top-0 hidden h-screen shrink-0 border-r border-stone-200/80 bg-white transition-[width] duration-200 lg:block",
+          collapsed ? "w-[76px]" : "w-[284px]",
+        )}
+      >
+        {collapsed ? <SidebarRail {...props} onExpand={() => toggle(false)} /> : <SidebarBody {...props} onCollapse={() => toggle(true)} />}
       </aside>
       <div className="sticky top-0 z-20 flex items-center justify-between border-b border-stone-200/80 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
         <Logo />
