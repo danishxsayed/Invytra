@@ -72,7 +72,7 @@ export function LeadTable({ listId, rows }: { listId: string; rows: LeadView[] }
           </div>
         </div>
       )}
-      <table className="w-full text-left">
+      <table className="w-full table-fixed text-left">
         <thead>
           <tr className="border-b border-stone-100 text-[13px] font-medium uppercase tracking-wide text-stone-400">
             <th className="w-12 py-2.5 pl-5">
@@ -85,9 +85,9 @@ export function LeadTable({ listId, rows }: { listId: string; rows: LeadView[] }
               />
             </th>
             <th className="py-2.5 pr-4 font-medium">Person</th>
-            <th className="hidden py-2.5 pr-4 font-medium lg:table-cell">Location</th>
-            <th className="hidden py-2.5 pr-4 font-medium sm:table-cell">Status</th>
-            <th className="hidden py-2.5 pr-5 text-right font-medium md:table-cell">Added</th>
+            <th className="hidden w-[200px] py-2.5 pr-4 font-medium lg:table-cell">Location</th>
+            <th className="hidden w-[190px] py-2.5 pr-4 font-medium sm:table-cell">Status</th>
+            <th className="hidden w-[110px] py-2.5 pr-5 text-right font-medium md:table-cell">Added</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-stone-100">
@@ -107,7 +107,7 @@ export function LeadTable({ listId, rows }: { listId: string; rows: LeadView[] }
                     className="h-4 w-4 rounded border-stone-300 accent-stone-900"
                   />
                 </td>
-                <td className="max-w-0 py-3 pr-4 sm:max-w-none">
+                <td className="py-3 pr-4">
                   <div className="flex min-w-0 items-center gap-3">
                     <Avatar name={display} />
                     <div className="min-w-0">
@@ -117,16 +117,20 @@ export function LeadTable({ listId, rows }: { listId: string; rows: LeadView[] }
                         rel="noreferrer noopener"
                         className={cx("inline-flex max-w-full items-center gap-1 truncate text-[15px] font-medium hover:underline", name ? "text-stone-900" : "capitalize text-stone-700")}
                       >
-                        <span className="truncate">{display}</span>
+                        <span title={display} className="truncate">{display}</span>
                         <ExternalLink className="h-3.5 w-3.5 shrink-0 text-stone-400" aria-hidden />
                       </a>
-                      {sub && <p className="truncate text-[14px] text-stone-500">{sub}</p>}
+                      {sub && (
+                        <p title={sub} className="line-clamp-2 text-[14px] text-stone-500">
+                          {sub}
+                        </p>
+                      )}
                       <span className={cx("mt-1 flex w-fit whitespace-nowrap rounded-full px-2.5 py-0.5 text-[13px] font-medium sm:hidden", st.cls)}>{st.label}</span>
                     </div>
                   </div>
                 </td>
-                <td className="hidden max-w-[200px] truncate py-3 pr-4 text-[14px] text-stone-500 lg:table-cell">{r.location ?? ""}</td>
-                <td className="hidden whitespace-nowrap py-3 pr-4 sm:table-cell">
+                <td title={r.location ?? undefined} className="hidden truncate py-3 pr-4 text-[14px] text-stone-500 lg:table-cell">{r.location ?? ""}</td>
+                <td className="hidden py-3 pr-4 sm:table-cell">
                   <span title={r.status.detail} className={cx("inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[13px] font-medium", st.cls)}>
                     {st.label}
                   </span>

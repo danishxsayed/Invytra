@@ -69,6 +69,8 @@ export function searchPageUrl(url: string, page: number): string {
  */
 export function cleanPersonName(raw: string): string {
   return raw
+    // Connection degree LinkedIn prints after the name ("Kenny Stewart • 3rd+", "· 2nd")
+    .replace(/\s*[•·]\s*(?:1st|2nd|3rd\+?)(?:\s+degree(?:\s+connection)?)?\s*$/i, "")
     .replace(/\p{Extended_Pictographic}|️/gu, "")
     .replace(/\s*[([].*?[)\]]\s*/g, " ")
     .split(/,\s/)[0]!

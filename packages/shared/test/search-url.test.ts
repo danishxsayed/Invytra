@@ -39,5 +39,8 @@ describe("names from search results", () => {
     expect(cleanPersonName("Jane Doe, MBA")).toBe("Jane Doe");
     expect(cleanPersonName("Raj Patel (He/Him) 🚀")).toBe("Raj Patel");
     expect(cleanPersonName("  Ana   María  ")).toBe("Ana María");
+    expect(cleanPersonName("Kenny Stewart • 3rd+")).toBe("Kenny Stewart");
+    expect(cleanPersonName("JD Flooring · 2nd")).toBe("JD Flooring");
+    expect(cleanPersonName("Cristina and Peter Silaghi • 1st")).toBe("Cristina and Peter Silaghi");
   });
 });
