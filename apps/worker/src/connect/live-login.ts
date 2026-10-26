@@ -5,6 +5,9 @@ import type { BrowserAccount, StorageState } from "../browser/types.js";
 import { readProfile } from "../linkedin/profile.js";
 import { SHORTCUT_KEYS, SPECIAL_KEYS, displayUrl, type ClientMessage, type Phase, type ServerMessage } from "./protocol.js";
 
+/** Thrown by onLoggedIn to stop the save and show the person this message. */
+export class ConnectRefused extends Error {}
+
 export interface LiveLoginOptions {
   account: BrowserAccount;
   baseUrl: string;
@@ -135,7 +138,8 @@ export class LiveLogin {
       await this.opts.onLoggedIn(state, profile);
       this.status("done", profile.name ? `Connected as ${profile.name}.` : "Connected.", profile.name);
     } catch (e) {
-      this.status("error", "Logged in, but saving the session failed. Please try again.");
+      if (e instanceof ConnectRefused) this.status("error", e.message);
+      else this.status("error", "Logged in, but saving the session failed. Please try again.");
       console.error(`Connect: saving the session failed: ${e instanceof Error ? e.message : e}`);
     } finally {
       await this.close();

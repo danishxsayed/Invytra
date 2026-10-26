@@ -45,6 +45,7 @@ export default async function InboxPage({
     sp.c ? getConversation(prisma, me.workspace.id, sp.c) : Promise.resolve(null),
   ]);
   const now = new Date();
+  const manyAccounts = options.accounts.length > 1;
 
   const href = (o: { f?: InboxFilter; c?: string | null; page?: number }) => {
     const p = new URLSearchParams();
@@ -108,6 +109,7 @@ export default async function InboxPage({
                             <span className={cx("truncate text-[15px]", needs ? "font-semibold text-stone-900" : "font-medium text-stone-700")}>{r.participantName}</span>
                             <span className="shrink-0 text-[12px] text-stone-400">{shortWhen(r.lastMessageAt, r.account.timezone, now)}</span>
                           </span>
+                          {manyAccounts && <span className="block truncate text-[12px] text-stone-400">via {r.account.label}</span>}
                           {headline(lead) && <span className="block truncate text-[13px] text-stone-500">{headline(lead)}</span>}
                           {lead && (
                             <span className="block truncate text-[12px] text-stone-400">

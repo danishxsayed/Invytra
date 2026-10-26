@@ -4,7 +4,8 @@ import { WebSocketServer, type WebSocket } from "ws";
 import type { AccountLock } from "../browser/account-lock.js";
 import type { LaunchOptions } from "../browser/launch.js";
 import type { SessionStore } from "../browser/types.js";
-import { LiveLogin } from "./live-login.js";
+import { ConnectRefused, LiveLogin } from "./live-login.js";
+import { sameProfileElsewhere } from "./same-profile.js";
 import { clientMessageSchema, type ServerMessage } from "./protocol.js";
 
 /** Minimal Redis surface: remember a ticket id so each ticket works once. */
@@ -101,6 +102,13 @@ export function createConnectServer(deps: ConnectServerDeps): { server: Server; 
       maxDurationMs: deps.maxDurationMs,
       idleMs: deps.idleMs,
       onLoggedIn: async (state, profile) => {
+        const twin = await sameProfileElsewhere(deps.prisma, account, profile, deps.baseUrl);
+        if (twin) {
+          log(`Connect: "${account.label}" is the same LinkedIn profile as "${twin}"; not saved`);
+          throw new ConnectRefused(
+            `This LinkedIn profile is already connected here as “${twin}”. Each LinkedIn profile can be added once, so this session wasn't saved. Remove this account, or log in with a different LinkedIn profile.`,
+          );
+        }
         await deps.sessions.save(account.id, state);
         await deps.prisma.linkedinAccount.update({
           where: { id: account.id },

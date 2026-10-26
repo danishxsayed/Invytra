@@ -35,11 +35,14 @@ const redis = new FakeRedis();
 const lock = new AccountLock(redis);
 const saved: StorageState[] = [];
 const updates: unknown[] = [];
+/** Other accounts in the workspace (for the "same LinkedIn profile twice" check). */
+let others: { label: string; profileName: string | null; profileUrl: string | null }[] = [];
 
 const prisma = {
   linkedinAccount: {
     findFirst: async ({ where }: { where: { id: string; workspaceId: string } }) =>
       where.id === account.id && where.workspaceId === account.workspaceId ? account : null,
+    findMany: async () => others,
     update: async (args: unknown) => {
       updates.push(args);
       return account;
@@ -143,6 +146,27 @@ describe("connect server", () => {
     const reuse = open(t);
     await reuse.waitFor(() => reuse.statuses.length > 0);
     expect(last(reuse)?.message).toMatch(/already used/);
+  }, 90_000);
+
+  it("doesn't save a LinkedIn profile that another account here is already logged in to", async () => {
+    others = [{ label: "test-1", profileName: "Tess Tester", profileUrl: "https://www.linkedin.com/in/tess/" }];
+    const savedBefore = saved.length;
+    const updatesBefore = updates.length;
+    try {
+      const s = open(await ticket());
+      await s.waitFor(() => last(s)?.phase === "ready" && s.urls.length > 0);
+      for (const ch of "me@acme.io") s.send({ t: "key", key: ch, mods: {} });
+      s.send({ t: "key", key: "Tab", mods: {} });
+      s.send({ t: "text", text: "right-password" });
+      s.send({ t: "key", key: "Enter", mods: {} });
+      await s.waitFor(() => last(s)?.phase === "error", 45_000);
+      expect(last(s)?.message).toMatch(/already connected here as “test-1”/);
+      expect(saved.length).toBe(savedBefore);
+      expect(updates.length).toBe(updatesBefore);
+      await s.waitFor(() => connect.active() === 0);
+    } finally {
+      others = [];
+    }
   }, 90_000);
 
   it("refuses other dashboards, foreign accounts, bad tickets and busy accounts", async () => {
