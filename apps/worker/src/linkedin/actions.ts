@@ -1,5 +1,4 @@
 import { CONNECTION_NOTE_MAX_CHARS, fillTemplate as fillShared, type TemplateVars } from "@invytra/shared";
-import { createHash } from "node:crypto";
 import type { SessionTaskContext } from "../browser/types.js";
 import { humanBrowse, humanClick, humanPause, humanType } from "./human.js";
 import {
@@ -256,68 +255,5 @@ export async function sendMessage(
   return { outcome: "DONE", data: { name: info.name } };
 }
 
-export interface InboxThread {
-  /** LinkedIn's 2026 inbox has no thread links, so threads are keyed by participant name. */
-  threadId: string;
-  name: string;
-  snippet: string;
-  timeText: string;
-  unread: boolean;
-  /** Stable id for this snippet, used to store each new message once. */
-  messageKey: string;
-}
-
-/** 5. Read the conversation list and return the latest snippet of each thread. */
-export async function fetchInbox(ctx: SessionTaskContext, limit = 20): Promise<ActionOutcome<{ threads: InboxThread[] }>> {
-  const { page } = ctx;
-  await page.goto(new URL(SELECTORS.inbox.path, ctx.baseUrl).toString(), { waitUntil: "domcontentloaded" });
-  await humanPause(page, 2500, 4500);
-  await ctx.assertHealthy();
-
-  const list = page.getByRole("list", { name: SELECTORS.inbox.conversationList }).first();
-  try {
-    await list.waitFor({ state: "attached", timeout: 15_000 });
-  } catch {
-    return { outcome: "DONE", data: { threads: [] } };
-  }
-
-  // No named helper functions in here: this runs inside the browser page, and tsx
-  // wraps named functions with a `__name` helper the page does not have.
-  const raw = await list.locator(":scope > li").evaluateAll(
-    (items, sel) =>
-      items.map((item) => {
-        const [name, snippet, timeText] = [sel.participantName, sel.snippet, sel.timestamp].map((s) =>
-          (item.querySelector(s)?.textContent ?? "").replace(/\s+/g, " ").trim(),
-        );
-        return {
-          name: name ?? "",
-          snippet: snippet ?? "",
-          timeText: timeText ?? "",
-          text: ((item as HTMLElement).innerText ?? item.textContent ?? "").replace(/\s+/g, " "),
-        };
-      }),
-    { participantName: SELECTORS.inbox.participantName, snippet: SELECTORS.inbox.snippet, timestamp: SELECTORS.inbox.timestamp },
-  );
-
-  const threads: InboxThread[] = [];
-  const seen = new Set<string>();
-  for (const r of raw) {
-    if (!r.name || SELECTORS.inbox.sponsoredPrefix.test(r.snippet) || seen.has(r.name)) continue;
-    seen.add(r.name);
-    threads.push({
-      threadId: r.name,
-      name: r.name,
-      snippet: r.snippet,
-      timeText: r.timeText,
-      unread: SELECTORS.inbox.unreadText.test(r.text),
-      messageKey: `${createHash("sha1").update(`${r.name}\n${r.snippet}`).digest("hex").slice(0, 24)}`,
-    });
-    if (threads.length >= limit) break;
-  }
-  return { outcome: "DONE", data: { threads } };
-}
-
-/** Snippets that are our own sent messages, not replies. */
-export function isOwnMessage(snippet: string): boolean {
-  return /^you:/i.test(snippet.trim());
-}
+// The inbox moved to ./inbox.ts; re-exported for older imports.
+export { fetchInbox, isOwnMessage, type InboxThread } from "./inbox.js";

@@ -10,6 +10,7 @@ import { withAccountSession, type SessionManagerDeps } from "../../src/browser/s
 import type { BrowserAccount, SessionTaskContext, StorageState } from "../../src/browser/types.js";
 import { sendConnectionRequest } from "../../src/linkedin/actions.js";
 import { likeLatestPost, withdrawInvite } from "../../src/linkedin/engage.js";
+import { fetchInbox } from "../../src/linkedin/inbox.js";
 import { sendReply } from "../../src/linkedin/reply.js";
 import { companyFromHeadline, readSearchPage } from "../../src/linkedin/search.js";
 import { FakeRedis } from "../fake-redis.js";
@@ -127,5 +128,27 @@ describe("replying from the inbox (fake site)", { timeout: 60_000 }, () => {
   });
   it("says so when it can't find the conversation and has no profile", async () => {
     await expect(run((ctx) => sendReply(ctx, "Nobody Here", "Hi"))).rejects.toThrow(/isn't in the recent messages/);
+  });
+});
+
+describe("reading whole conversations (fake site)", { timeout: 60_000 }, () => {
+  it("opens new or changed chats and reads both sides, with LinkedIn's time labels", async () => {
+    const r = await run((ctx) => fetchInbox(ctx, { known: {} }));
+    const threads = (r as { data: { threads: { name: string; messageKey: string; messages?: { fromMe: boolean; text: string; dateLabel: string; timeLabel: string }[] }[] } }).data.threads;
+    const carol = threads.find((t) => t.name === "Carol White")!;
+    expect(carol.messages!.slice(0, 3)).toEqual([
+      { fromMe: true, text: "Hi Carol, I am reaching out to connect with other leaders in sales.", dateLabel: "OCT 18", timeLabel: "12:14 PM" },
+      { fromMe: false, text: "I'm happy to connect", dateLabel: "OCT 18", timeLabel: "12:15 PM" },
+      { fromMe: false, text: "Sure, let's talk Tuesday", dateLabel: "TODAY", timeLabel: "11:02 AM" },
+    ]);
+    // Next time, unchanged and read chats are left alone.
+    const known = Object.fromEntries(threads.map((t) => [t.name, t.messageKey]));
+    const again = await run((ctx) => fetchInbox(ctx, { known }));
+    const reread = (again as { data: { threads: { name: string; unread: boolean; messages?: unknown[] }[] } }).data.threads.filter((t) => t.messages && !t.unread);
+    expect(reread).toEqual([]);
+  });
+  it("opens at most a few chats per check", async () => {
+    const r = await run((ctx) => fetchInbox(ctx, { known: {}, maxOpen: 1 }));
+    expect((r as { data: { threads: { messages?: unknown[] }[] } }).data.threads.filter((t) => t.messages).length).toBe(1);
   });
 });

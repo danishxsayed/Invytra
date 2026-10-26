@@ -124,6 +124,16 @@ LinkedIn. One less service to build, deploy and secure.
   falls back to messaging from the profile for campaign leads. Any hour, ahead of queued
   campaign work, never retried; a reply interrupted by a crash is marked failed, not resent.
   Sent replies show under the message and mark it answered.
+- [x] Conversation inbox (2026-10-26): `conversations` + `conversation_messages` (migration
+  `20261030000000_conversations` carries old inbox messages and replies over). Each inbox check
+  opens up to 10 chats that are new, unread or changed and reads both sides with LinkedIn's time
+  labels (`apps/worker/src/linkedin/inbox.ts`, `thread-time.ts`, `actions/conversation-store.ts`;
+  thread selectors are LinkedIn's msg-s-* classes, **unverified on the real site**). Opening a
+  chat marks it read on LinkedIn (agreed). Two-pane inbox: filters Needs reply / Unread / Replied /
+  All / Done, account, campaign, tag, search; lead headline + campaign progress; tags; mark done;
+  Pause/Resume the campaign for that person (lead state PAUSED, reason "PAUSED:<state>"; a step
+  that was already running still records its result but the lead stays paused); reply box.
+  Later: "Reply with AI" (needs an Anthropic API key).
 - [x] Settings (2026-10-24): profile (name; email change needs the current password), change
   password (signs out every other session via `users.sessions_valid_after`, this browser stays
   in), "sign out other devices", workspace name (owner only), team list. Team invites by email

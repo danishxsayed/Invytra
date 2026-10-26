@@ -11,6 +11,7 @@ export const LEAD_STATE: Record<string, { label: string; cls: string }> = {
   NOT_ACCEPTED: { label: "Didn't accept", cls: "bg-amber-50 text-amber-700" },
   SKIPPED: { label: "Skipped", cls: "bg-stone-100 text-stone-500" },
   FAILED: { label: "Failed", cls: "bg-rose-50 text-rose-700" },
+  PAUSED: { label: "Paused by you", cls: "bg-amber-50 text-amber-700" },
 };
 
 export const CAMPAIGN_STATUS: Record<string, { label: string; cls: string; dot: string }> = {
@@ -62,4 +63,10 @@ export const pct = (n: number, of: number) => (of > 0 ? Math.round((n / of) * 10
 /** "Monday 26 October", in the given time zone (the sender's) or the viewer's own. */
 export function startText(iso: string, timeZone?: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", ...(timeZone && { timeZone }) });
+}
+
+/** "Progress 2/4 · Invite sent" for a lead in the inbox. */
+export function progressText(lead: { state: string; step: number; campaign: { steps: unknown } }): string {
+  const n = Array.isArray(lead.campaign.steps) ? lead.campaign.steps.length : 0;
+  return `${Math.min(lead.step, n)}/${n} · ${LEAD_STATE[lead.state]?.label ?? lead.state}`;
 }

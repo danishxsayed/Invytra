@@ -105,6 +105,11 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
 
   // 4. Run it
   const payload = { ...((action.payload ?? {}) as Record<string, unknown>) };
+  // Inbox checks open chats that changed since last time: give it what it saw last time.
+  if (action.type === "INBOX_SYNC") {
+    const convs = await prisma.conversation.findMany({ where: { accountId: action.accountId }, select: { participantName: true, lastSnippetKey: true } });
+    payload.known = Object.fromEntries(convs.map((c) => [c.participantName, c.lastSnippetKey ?? ""]));
+  }
   if (action.type === "CONNECTION_REQUEST" && payload.note) {
     const notesBlocked = await deps.pacing.get(action.accountId, "notesBlockedUntil");
     if (notesBlocked && notesBlocked > now) payload.notesBlocked = true;

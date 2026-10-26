@@ -258,7 +258,7 @@ export async function launchedCampaignCount(prisma: PrismaClient, workspaceId: s
 
 export const LEAD_FILTERS = {
   all: [],
-  active: ["QUEUED", "IN_PROGRESS"],
+  active: ["QUEUED", "IN_PROGRESS", "PAUSED"],
   waiting: ["WAITING_ACCEPT"],
   replied: ["REPLIED"],
   done: ["DONE"],

@@ -13,6 +13,7 @@ import {
 import { likeLatestPost, withdrawInvite } from "../linkedin/engage.js";
 import { sendReply } from "../linkedin/reply.js";
 import { readSearchPage } from "../linkedin/search.js";
+import { recordReply, storeConversations } from "./conversation-store.js";
 import { storeInboxThreads } from "./inbox-store.js";
 
 export interface ActionSpec {
@@ -70,7 +71,8 @@ export function workFor(spec: ActionSpec): (ctx: SessionTaskContext) => Promise<
     case "MESSAGE":
       return (ctx) => sendMessage(ctx, url, String(p.text), varsOf(p));
     case "INBOX_SYNC":
-      return (ctx) => fetchInbox(ctx);
+      // `known` (each conversation's last snippet) is added just before running, so changed chats get opened.
+      return (ctx) => fetchInbox(ctx, { known: (p.known ?? undefined) as Record<string, string> | undefined });
     case "SEARCH_PAGE":
       return (ctx) => readSearchPage(ctx, url, p.kind as SearchKind);
     case "LIKE_POST":
@@ -85,19 +87,26 @@ export function workFor(spec: ActionSpec): (ctx: SessionTaskContext) => Promise<
 /** Follow-up after a successful action (e.g. store new inbox replies). Returns extra result fields. */
 export async function afterSuccess(
   prisma: PrismaClient,
-  accountId: string,
-  type: ActionType,
+  action: { accountId: string; type: ActionType; inboxMessageId?: string | null; conversationId?: string | null; payload?: unknown },
   data: unknown,
-  inboxMessageId?: string | null,
 ): Promise<Record<string, unknown>> {
+  const { accountId, type } = action;
   // A reply sent from Invytra answers that conversation.
-  if (type === "REPLY" && inboxMessageId) {
-    await prisma.inboxMessage.updateMany({ where: { id: inboxMessageId, answeredAt: null }, data: { answeredAt: new Date() } });
+  if (type === "REPLY") {
+    const text = String(((action.payload ?? {}) as { text?: unknown }).text ?? "");
+    if (action.conversationId && text) await recordReply(prisma, action.conversationId, text);
+    if (action.inboxMessageId) {
+      await prisma.inboxMessage.updateMany({ where: { id: action.inboxMessageId, answeredAt: null }, data: { answeredAt: new Date() } });
+    }
     return {};
   }
   if (type === "INBOX_SYNC") {
     const threads = ((data as { threads?: InboxThread[] })?.threads ?? []) as InboxThread[];
-    return { newReplies: await storeInboxThreads(prisma, accountId, threads) };
+    const account = await prisma.linkedinAccount.findUnique({ where: { id: accountId }, select: { timezone: true } });
+    const newReplies = await storeInboxThreads(prisma, accountId, threads);
+    const changed = await storeConversations(prisma, accountId, threads, account?.timezone ?? "UTC");
+    // Keep the action log small: the messages themselves live in conversation_messages.
+    return { newReplies, changedConversations: changed, threads: threads.map(({ messages, ...t }) => ({ ...t, read: messages?.length ?? 0 })) };
   }
   return {};
 }

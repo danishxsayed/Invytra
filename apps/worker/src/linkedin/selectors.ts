@@ -146,6 +146,17 @@ export const SELECTORS = {
     /** Text inside an item that marks it unread, e.g. "1 new notification". */
     unreadText: /\bnew (notification|message)s?\b|\bunread\b/i,
     sponsoredPrefix: /^Sponsored\b/i,
+    /**
+     * An open conversation (LinkedIn's long-standing msg-s-* classes; check against the real
+     * site). Each event row may start with a date heading and a sender/time header, then one
+     * or more messages; the other person's messages carry the "--other" class.
+     */
+    threadEvent: "li.msg-s-message-list__event",
+    threadDate: ".msg-s-message-list__time-heading",
+    threadTime: ".msg-s-message-group__timestamp",
+    threadMessage: ".msg-s-event-listitem",
+    threadBody: ".msg-s-event-listitem__body",
+    threadOtherClass: "msg-s-event-listitem--other",
     /** The open conversation's message box and Send button (same as the chat overlay). */
     composeBox: '[role="textbox"][contenteditable="true"]',
     sendButton: /^Send$/i,

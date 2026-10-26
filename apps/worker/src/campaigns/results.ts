@@ -108,6 +108,20 @@ function updateFor(
   const result = resultOf(action);
   if (!result) return common;
   const { steps, settings } = campaignPlan(lead.campaign);
+  // Paused by you while this step was already running: record what happened, stay paused.
+  // The state to resume to is kept in reason ("PAUSED:<state>").
+  if (lead.state === "PAUSED") {
+    const resumeTo = (lead.reason ?? "").split(":")[1] || "IN_PROGRESS";
+    const u = applyResult(steps, settings, { state: resumeTo as LeadState, step: lead.step, invitedAt: lead.invitedAt, connectedAt: lead.connectedAt }, result, now, random);
+    return {
+      ...common,
+      step: u.step,
+      nextAt: null,
+      reason: `PAUSED:${u.state}`,
+      ...(u.invitedAt && { invitedAt: u.invitedAt }),
+      ...(u.connectedAt && { connectedAt: u.connectedAt }),
+    };
+  }
   const u = applyResult(
     steps,
     settings,

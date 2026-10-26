@@ -111,7 +111,7 @@ export async function executeActionRow<T>(
       });
       return { status: "SKIPPED", actionId: action.id, reason: outcome.reason, data: outcome.data };
     }
-    const extra = await afterSuccess(prisma, action.accountId, action.type, outcome.data, action.inboxMessageId);
+    const extra = await afterSuccess(prisma, action, outcome.data);
     await prisma.action.update({
       where: { id: action.id },
       data: {

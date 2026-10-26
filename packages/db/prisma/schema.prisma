@@ -141,6 +141,7 @@ model LinkedinAccount {
   campaignSenders CampaignSender[]
   campaignLeads   CampaignLead[]
   imports         LeadImport[]
+  conversations   Conversation[]
 
   @@unique([workspaceId, label])
   @@index([workspaceId])
@@ -164,12 +165,15 @@ model Action {
   createdAt      DateTime     @default(now()) @map("created_at")
   /// Set when a campaign queued this action for one of its leads
   campaignLeadId String?      @map("campaign_lead_id")
-  /// For a REPLY: the inbox message it answers
+  /// For a REPLY: the inbox message it answers (older replies)
   inboxMessageId String?      @map("inbox_message_id")
+  /// For a REPLY: the conversation it's sent in
+  conversationId String?      @map("conversation_id")
 
   account      LinkedinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   campaignLead CampaignLead?   @relation(fields: [campaignLeadId], references: [id], onDelete: SetNull)
   inboxMessage InboxMessage?   @relation(fields: [inboxMessageId], references: [id], onDelete: SetNull)
+  conversation Conversation?   @relation(fields: [conversationId], references: [id], onDelete: SetNull)
 
   // Daily/weekly limit counting: actions per account, type and time window
   @@index([accountId, type, status, executedAt])
@@ -178,6 +182,7 @@ model Action {
   @@index([targetUrl])
   @@index([campaignLeadId])
   @@index([inboxMessageId])
+  @@index([conversationId])
   @@map("actions")
 }
 
@@ -268,6 +273,8 @@ enum CampaignLeadState {
   NOT_ACCEPTED
   SKIPPED
   FAILED
+  /// Paused by you (e.g. you took over the conversation); reason holds the state to resume to
+  PAUSED
 }
 
 /// One LinkedIn account working through one lead list with a sequence of steps.
@@ -339,6 +346,8 @@ model CampaignLead {
   replies  InboxMessage[]
   account  LinkedinAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
+  conversations Conversation[]
+
   @@unique([campaignId, profileUrl])
   @@index([campaignId, state, nextAt])
   @@index([workspaceId, profileUrl])
@@ -394,4 +403,58 @@ model LeadImport {
   @@index([workspaceId, createdAt])
   @@index([status])
   @@map("lead_imports")
+}
+
+/// One LinkedIn conversation of an account, as the inbox shows it. Keyed by the other
+/// person's name (LinkedIn's conversation list has no profile links).
+model Conversation {
+  id              String    @id @default(cuid())
+  accountId       String    @map("account_id")
+  participantName String    @map("participant_name")
+  /// The campaign lead this is with (matched by name)
+  campaignLeadId  String?   @map("campaign_lead_id")
+  /// Fingerprint of the latest snippet seen in the conversation list (to spot changes)
+  lastSnippetKey  String?   @map("last_snippet_key")
+  lastMessageText String    @default("") @map("last_message_text")
+  /// The latest message is ours
+  lastFromMe      Boolean   @default(false) @map("last_from_me")
+  lastMessageAt   DateTime  @default(now()) @map("last_message_at")
+  /// LinkedIn showed it as unread at the last inbox check
+  unread          Boolean   @default(false)
+  /// Marked handled in Invytra (cleared when they write again)
+  doneAt          DateTime? @map("done_at")
+  tags            String[]  @default([])
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  account      LinkedinAccount       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  campaignLead CampaignLead?         @relation(fields: [campaignLeadId], references: [id], onDelete: SetNull)
+  messages     ConversationMessage[]
+  replies      Action[]
+
+  @@unique([accountId, participantName])
+  @@index([accountId, lastMessageAt])
+  @@index([campaignLeadId])
+  @@map("conversations")
+}
+
+/// One message in a conversation, as read from LinkedIn (or sent from Invytra).
+model ConversationMessage {
+  id             String   @id @default(cuid())
+  conversationId String   @map("conversation_id")
+  fromMe         Boolean  @map("from_me")
+  text           String
+  /// What LinkedIn showed, e.g. "Oct 18 · 12:15 PM"
+  timeLabel      String?  @map("time_label")
+  /// Best-known time (parsed from LinkedIn, or when Invytra first saw it)
+  sentAt         DateTime @map("sent_at")
+  /// Side + text + nth repeat: the same message read twice is stored once
+  key            String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, key])
+  @@index([conversationId, sentAt])
+  @@map("conversation_messages")
 }

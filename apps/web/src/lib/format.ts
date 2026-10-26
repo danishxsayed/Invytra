@@ -110,3 +110,19 @@ export function waitText(reason: string): string {
   };
   return map[reason] ?? "Queued";
 }
+
+/** "2:15 PM" today, "Oct 20" this year, "Oct 20, 2025" before, in a time zone. */
+export function shortWhen(d: Date, timeZone: string, now = new Date()): string {
+  const day = (x: Date) => x.toLocaleDateString("en-CA", { timeZone });
+  if (day(d) === day(now)) return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone });
+  const sameYear = d.toLocaleDateString("en-US", { year: "numeric", timeZone }) === now.toLocaleDateString("en-US", { year: "numeric", timeZone });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }), timeZone });
+}
+
+/** "Today", "Yesterday", "Monday 19 October" — day dividers in a conversation. */
+export function dayLabel(d: Date, timeZone: string, now = new Date()): string {
+  const day = (x: Date) => x.toLocaleDateString("en-CA", { timeZone });
+  if (day(d) === day(now)) return "Today";
+  if (day(d) === day(new Date(now.getTime() - 86400_000))) return "Yesterday";
+  return d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone });
+}

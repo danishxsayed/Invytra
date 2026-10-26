@@ -217,6 +217,25 @@ function salesHtml(params: URLSearchParams): string {
   );
 }
 
+/** Full conversations, oldest first, as the Messaging page shows them when one is opened. */
+function threadsFor(state: FakeState): Record<string, { me: boolean; date: string; time: string; text: string }[]> {
+  const t: Record<string, { me: boolean; date: string; time: string; text: string }[]> = {
+    "Carol White": [
+      { me: true, date: "OCT 18", time: "12:14 PM", text: "Hi Carol, I am reaching out to connect with other leaders in sales." },
+      { me: false, date: "OCT 18", time: "12:15 PM", text: "I'm happy to connect" },
+      { me: false, date: "TODAY", time: "11:02 AM", text: "Sure, let's talk Tuesday" },
+    ],
+    "Alice Smith": [{ me: true, date: "OCT 12", time: "9:00 AM", text: "Thanks for connecting!" }],
+    "Bob Jones": [{ me: false, date: "OCT 10", time: "4:40 PM", text: "Not interested, thanks" }],
+  };
+  for (const r of state.replies) {
+    const name = PEOPLE[r.slug]?.name ?? r.slug;
+    (t[name] ??= []).push({ me: false, date: "TODAY", time: "1:30 PM", text: r.text });
+  }
+  for (const r of state.inboxReplies) (t[r.name] ??= []).push({ me: true, date: "TODAY", time: "2:00 PM", text: r.text });
+  return t;
+}
+
 const inboxHtml = (state: FakeState) =>
   page(
     "Messaging | LinkedIn",
@@ -232,14 +251,22 @@ const inboxHtml = (state: FakeState) =>
     <li><h3>Bob Jones</h3><time>Oct 10</time><p>Bob: Not interested, thanks</p></li>
     <li><h3>Carol White</h3><time>Oct 1</time><p>older duplicate</p></li>
   </ul></main>
-  <section id="conv" hidden><h2 id="conv-name"></h2><ul id="conv-thread"></ul>
+  <section id="conv" hidden><h2 id="conv-name"></h2><ul class="msg-s-message-list-content" id="conv-thread"></ul>
     <div role="textbox" contenteditable="true" aria-label="Write a message…" id="conv-box"></div><button id="conv-send">Send</button></section>
   <script>
+    const THREADS=${JSON.stringify(threadsFor(state))};
+    let open='';
+    const esc=(t)=>t.replace(/[&<>]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const render=()=>{let html='',date='';for(const m of THREADS[open]||[]){
+      let head='';if(m.date!==date){date=m.date;head='<h3 class="msg-s-message-list__time-heading">'+m.date+'</h3>';}
+      html+='<li class="msg-s-message-list__event">'+head+'<div class="msg-s-message-group__meta"><span class="msg-s-message-group__name">'+(m.me?'Tess Tester':open)+'</span><time class="msg-s-message-group__timestamp">'+m.time+'</time></div>'
+        +'<div class="msg-s-event-listitem'+(m.me?'':' msg-s-event-listitem--other')+'"><p class="msg-s-event-listitem__body">'+esc(m.text)+'</p></div></li>';}
+      document.getElementById('conv-thread').innerHTML=html;};
     document.querySelectorAll('[aria-label="Conversation List"] h3').forEach(h=>h.onclick=()=>{
-      document.getElementById('conv').hidden=false;document.getElementById('conv-name').textContent=h.textContent;document.getElementById('conv-thread').innerHTML='';});
+      open=h.textContent;document.getElementById('conv').hidden=false;document.getElementById('conv-name').textContent=open;render();});
     document.getElementById('conv-send').onclick=async()=>{const box=document.getElementById('conv-box');const t=box.innerText;
-      await fetch('/api/reply',{method:'POST',body:JSON.stringify({name:document.getElementById('conv-name').textContent,text:t})});
-      const li=document.createElement('li');li.textContent=t;document.getElementById('conv-thread').appendChild(li);box.innerText='';};
+      await fetch('/api/reply',{method:'POST',body:JSON.stringify({name:open,text:t})});
+      (THREADS[open]=THREADS[open]||[]).push({me:true,date:'TODAY',time:'2:00 PM',text:t});render();box.innerText='';};
   </script>`,
   );
 
