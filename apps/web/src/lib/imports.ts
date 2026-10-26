@@ -91,14 +91,14 @@ export async function importWaits(prisma: PrismaClient, rows: ImportRow[], now =
     const when = (d: Date) =>
       d.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: r.account.timezone });
     if (!a) {
-      if (now.getTime() - r.createdAt.getTime() > 2 * 60_000) out.set(r.id, "Waiting for the worker to pick it up — check that `pnpm worker` is running");
+      if (now.getTime() - r.createdAt.getTime() > 2 * 60_000) out.set(r.id, "Waiting for the worker to pick it up. Check that `pnpm worker` is running.");
       continue;
     }
     if (a.status === "RUNNING") out.set(r.id, "Reading a page now");
-    else if (a.error === "waiting: OUTSIDE_WORKING_HOURS") out.set(r.id, `Outside ${r.account.label}'s working hours — next page around ${when(a.scheduledAt)}`);
-    else if (a.error === "waiting: DAILY_LIMIT_REACHED") out.set(r.id, `Today's ${SEARCH_PAGES_PER_DAY} search pages are used — continues around ${when(a.scheduledAt)}`);
+    else if (a.error === "waiting: OUTSIDE_WORKING_HOURS") out.set(r.id, `Outside ${r.account.label}'s working hours. Next page around ${when(a.scheduledAt)}`);
+    else if (a.error === "waiting: DAILY_LIMIT_REACHED") out.set(r.id, `Today's ${SEARCH_PAGES_PER_DAY} search pages are used. Continues around ${when(a.scheduledAt)}`);
     else if (a.error === "waiting: ACCOUNT_NOT_ACTIVE") out.set(r.id, `Waiting for ${r.account.label} to be connected and active`);
-    else if (a.error?.startsWith("waiting: ")) out.set(r.id, `${waitText(a.error.slice(9))} — next try around ${when(a.scheduledAt)}`);
+    else if (a.error?.startsWith("waiting: ")) out.set(r.id, `${waitText(a.error.slice(9))}. Next try around ${when(a.scheduledAt)}`);
     else out.set(r.id, "Next page coming up in a few minutes");
   }
   return out;

@@ -41,7 +41,7 @@ export function MappingEditor({
   return (
     <div className="mt-4 rounded-xl border border-stone-200 p-4">
       <p className="text-[15px] font-semibold text-stone-900">Columns</p>
-      <p className="text-[14px] text-stone-500">We matched these automatically — change any that look wrong.</p>
+      <p className="text-[14px] text-stone-500">We matched these automatically. Change any that look wrong.</p>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {EDITABLE.map((f) => {
           const idx = mapping[f];
@@ -60,7 +60,7 @@ export function MappingEditor({
                   f === "url" && idx === undefined ? "border-rose-300" : "border-stone-200",
                 )}
               >
-                <option value="">{f === "url" ? "Choose a column…" : "— Not in this file —"}</option>
+                <option value="">{f === "url" ? "Choose a column…" : "Not in this file"}</option>
                 {headers.map((h, i) => (
                   <option key={i} value={i}>
                     {h}
@@ -89,27 +89,27 @@ export function ImportPreview({ result }: { result: LeadParseResult }) {
       {result.duplicates > 0 && (
         <p className="flex items-center gap-2 text-stone-600">
           <Copy className="h-4 w-4 shrink-0 text-stone-400" aria-hidden />
-          {result.duplicates.toLocaleString()} duplicate{result.duplicates === 1 ? "" : "s"} in the file — added once
+          {result.duplicates.toLocaleString()} duplicate{result.duplicates === 1 ? "" : "s"} in the file, added once
         </p>
       )}
       {result.overLimit > 0 && (
         <p className="flex items-center gap-2 text-amber-700">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-          {result.overLimit.toLocaleString()} more leads are over the {LEAD_IMPORT.maxLeads.toLocaleString()}-per-upload limit — upload them separately
+          {result.overLimit.toLocaleString()} more leads are over the {LEAD_IMPORT.maxLeads.toLocaleString()}-per-upload limit. Upload them separately.
         </p>
       )}
       {result.invalid.length > 0 && (
         <div>
           <button type="button" onClick={() => setShowBad((v) => !v)} className="flex items-center gap-2 text-left text-amber-700 hover:text-amber-800">
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-            {result.invalid.length.toLocaleString()} row{result.invalid.length === 1 ? "" : "s"} skipped — {showBad ? "hide" : "see why"}
+            {result.invalid.length.toLocaleString()} row{result.invalid.length === 1 ? "" : "s"} skipped · {showBad ? "hide" : "see why"}
           </button>
           {showBad && (
             <ul className="mt-2 max-h-40 overflow-y-auto rounded-lg bg-stone-50 px-3 py-2 text-[14px] text-stone-600">
               {result.invalid.slice(0, 50).map((r) => (
                 <li key={`${r.row}-${r.value}`} className="truncate py-0.5">
                   <span className="text-stone-400">Row {r.row}:</span> {r.reason}
-                  {r.value && <span className="text-stone-400"> — {r.value}</span>}
+                  {r.value && <span className="text-stone-400"> ({r.value})</span>}
                 </li>
               ))}
               {result.invalid.length > 50 && <li className="py-0.5 text-stone-400">…and {result.invalid.length - 50} more</li>}

@@ -19,10 +19,10 @@ export function outreachTextProblem(text: string): string | null {
   const t = text.trim();
   if (!t) return "is empty";
   if (/…|\.\.\./.test(t)) return 'contains "…" — replace the placeholder with your real text';
-  if (/<[^<>]{1,40}>/.test(t)) return "contains a <placeholder> — replace it with your real text";
-  if (/\[[^\[\]]{1,40}\]/.test(t)) return "contains a [placeholder] — replace it with your real text";
+  if (/<[^<>]{1,40}>/.test(t)) return "contains a <placeholder>. Replace it with your real text";
+  if (/\[[^\[\]]{1,40}\]/.test(t)) return "contains a [placeholder]. Replace it with your real text";
   const unknown = templateTokens(t).filter((k) => !(TEMPLATE_TOKENS as readonly string[]).includes(k));
-  if (unknown.length) return `contains unknown placeholder {${unknown[0]}} — only ${TOKEN_LIST} are filled in`;
+  if (unknown.length) return `contains unknown placeholder {${unknown[0]}}. Only ${TOKEN_LIST} are filled in`;
   return null;
 }
 

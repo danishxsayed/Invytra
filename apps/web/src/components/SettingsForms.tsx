@@ -100,7 +100,7 @@ export function PasswordForm() {
           <input className={inputCls} type="password" value={v.confirm} onChange={set("confirm")} autoComplete="new-password" />
         </Field>
       </div>
-      <Footer {...s} label="Change password" savedText="Password changed — other devices were signed out" />
+      <Footer {...s} label="Change password" savedText="Password changed. Other devices were signed out." />
     </form>
   );
 }
@@ -110,7 +110,7 @@ export function SignOutOthers() {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p className="text-[15px] text-stone-600">
-        {s.saved ? "Done — every other browser and device has been signed out." : "Lost a laptop or used a shared computer? Sign out everywhere except here."}
+        {s.saved ? "Done. Every other browser and device has been signed out." : "Lost a laptop or used a shared computer? Sign out everywhere except here."}
       </p>
       <button className={btn.secondary} disabled={s.pending} onClick={() => s.run(() => signOutOthersAction())}>
         {s.pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <LogOut className="h-4 w-4" aria-hidden />} Sign out other devices

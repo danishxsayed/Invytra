@@ -143,7 +143,7 @@ export function SequenceEditor({
                   )}
                   {s.type === "LIKE_POST" && (
                     <p className="mt-2 text-[14px] text-stone-500">
-                      Likes the newest post on their profile — a light touch that makes your name familiar. If they haven&apos;t posted, this step is
+                      Likes the newest post on their profile. It&apos;s a light touch that makes your name familiar. If they haven&apos;t posted, this step is
                       skipped and the sequence carries on.
                     </p>
                   )}
@@ -158,7 +158,7 @@ export function SequenceEditor({
                 <div className="ml-[52px] mt-3 flex items-start gap-3 rounded-xl border border-dashed border-stone-300 bg-stone-50/60 px-4 py-3 text-[15px] text-stone-600">
                   <Hourglass className="mt-0.5 h-4 w-4 shrink-0 text-stone-400" aria-hidden />
                   <span>
-                    Wait for them to accept — up to
+                    Wait for them to accept, up to
                     <Days
                       label="Days to wait for acceptance"
                       value={settings.acceptWithinDays}

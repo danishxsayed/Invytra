@@ -34,7 +34,7 @@ export default async function AccountsPage() {
           <EmptyState
             icon={Users}
             title="Connect your first LinkedIn account"
-            body="Add an account, then log in to LinkedIn in a secure window. Invytra keeps the session — never your password."
+            body="Add an account, then log in to LinkedIn in a secure window. Invytra keeps the session, never your password."
           />
         </Card>
       ) : (

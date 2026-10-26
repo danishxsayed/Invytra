@@ -66,7 +66,7 @@ export function SearchImport({
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" aria-hidden />
           <p>
             <b>{account?.label}</b> reads the search one page at a time, a few minutes apart, inside its working hours. People appear in the list
-            as they&apos;re found{pages > 1 ? ` — about ${pages} pages${days > 1 ? ` over ${days} days` : ""}` : ""}. Campaigns using this list pick them
+            as they&apos;re found{pages > 1 ? `, about ${pages} pages${days > 1 ? ` over ${days} days` : ""}` : ""}. Campaigns using this list pick them
             up automatically.
           </p>
         </div>

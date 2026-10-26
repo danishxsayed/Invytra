@@ -68,7 +68,7 @@ d("search imports", () => {
     });
     await prisma.leadImport.update({ where: { id: importId }, data: { actionId: a.id } });
     await prisma.linkedinAccount.update({ where: { id: "acc-imp-a" }, data: { timezone: "Asia/Kolkata" } });
-    expect((await importWaits(prisma, await importsForList(prisma, A, listId))).get(importId)).toBe("Outside a's working hours — next page around Mon 26 Oct, 09:10");
+    expect((await importWaits(prisma, await importsForList(prisma, A, listId))).get(importId)).toBe("Outside a's working hours. Next page around Mon 26 Oct, 09:10");
   });
 
   it("can be stopped, only by its own workspace", async () => {

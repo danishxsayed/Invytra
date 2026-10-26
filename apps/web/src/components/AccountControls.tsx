@@ -62,7 +62,7 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
         )}
         {status === "NEEDS_ATTENTION" && canResumeAfterCheck && full && (
           <button className={btn.secondary} disabled={pending} onClick={() => run(() => resumeAfterCheckAction(id))} title="Only if you've checked LinkedIn yourself and everything looks normal">
-            I've checked — resume
+            I've checked, resume
           </button>
         )}
         {status === "ACTIVE" && full && (

@@ -200,7 +200,7 @@ export function SettingsForm({ id, zones, proxyRequired, initial, defaults, max 
 
       <Section title="Proxy" description="Each account needs its own proxy, ideally in the account's country. Stored encrypted.">
         <p className="text-[15px] text-stone-700">
-          Current: <span className="font-medium">{initial.proxy ?? "none — this computer's own connection"}</span>
+          Current: <span className="font-medium">{initial.proxy ?? "none (this computer's own connection)"}</span>
         </p>
         <Field label={initial.proxy ? "Replace with" : "Proxy"} hint="Format: http://user:password@host:port. Leave empty to keep the current one.">
           <input

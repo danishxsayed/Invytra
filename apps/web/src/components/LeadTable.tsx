@@ -125,7 +125,7 @@ export function LeadTable({ listId, rows }: { listId: string; rows: LeadView[] }
                     </div>
                   </div>
                 </td>
-                <td className="hidden max-w-[200px] truncate py-3 pr-4 text-[14px] text-stone-500 lg:table-cell">{r.location ?? "—"}</td>
+                <td className="hidden max-w-[200px] truncate py-3 pr-4 text-[14px] text-stone-500 lg:table-cell">{r.location ?? ""}</td>
                 <td className="hidden whitespace-nowrap py-3 pr-4 sm:table-cell">
                   <span title={r.status.detail} className={cx("inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-[13px] font-medium", st.cls)}>
                     {st.label}

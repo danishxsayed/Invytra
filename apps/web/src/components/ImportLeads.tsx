@@ -86,7 +86,7 @@ export function ImportLeads({
           {done.alreadyInList > 0 && <Line>{done.alreadyInList.toLocaleString()} were already in this list</Line>}
           {done.inOtherLists > 0 && (
             <Line warn>
-              {done.inOtherLists.toLocaleString()} of them are also in another of your lists — campaigns won't contact the same person twice.
+              {done.inOtherLists.toLocaleString()} of them are also in another of your lists. Campaigns won't contact the same person twice.
             </Line>
           )}
           {done.invalid > 0 && <Line>{done.invalid.toLocaleString()} rows had no usable LinkedIn profile link</Line>}

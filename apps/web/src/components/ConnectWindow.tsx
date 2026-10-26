@@ -302,7 +302,7 @@ export function ConnectWindow({ accountId, label, onClose }: Props) {
 
         <div className="flex items-center gap-2 border-t border-stone-100 px-5 py-3 text-[14px] text-stone-500">
           <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
-          Invytra never stores your password — only the logged-in session, encrypted. The window closes by itself once you're in.
+          Invytra never stores your password, only the logged-in session, encrypted. The window closes by itself once you're in.
         </div>
       </div>
     </div>

@@ -24,7 +24,7 @@ export default async function LeadsPage() {
     <div className="space-y-6 animate-fade-up">
       <PageHeader
         title="Lead lists"
-        description="The people you want to reach — from a LinkedIn or Sales Navigator search, a CSV file, or pasted profile links."
+        description="The people you want to reach, from a LinkedIn or Sales Navigator search, a CSV file, or pasted profile links."
         action={<NewListButton accounts={accounts} />}
       />
 
@@ -33,7 +33,7 @@ export default async function LeadsPage() {
           <EmptyState
             icon={ListChecks}
             title="Create your first lead list"
-            body="Paste a LinkedIn or Sales Navigator search link and Invytra collects the people for you — or upload a CSV, or paste profile links."
+            body="Paste a LinkedIn or Sales Navigator search link and Invytra collects the people for you. You can also upload a CSV or paste profile links."
             action={<NewListButton label="New lead list" accounts={accounts} />}
           />
         </Card>
@@ -75,7 +75,7 @@ export default async function LeadsPage() {
       <div className="flex gap-3 rounded-2xl border border-stone-200/80 bg-white/60 px-5 py-4 text-[15px] text-stone-600">
         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
         <p>
-          Lists only hold profile links and the details from your file — nothing is sent to LinkedIn until you start a campaign. The same person
+          Lists only hold profile links and the details from your file. Nothing is sent to LinkedIn until you start a campaign. The same person
           can be in several lists; campaigns will skip anyone your accounts have already contacted.
         </p>
       </div>

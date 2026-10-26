@@ -34,7 +34,7 @@ export function parseProfileUrl(input: string, baseUrl = "https://www.linkedin.c
     /* ignore */
   }
   if (!LINKEDIN_HOST.test(url.hostname) && url.host !== baseHost) return { ok: false, reason: "Not a LinkedIn link" };
-  if (/^\/sales\//i.test(url.pathname)) return { ok: false, reason: "Sales Navigator link — use the person's regular profile link (/in/…)" };
+  if (/^\/sales\//i.test(url.pathname)) return { ok: false, reason: "Sales Navigator link. Use the person's regular profile link (/in/…)" };
   const m = /^\/in\/([^/?#]+)/i.exec(url.pathname);
   if (!m) return { ok: false, reason: "Not a profile link (expected linkedin.com/in/…)" };
   let slug: string;

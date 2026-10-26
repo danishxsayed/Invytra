@@ -126,7 +126,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
               <option value="">Choose…</option>
               {options.lists.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.name} — {l.count.toLocaleString()} {l.count === 1 ? "lead" : "leads"}
+                  {l.name} · {l.count.toLocaleString()} {l.count === 1 ? "lead" : "leads"}
                   {l.coming ? " (collecting…)" : ""}
                 </option>
               ))}
@@ -300,7 +300,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
               Sends {daysText(settings.days).replace("Every day", "every day")}, in each account's working hours
               {settings.startAt && waitingToStart(settings, new Date()) ? `, starting ${startText(settings.startAt)}` : ""}.
             </li>
-            {usesInvites && invitesPerDay > 0 && <li>Up to {invitesPerDay} invites a day — about {days} sending {days === 1 ? "day" : "days"} to invite everyone.</li>}
+            {usesInvites && invitesPerDay > 0 && <li>Up to {invitesPerDay} invites a day, so about {days} sending {days === 1 ? "day" : "days"} to invite everyone.</li>}
             <li>Anyone already contacted, or in another campaign, is skipped. Follow-ups stop when someone replies.</li>
             <li>You can pause at any time.</li>
           </ul>

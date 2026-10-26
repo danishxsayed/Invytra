@@ -129,7 +129,7 @@ export default async function CampaignPage({
           label="Replied"
           value={stats.replied}
           rate={contacted ? `${pct(stats.replied, contacted)}% of contacted` : undefined}
-          hint="Replies are matched by name — LinkedIn's inbox list doesn't show profile links."
+          hint="Replies are matched by name, because LinkedIn's inbox list doesn't show profile links."
         />
       </div>
 

@@ -106,7 +106,7 @@ export default async function InboxPage({
           emptyTitle={tab === "needs_reply" ? "You're all caught up" : "No replies here"}
           emptyBody={
             tab === "needs_reply"
-              ? "New replies land here. Once you answer on LinkedIn — or mark them done — they move out."
+              ? "New replies land here. Once you answer on LinkedIn, or mark them done, they move out."
               : "When someone answers an invite or message, it shows up here."
           }
         />

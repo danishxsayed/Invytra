@@ -175,7 +175,7 @@ export async function setPaused(prisma: PrismaClient, workspaceId: string, accou
 export async function resumeAfterCheck(prisma: PrismaClient, workspaceId: string, accountId: string): Promise<Result> {
   const a = await getAccount(prisma, workspaceId, accountId);
   if (a.status !== "NEEDS_ATTENTION") return { ok: false, error: "This account doesn't need attention." };
-  if (!a.encryptedSession) return { ok: false, error: "Reconnect this account — there is no saved login." };
+  if (!a.encryptedSession) return { ok: false, error: "Reconnect this account. There is no saved login." };
   if (problemOf(a.statusReason) === "RESTRICTED") return { ok: false, error: "LinkedIn restricted this account. Check LinkedIn directly first." };
   await prisma.linkedinAccount.update({ where: { id: a.id }, data: { status: "ACTIVE", statusReason: null } });
   return { ok: true, value: undefined };

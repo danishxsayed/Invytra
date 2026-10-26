@@ -46,7 +46,7 @@ export function outcomeText(row: { status: string; error: string | null; payload
   switch (row.status) {
     case "SUCCEEDED":
       if (row.type === "CONNECTION_REQUEST") {
-        if (p.note && p.result?.withNote === false) return "Sent without note — LinkedIn's free-note limit";
+        if (p.note && p.result?.withNote === false) return "Sent without note (LinkedIn's free-note limit)";
         return p.result?.withNote ? "Sent with note" : "Sent";
       }
       if (row.type === "SEARCH_PAGE") {
@@ -80,16 +80,16 @@ function skipText(reason: string | null): string {
     PROFILE_UNAVAILABLE: "Profile not found",
     EMAIL_REQUIRED: "LinkedIn asked for their email",
     CONNECT_NOT_AVAILABLE: "No Connect button on this profile",
-    NOTE_LIMIT: "Skipped — note required, free notes used up",
+    NOTE_LIMIT: "Skipped: note required, free notes used up",
     CANCELLED: "Cancelled",
-    REPLIED: "They replied — not sent",
+    REPLIED: "They replied, so not sent",
     OUTSIDE_WORKING_HOURS: "Outside working hours",
     DAILY_LIMIT_REACHED: "Daily limit reached",
     WEEKLY_LIMIT_REACHED: "Weekly limit reached",
     ACCOUNT_NOT_ACTIVE: "Account not active",
   };
   if (!reason) return "Skipped";
-  if (reason.startsWith("NOT_CONNECTED")) return "Not connected — message not sent";
+  if (reason.startsWith("NOT_CONNECTED")) return "Not connected, so the message wasn't sent";
   return map[reason] ?? reason;
 }
 
@@ -97,10 +97,10 @@ export function waitText(reason: string): string {
   if (reason.startsWith("RETRY")) return "Will retry";
   const map: Record<string, string> = {
     OUTSIDE_WORKING_HOURS: "Waiting for working hours",
-    DAILY_LIMIT_REACHED: "Waiting — daily limit reached",
-    WEEKLY_LIMIT_REACHED: "Waiting — weekly limit reached",
-    ACCOUNT_NOT_ACTIVE: "Waiting — account not active",
-    INVITES_PAUSED: "Waiting — LinkedIn invite limit",
+    DAILY_LIMIT_REACHED: "Waiting: daily limit reached",
+    WEEKLY_LIMIT_REACHED: "Waiting: weekly limit reached",
+    ACCOUNT_NOT_ACTIVE: "Waiting: account not active",
+    INVITES_PAUSED: "Waiting: LinkedIn invite limit",
     WAITING_INBOX_CHECK: "Checking the inbox for a reply first",
     ACCOUNT_BUSY: "Waiting for its turn",
     WAITING_TURN: "Waiting for its turn",
