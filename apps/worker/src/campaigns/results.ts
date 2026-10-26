@@ -24,7 +24,7 @@ export function campaignPlan(c: { steps: unknown; settings: unknown }): { steps:
 const FINAL = ["SUCCEEDED", "SKIPPED", "FAILED"] as const;
 
 function resultOf(a: Action): ActionResult | null {
-  if (a.type === "INBOX_SYNC" || a.type === "SEARCH_PAGE") return null;
+  if (a.type === "INBOX_SYNC" || a.type === "SEARCH_PAGE" || a.type === "REPLY") return null;
   const r = ((a.payload ?? {}) as { result?: { status?: string } }).result;
   const connection = r?.status as ActionResult["connection"] | undefined;
   return { type: a.type, status: a.status as ActionResult["status"], error: a.error, connection };

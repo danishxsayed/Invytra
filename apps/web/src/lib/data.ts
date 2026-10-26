@@ -71,7 +71,7 @@ export type AccountOverview = Awaited<ReturnType<typeof accountsOverview>>[numbe
 
 export interface ActivityFilter {
   status?: "SUCCEEDED" | "FAILED" | "SKIPPED" | "QUEUED";
-  type?: "PROFILE_VISIT" | "CONNECTION_REQUEST" | "CHECK_CONNECTION" | "MESSAGE" | "INBOX_SYNC" | "SEARCH_PAGE" | "LIKE_POST" | "WITHDRAW_INVITE";
+  type?: "PROFILE_VISIT" | "CONNECTION_REQUEST" | "CHECK_CONNECTION" | "MESSAGE" | "INBOX_SYNC" | "SEARCH_PAGE" | "LIKE_POST" | "WITHDRAW_INVITE" | "REPLY";
   accountId?: string;
   campaignId?: string;
   take?: number;

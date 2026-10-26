@@ -98,7 +98,8 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
   });
   const scale = deps.gapScale ?? 1;
   const scaled = (d: Date) => new Date(now.getTime() + Math.max(1000, (d.getTime() - now.getTime()) * scale));
-  if (head && head.id !== action.id) return defer(scaled(pollAgainAt(now, null)), "WAITING_TURN");
+  // A reply the user is waiting for goes ahead of queued campaign work.
+  if (head && head.id !== action.id && action.type !== "REPLY") return defer(scaled(pollAgainAt(now, null)), "WAITING_TURN");
   const heldUntil = await deps.pacing.claim(action.accountId, now, new Date(now.getTime() + CLAIM_HOLD_MS));
   if (heldUntil) return defer(scaled(pollAgainAt(now, heldUntil)), "PACING");
 

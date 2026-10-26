@@ -118,6 +118,12 @@ LinkedIn. One less service to build, deploy and secure.
   **Selectors for search results, Sales Navigator, likes and withdraw are untested on the real
   site** — try a small import (10 people) and one campaign with a like first, and fix
   `apps/worker/src/linkedin/selectors.ts` from what you see.
+- [x] Reply from the inbox (2026-10-26): Reply box on each inbox message; the web app writes a
+  QUEUED REPLY action (`actions.inbox_message_id`), the worker picks it up within ~5 s, opens
+  Messaging, clicks the conversation by name, types and confirms (`apps/worker/src/linkedin/reply.ts`);
+  falls back to messaging from the profile for campaign leads. Any hour, ahead of queued
+  campaign work, never retried; a reply interrupted by a crash is marked failed, not resent.
+  Sent replies show under the message and mark it answered.
 - [x] Settings (2026-10-24): profile (name; email change needs the current password), change
   password (signs out every other session via `users.sessions_valid_after`, this browser stays
   in), "sign out other devices", workspace name (owner only), team list. Team invites by email

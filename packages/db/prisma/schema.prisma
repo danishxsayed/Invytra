@@ -82,6 +82,8 @@ enum ActionType {
   LIKE_POST
   /// Withdraws a pending invitation
   WITHDRAW_INVITE
+  /// A reply typed by the user in Invytra's inbox
+  REPLY
 }
 
 enum ImportKind {
@@ -162,9 +164,12 @@ model Action {
   createdAt      DateTime     @default(now()) @map("created_at")
   /// Set when a campaign queued this action for one of its leads
   campaignLeadId String?      @map("campaign_lead_id")
+  /// For a REPLY: the inbox message it answers
+  inboxMessageId String?      @map("inbox_message_id")
 
   account      LinkedinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   campaignLead CampaignLead?   @relation(fields: [campaignLeadId], references: [id], onDelete: SetNull)
+  inboxMessage InboxMessage?   @relation(fields: [inboxMessageId], references: [id], onDelete: SetNull)
 
   // Daily/weekly limit counting: actions per account, type and time window
   @@index([accountId, type, status, executedAt])
@@ -172,6 +177,7 @@ model Action {
   // Lead status: what happened to a profile
   @@index([targetUrl])
   @@index([campaignLeadId])
+  @@index([inboxMessageId])
   @@map("actions")
 }
 
@@ -194,6 +200,8 @@ model InboxMessage {
 
   account      LinkedinAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   campaignLead CampaignLead?   @relation(fields: [campaignLeadId], references: [id], onDelete: SetNull)
+  /// Replies sent from Invytra's inbox
+  replies      Action[]
 
   @@unique([accountId, linkedinMessageId])
   @@index([accountId, sentAt])

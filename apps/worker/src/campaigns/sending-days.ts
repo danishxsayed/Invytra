@@ -13,6 +13,8 @@ export async function hoursForAction(
   action: { type: string; accountId: string; campaignLeadId: string | null },
   accountHours: WorkingHours,
 ): Promise<WorkingHours> {
+  // A reply the user typed goes out now, whatever the hour (still one action at a time, with a short gap).
+  if (action.type === "REPLY") return { days: [1, 2, 3, 4, 5, 6, 7], startHour: 0, endHour: 24 };
   if (action.campaignLeadId) {
     const lead = await prisma.campaignLead.findUnique({
       where: { id: action.campaignLeadId },

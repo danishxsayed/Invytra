@@ -56,6 +56,8 @@ export interface FakeState {
   likes: string[];
   /** People whose pending invite was withdrawn. */
   withdrawn: string[];
+  /** Replies sent from the Messaging page. */
+  inboxReplies: { name: string; text: string }[];
 }
 
 /** Sales Navigator member ids → profile names (LinkedIn redirects /in/<id>/ to the profile). */
@@ -229,11 +231,20 @@ const inboxHtml = (state: FakeState) =>
     <li><h3>Alice Smith</h3><time>Oct 12</time><p>You: Thanks for connecting!</p></li>
     <li><h3>Bob Jones</h3><time>Oct 10</time><p>Bob: Not interested, thanks</p></li>
     <li><h3>Carol White</h3><time>Oct 1</time><p>older duplicate</p></li>
-  </ul></main>`,
+  </ul></main>
+  <section id="conv" hidden><h2 id="conv-name"></h2><ul id="conv-thread"></ul>
+    <div role="textbox" contenteditable="true" aria-label="Write a message…" id="conv-box"></div><button id="conv-send">Send</button></section>
+  <script>
+    document.querySelectorAll('[aria-label="Conversation List"] h3').forEach(h=>h.onclick=()=>{
+      document.getElementById('conv').hidden=false;document.getElementById('conv-name').textContent=h.textContent;document.getElementById('conv-thread').innerHTML='';});
+    document.getElementById('conv-send').onclick=async()=>{const box=document.getElementById('conv-box');const t=box.innerText;
+      await fetch('/api/reply',{method:'POST',body:JSON.stringify({name:document.getElementById('conv-name').textContent,text:t})});
+      const li=document.createElement('li');li.textContent=t;document.getElementById('conv-thread').appendChild(li);box.innerText='';};
+  </script>`,
   );
 
 export function startFakeLinkedIn(): { server: Server; state: FakeState } {
-  const state: FakeState = { invites: [], messages: [], logins: [], accepted: [], replies: [], likes: [], withdrawn: [] };
+  const state: FakeState = { invites: [], messages: [], logins: [], accepted: [], replies: [], likes: [], withdrawn: [], inboxReplies: [] };
   const server = createServer((req, res) => {
     const cookie = req.headers.cookie ?? "";
     const loggedIn = /li_at=valid/.test(cookie);
@@ -264,6 +275,7 @@ export function startFakeLinkedIn(): { server: Server; state: FakeState } {
         if (kind === "message") state.messages.push({ slug: slug!, text: data.text });
         if (kind === "like") state.likes.push(`${slug}#${data.post}`);
         if (kind === "withdraw") state.withdrawn.push(slug!);
+        if (kind === "reply") state.inboxReplies.push({ name: data.name, text: data.text });
         send(200, "{}", { "content-type": "application/json" });
       });
       return;

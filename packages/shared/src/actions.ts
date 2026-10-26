@@ -8,6 +8,7 @@ export const ACTION_TYPES = [
   "SEARCH_PAGE",
   "LIKE_POST",
   "WITHDRAW_INVITE",
+  "REPLY",
 ] as const;
 
 export type ActionType = (typeof ACTION_TYPES)[number];

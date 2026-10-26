@@ -60,6 +60,9 @@ M6 go-live (server, domain, billing, team invites) is next. Phase 0's engine is 
 4. **Human pacing.** Randomized delays between actions (not fixed intervals), actions
    only inside the account's working hours in its own time zone, and daily limits
    enforced before a job is executed — not after.
+   Exception: a REPLY the user types in the dashboard inbox is sent right away at any hour
+   (no daily limit; it still waits for the account's turn gap and never runs alongside
+   another action on that account). REPLY is never retried automatically.
 5. **Default daily limits per account** (configurable, live in `packages/shared/limits.ts`):
    - connection requests: 20/day (max allowed setting: 40)
    - messages: 50/day

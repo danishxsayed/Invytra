@@ -50,6 +50,14 @@ export default async function InboxPage({
     account: m.account.label,
     done: !!m.doneAt,
     answered: !!m.answeredAt,
+    canReply: m.account.status === "ACTIVE",
+    replies: m.replies.map((r) => ({
+      id: r.id,
+      text: String((r.payload as { text?: unknown } | null)?.text ?? ""),
+      status: r.status as "QUEUED" | "RUNNING" | "SUCCEEDED" | "SKIPPED" | "FAILED",
+      error: r.error && !r.error.startsWith("waiting: ") ? r.error.split("\n")[0]! : null,
+      when: timeAgo(r.executedAt ?? r.createdAt, now),
+    })),
     lead: m.campaignLead ? { profileUrl: m.campaignLead.profileUrl, company: m.campaignLead.company, title: m.campaignLead.title, campaign: m.campaignLead.campaign } : null,
   }));
 

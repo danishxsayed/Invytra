@@ -146,5 +146,8 @@ export const SELECTORS = {
     /** Text inside an item that marks it unread, e.g. "1 new notification". */
     unreadText: /\bnew (notification|message)s?\b|\bunread\b/i,
     sponsoredPrefix: /^Sponsored\b/i,
+    /** The open conversation's message box and Send button (same as the chat overlay). */
+    composeBox: '[role="textbox"][contenteditable="true"]',
+    sendButton: /^Send$/i,
   },
 } as const;

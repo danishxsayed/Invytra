@@ -1,4 +1,4 @@
-import { Eye, Inbox, ListPlus, MessageSquare, Search, ThumbsUp, UserMinus, UserPlus, type LucideIcon } from "lucide-react";
+import { CornerUpLeft, Eye, Inbox, ListPlus, MessageSquare, Search, ThumbsUp, UserMinus, UserPlus, type LucideIcon } from "lucide-react";
 import type { ActivityRow } from "@/lib/data";
 import { ACTION_LABEL, outcomeText, profilePath, slugName, timeAgo } from "@/lib/format";
 import Link from "next/link";
@@ -15,6 +15,7 @@ const ICON: Record<string, { icon: LucideIcon; cls: string }> = {
   SEARCH_PAGE: { icon: ListPlus, cls: "bg-violet-50 text-violet-600" },
   LIKE_POST: { icon: ThumbsUp, cls: "bg-rose-50 text-rose-600" },
   WITHDRAW_INVITE: { icon: UserMinus, cls: "bg-stone-100 text-stone-500" },
+  REPLY: { icon: CornerUpLeft, cls: "bg-sky-50 text-sky-600" },
 };
 
 function searchPageNo(url: string | null): number {
@@ -31,7 +32,9 @@ export function ActivityList({ rows, showAccount, compact }: { rows: ActivityRow
       {rows.map((r) => {
         const lead = r.campaignLead;
         const who =
-          r.type === "SEARCH_PAGE"
+          r.type === "REPLY"
+            ? String((r.payload as { name?: unknown } | null)?.name ?? "")
+            : r.type === "SEARCH_PAGE"
             ? `Page ${searchPageNo(r.targetUrl)}`
             : lead?.linkedinName || [lead?.firstName, lead?.lastName].filter(Boolean).join(" ") || slugName(r.targetUrl);
         const when = r.executedAt ?? r.scheduledAt;

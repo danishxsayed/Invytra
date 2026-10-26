@@ -31,6 +31,11 @@ async function main() {
   const pacing = redisPacingStore(rt.redis);
 
   // Recover from a crash: RUNNING rows go back to QUEUED, and every QUEUED row gets its job (idempotent).
+  // A reply cut off mid-send may have gone out: never send it twice, let the person check.
+  await rt.prisma.action.updateMany({
+    where: { status: "RUNNING", type: "REPLY" },
+    data: { status: "FAILED", error: "Interrupted while sending. Check the conversation on LinkedIn before sending again.", executedAt: new Date() },
+  });
   const stuck = await rt.prisma.action.updateMany({ where: { status: "RUNNING" }, data: { status: "QUEUED" } });
   const queued = await rt.prisma.action.findMany({ where: { status: "QUEUED" }, select: { id: true, scheduledAt: true } });
   for (const a of queued) await scheduleAction(queue, a.id, a.scheduledAt);
@@ -113,6 +118,24 @@ async function main() {
   await runCampaigns();
   const campaignTimer = setInterval(runCampaigns, Number(process.env.CAMPAIGN_TICK_SECONDS ?? 60) * 1000);
 
+  // Replies typed in the dashboard's inbox: the web app only writes the QUEUED row,
+  // so look for new ones every few seconds and hand them to the queue.
+  const picked = new Set<string>(queued.map((q) => q.id));
+  const pickUpReplies = async () => {
+    try {
+      const rows = await rt.prisma.action.findMany({ where: { type: "REPLY", status: "QUEUED" }, select: { id: true, scheduledAt: true }, take: 50 });
+      for (const r of rows) {
+        if (picked.has(r.id)) continue;
+        picked.add(r.id);
+        await scheduleAction(queue, r.id, r.scheduledAt);
+        log(`Reply queued (${r.id})`);
+      }
+    } catch (e) {
+      log(`Reply pickup error: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+  const replyTimer = setInterval(pickUpReplies, 5000);
+
   // Live LinkedIn login windows for the dashboard ("Connect account").
   const connect =
     rt.env.CONNECT_PORT > 0
@@ -139,6 +162,7 @@ async function main() {
     log("Stopping… (finishing the current action)");
     clearInterval(timer);
     clearInterval(campaignTimer);
+    clearInterval(replyTimer);
     await connect?.closeAll();
     await worker.close();
     await queue.close();

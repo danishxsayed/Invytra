@@ -7,6 +7,7 @@ export const ACTION_LABEL: Record<string, string> = {
   SEARCH_PAGE: "Search import",
   LIKE_POST: "Like latest post",
   WITHDRAW_INVITE: "Withdraw invite",
+  REPLY: "Reply from inbox",
 };
 
 /** "/in/jane-doe-123/" from a full LinkedIn URL. */
@@ -55,6 +56,7 @@ export function outcomeText(row: { status: string; error: string | null; payload
       }
       if (row.type === "LIKE_POST") return "Liked";
       if (row.type === "WITHDRAW_INVITE") return "Withdrawn";
+      if (row.type === "REPLY") return "Sent";
       if (row.type === "INBOX_SYNC") return p.result?.newReplies ? `${p.result.newReplies} new repl${p.result.newReplies === 1 ? "y" : "ies"}` : "No new replies";
       return "Done";
     case "SKIPPED":

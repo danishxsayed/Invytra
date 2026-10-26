@@ -10,6 +10,7 @@ import { withAccountSession, type SessionManagerDeps } from "../../src/browser/s
 import type { BrowserAccount, SessionTaskContext, StorageState } from "../../src/browser/types.js";
 import { sendConnectionRequest } from "../../src/linkedin/actions.js";
 import { likeLatestPost, withdrawInvite } from "../../src/linkedin/engage.js";
+import { sendReply } from "../../src/linkedin/reply.js";
 import { companyFromHeadline, readSearchPage } from "../../src/linkedin/search.js";
 import { FakeRedis } from "../fake-redis.js";
 import { startFakeLinkedIn, type FakeState } from "../fake-linkedin.js";
@@ -112,5 +113,19 @@ describe("liking and withdrawing (fake site)", { timeout: 60_000 }, () => {
     expect(state.withdrawn).toEqual(["alice"]);
     expect(await run((ctx) => withdrawInvite(ctx, url("carol")))).toMatchObject({ outcome: "SKIPPED", reason: "CONNECTED" });
     expect(await run((ctx) => withdrawInvite(ctx, url("bob")))).toMatchObject({ outcome: "SKIPPED", reason: "NOT_PENDING" });
+  });
+});
+
+describe("replying from the inbox (fake site)", { timeout: 60_000 }, () => {
+  it("opens the conversation by name, sends, and confirms it", async () => {
+    expect(await run((ctx) => sendReply(ctx, "Carol White", "Tuesday works, talk then!"))).toMatchObject({ outcome: "DONE", data: { via: "inbox" } });
+    expect(state.inboxReplies).toEqual([{ name: "Carol White", text: "Tuesday works, talk then!" }]);
+  });
+  it("falls back to the person's profile when the conversation isn't in the list", async () => {
+    expect(await run((ctx) => sendReply(ctx, "Carol W.", "Following up here.", url("carol")))).toMatchObject({ outcome: "DONE", data: { via: "profile" } });
+    expect(state.messages.at(-1)).toEqual({ slug: "carol", text: "Following up here." });
+  });
+  it("says so when it can't find the conversation and has no profile", async () => {
+    await expect(run((ctx) => sendReply(ctx, "Nobody Here", "Hi"))).rejects.toThrow(/isn't in the recent messages/);
   });
 });

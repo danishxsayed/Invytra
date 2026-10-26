@@ -11,6 +11,7 @@ import {
   type InboxThread,
 } from "../linkedin/actions.js";
 import { likeLatestPost, withdrawInvite } from "../linkedin/engage.js";
+import { sendReply } from "../linkedin/reply.js";
 import { readSearchPage } from "../linkedin/search.js";
 import { storeInboxThreads } from "./inbox-store.js";
 
@@ -24,9 +25,12 @@ const SEARCH_KINDS: SearchKind[] = ["LINKEDIN_SEARCH", "SALES_NAV_SEARCH", "SALE
 
 /** Validates an action's inputs up front (enqueue time), so bad jobs never reach LinkedIn. */
 export function validateSpec(spec: ActionSpec): void {
-  const needsUrl = spec.type !== "INBOX_SYNC";
+  const needsUrl = spec.type !== "INBOX_SYNC" && spec.type !== "REPLY";
   if (needsUrl && !spec.targetUrl) throw new Error(`${spec.type} needs a profile URL`);
   if (spec.type === "MESSAGE" && !String(spec.payload?.text ?? "").trim()) throw new Error("MESSAGE needs text");
+  if (spec.type === "REPLY" && (!String(spec.payload?.text ?? "").trim() || !String(spec.payload?.name ?? "").trim())) {
+    throw new Error("REPLY needs text and the person's name");
+  }
   if (spec.type === "SEARCH_PAGE" && !SEARCH_KINDS.includes(spec.payload?.kind as SearchKind)) throw new Error("SEARCH_PAGE needs a search kind");
   // Never send placeholder text like "Hi {firstName}, …" (checked at enqueue AND before sending).
   for (const [field, label] of [["note", "Invite note"], ["text", "Message text"]] as const) {
@@ -73,6 +77,8 @@ export function workFor(spec: ActionSpec): (ctx: SessionTaskContext) => Promise<
       return (ctx) => likeLatestPost(ctx, url);
     case "WITHDRAW_INVITE":
       return (ctx) => withdrawInvite(ctx, url);
+    case "REPLY":
+      return (ctx) => sendReply(ctx, String(p.name), String(p.text), spec.targetUrl);
   }
 }
 
@@ -82,7 +88,13 @@ export async function afterSuccess(
   accountId: string,
   type: ActionType,
   data: unknown,
+  inboxMessageId?: string | null,
 ): Promise<Record<string, unknown>> {
+  // A reply sent from Invytra answers that conversation.
+  if (type === "REPLY" && inboxMessageId) {
+    await prisma.inboxMessage.updateMany({ where: { id: inboxMessageId, answeredAt: null }, data: { answeredAt: new Date() } });
+    return {};
+  }
   if (type === "INBOX_SYNC") {
     const threads = ((data as { threads?: InboxThread[] })?.threads ?? []) as InboxThread[];
     return { newReplies: await storeInboxThreads(prisma, accountId, threads) };
@@ -96,5 +108,5 @@ export async function afterSuccess(
  * Invites are safe to retry — a retry sees "Pending" and skips.
  */
 export function isRetryable(type: ActionType): boolean {
-  return type !== "MESSAGE";
+  return type !== "MESSAGE" && type !== "REPLY";
 }
