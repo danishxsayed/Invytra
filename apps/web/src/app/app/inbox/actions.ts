@@ -4,7 +4,7 @@ import { prisma } from "@invytra/db";
 import { revalidatePath } from "next/cache";
 import type { Result } from "@/lib/accounts";
 import { requireUser } from "@/lib/auth";
-import { cancelReply, sendReply, setDone, setLeadPaused, setTags } from "@/lib/inbox";
+import { cancelReply, requestInboxCheck, sendReply, setDone, setLeadPaused, setTags } from "@/lib/inbox";
 
 /* Every action re-reads the signed-in user; ids from the browser are checked against the workspace in lib/inbox. */
 
@@ -48,4 +48,11 @@ export async function cancelReplyAction(actionId: unknown): Promise<Result> {
   const r = await cancelReply(prisma, me.workspace.id, actionId);
   revalidatePath("/app/inbox");
   return r;
+}
+
+/** Called every minute while the inbox is open and visible (and by "Check now"). */
+export async function requestInboxCheckAction(): Promise<{ lastChecked: string | null; queued: number }> {
+  const me = await requireUser();
+  const r = await requestInboxCheck(prisma, me.workspace.id);
+  return { lastChecked: r.lastChecked?.toISOString() ?? null, queued: r.queued };
 }

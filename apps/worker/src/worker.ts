@@ -15,7 +15,7 @@ import { campaignTick } from "./campaigns/engine.js";
 import { importTick } from "./imports/importer.js";
 import { createRuntime } from "./runtime.js";
 
-const INBOX_EVERY_MIN = Number(process.env.INBOX_SYNC_EVERY_MINUTES ?? 60);
+const INBOX_EVERY_MIN = Number(process.env.INBOX_SYNC_EVERY_MINUTES ?? 20);
 const CONCURRENCY = Number(process.env.WORKER_CONCURRENCY ?? 3);
 /** Same knob as the human-pacing waits; never set below 1 against real LinkedIn. */
 const GAP_SCALE = Math.max(0, Number(process.env.INVYTRA_PACE ?? "1"));
@@ -118,17 +118,21 @@ async function main() {
   await runCampaigns();
   const campaignTimer = setInterval(runCampaigns, Number(process.env.CAMPAIGN_TICK_SECONDS ?? 60) * 1000);
 
-  // Replies typed in the dashboard's inbox: the web app only writes the QUEUED row,
-  // so look for new ones every few seconds and hand them to the queue.
+  // Replies typed in the dashboard's inbox, and inbox checks it asks for while open: the web
+  // app only writes the QUEUED row, so look for new ones every few seconds and queue them.
   const picked = new Set<string>(queued.map((q) => q.id));
   const pickUpReplies = async () => {
     try {
-      const rows = await rt.prisma.action.findMany({ where: { type: "REPLY", status: "QUEUED" }, select: { id: true, scheduledAt: true }, take: 50 });
+      const rows = await rt.prisma.action.findMany({
+        where: { status: "QUEUED", OR: [{ type: "REPLY" }, { type: "INBOX_SYNC", payload: { path: ["onDemand"], equals: true } }] },
+        select: { id: true, type: true, scheduledAt: true },
+        take: 50,
+      });
       for (const r of rows) {
         if (picked.has(r.id)) continue;
         picked.add(r.id);
         await scheduleAction(queue, r.id, r.scheduledAt);
-        log(`Reply queued (${r.id})`);
+        if (r.type === "REPLY") log(`Reply queued (${r.id})`);
       }
     } catch (e) {
       log(`Reply pickup error: ${e instanceof Error ? e.message : e}`);

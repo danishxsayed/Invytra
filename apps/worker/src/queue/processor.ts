@@ -3,7 +3,7 @@ import { ACTION_DELAY_SECONDS, SEARCH_DELAY_SECONDS, randomActionDelayMs } from 
 import type { SessionManagerDeps } from "../browser/session-manager.js";
 import { isRetryable, workFor } from "../actions/registry.js";
 import { accountSettings, checkPolicy, executeActionRow } from "../actions/run-action.js";
-import { hoursForAction } from "../campaigns/sending-days.js";
+import { hoursForAction, isOnDemandInboxCheck } from "../campaigns/sending-days.js";
 import type { PacingStore } from "./pacing.js";
 import {
   CLAIM_HOLD_MS,
@@ -103,10 +103,12 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
   const scale = deps.gapScale ?? 1;
   const scaled = (d: Date) => new Date(now.getTime() + Math.max(1000, (d.getTime() - now.getTime()) * scale));
   // A reply the user is waiting for goes ahead of queued campaign work.
-  if (head && head.id !== action.id && action.type !== "REPLY") return defer(scaled(pollAgainAt(now, null)), "WAITING_TURN");
+  // Things someone is waiting for in the dashboard (a reply, an inbox check) go ahead of queued campaign work.
+  const urgent = action.type === "REPLY" || isOnDemandInboxCheck(action);
+  if (head && head.id !== action.id && !urgent) return defer(scaled(pollAgainAt(now, null)), "WAITING_TURN");
   const heldUntil = await deps.pacing.claim(action.accountId, now, new Date(now.getTime() + CLAIM_HOLD_MS));
   if (heldUntil) {
-    if (action.type !== "REPLY") return defer(scaled(pollAgainAt(now, heldUntil)), "PACING");
+    if (!urgent) return defer(scaled(pollAgainAt(now, heldUntil)), "PACING");
     // A reply the user is waiting for skips the human-like gap after the last action (a few
     // minutes at most), but never runs while another action is still going (a 15-minute hold).
     if (heldUntil.getTime() - now.getTime() > REPLY_GAP_MAX_MS) return defer(new Date(now.getTime() + REPLY_RETRY_MS), "ACCOUNT_BUSY");
@@ -141,7 +143,7 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
   if (result.status === "FAILED" && result.errorKind === "BUSY") {
     await prisma.action.update({ where: { id: action.id }, data: { status: "QUEUED", attempts: { decrement: 1 } } });
     await deps.pacing.set(action.accountId, "nextActionAt", finished); // release our claim
-    return defer(action.type === "REPLY" ? new Date(finished.getTime() + REPLY_RETRY_MS) : busyRetryAt(finished), "ACCOUNT_BUSY");
+    return defer(urgent ? new Date(finished.getTime() + REPLY_RETRY_MS) : busyRetryAt(finished), "ACCOUNT_BUSY");
   }
 
   if (result.status !== "FAILED" && (result.data as { noteLimitHit?: boolean } | undefined)?.noteLimitHit) {

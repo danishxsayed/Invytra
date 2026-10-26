@@ -1,7 +1,7 @@
 /** Replying from the inbox (only with TEST_DATABASE_URL — it is wiped). */
 import { PrismaClient } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { cancelReply, getConversation, sendReply } from "../src/lib/inbox";
+import { cancelReply, getConversation, requestInboxCheck, sendReply } from "../src/lib/inbox";
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -58,5 +58,25 @@ d("inbox replies", () => {
     expect(await sendReply(prisma, A, "rm1", "Hi {firstName}")).toMatchObject({ ok: false });
     expect(await sendReply(prisma, A, "rm2", "Hello")).toMatchObject({ ok: false, error: expect.stringMatching(/isn't connected and active/) });
     expect(await sendReply(prisma, B, "rm1", "Hello")).toMatchObject({ ok: false, error: expect.stringMatching(/wasn't found/) });
+  });
+
+  it("queues an inbox check while the inbox is open, at most every few minutes per connected account", async () => {
+    const t0 = new Date();
+    expect(await requestInboxCheck(prisma, A, t0)).toMatchObject({ queued: 1 }); // only the active account
+    expect(await requestInboxCheck(prisma, A, t0)).toMatchObject({ queued: 0 }); // one is already waiting
+    const q = await prisma.action.findFirstOrThrow({ where: { accountId: "acc-rep-a", type: "INBOX_SYNC" } });
+    expect(q.payload).toEqual({ onDemand: true });
+    await prisma.action.update({ where: { id: q.id }, data: { status: "SUCCEEDED", executedAt: t0 } });
+    expect(await requestInboxCheck(prisma, A, new Date(t0.getTime() + 60_000))).toMatchObject({ queued: 0, lastChecked: t0 });
+    expect(await requestInboxCheck(prisma, A, new Date(t0.getTime() + 4 * 60_000))).toMatchObject({ queued: 1 });
+    expect(await requestInboxCheck(prisma, B, t0)).toMatchObject({ queued: 0 });
+  });
+
+  it("brings a routine check that's waiting forward instead of adding another", async () => {
+    await prisma.action.deleteMany({ where: { accountId: "acc-rep-a", type: "INBOX_SYNC" } });
+    const routine = await prisma.action.create({ data: { accountId: "acc-rep-a", type: "INBOX_SYNC", status: "QUEUED", scheduledAt: new Date(Date.now() + 3600_000) } });
+    const t = new Date();
+    expect(await requestInboxCheck(prisma, A, t)).toMatchObject({ queued: 0 });
+    expect(await prisma.action.findUniqueOrThrow({ where: { id: routine.id } })).toMatchObject({ payload: { onDemand: true }, scheduledAt: t });
   });
 });

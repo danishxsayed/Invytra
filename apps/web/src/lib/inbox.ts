@@ -234,3 +234,36 @@ export async function cancelReply(prisma: PrismaClient, workspaceId: string, act
   if (r.count === 0) return { ok: false, error: "It's already being sent, or was sent." };
   return { ok: true, value: undefined };
 }
+
+/** Ask for a fresh look at LinkedIn for each connected account whose last check is older than this. */
+const CHECK_EVERY_MS = 3 * 60_000;
+
+/**
+ * The inbox is open: queue an inbox check for each connected account that hasn't
+ * been checked in the last few minutes (and has none waiting). Returns when the
+ * accounts were last checked, oldest first.
+ */
+export async function requestInboxCheck(prisma: PrismaClient, workspaceId: string, now = new Date()): Promise<{ lastChecked: Date | null; queued: number }> {
+  const accounts = await prisma.linkedinAccount.findMany({ where: { workspaceId, status: "ACTIVE" }, select: { id: true } });
+  let queued = 0;
+  let oldest: Date | null = null;
+  for (const { id } of accounts) {
+    // A routine check already waiting at its normal pace: bring it forward instead of adding another.
+    const routine = (await prisma.action.findMany({ where: { accountId: id, type: "INBOX_SYNC", status: "QUEUED" }, select: { id: true, payload: true } }))
+      .filter((a) => (a.payload as { onDemand?: unknown } | null)?.onDemand !== true)
+      .map((a) => a.id);
+    if (routine.length) {
+      await prisma.action.updateMany({ where: { id: { in: routine }, status: "QUEUED" }, data: { payload: { onDemand: true }, scheduledAt: now } });
+    }
+    const [pending, last] = await Promise.all([
+      prisma.action.count({ where: { accountId: id, type: "INBOX_SYNC", status: { in: ["QUEUED", "RUNNING"] } } }),
+      prisma.action.findFirst({ where: { accountId: id, type: "INBOX_SYNC", status: "SUCCEEDED" }, orderBy: { executedAt: "desc" }, select: { executedAt: true } }),
+    ]);
+    const at = last?.executedAt ?? null;
+    if (!oldest || !at || at < oldest) oldest = at ?? oldest;
+    if (pending > 0 || (at && now.getTime() - at.getTime() < CHECK_EVERY_MS)) continue;
+    await prisma.action.create({ data: { accountId: id, type: "INBOX_SYNC", status: "QUEUED", payload: { onDemand: true }, scheduledAt: now } });
+    queued++;
+  }
+  return { lastChecked: oldest, queued };
+}

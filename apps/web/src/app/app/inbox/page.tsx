@@ -3,6 +3,7 @@ import { MessagesSquare } from "lucide-react";
 import Link from "next/link";
 import { ConversationView, type ConversationViewData } from "@/components/inbox/ConversationView";
 import { FilterBar } from "@/components/inbox/FilterBar";
+import { InboxLive } from "@/components/inbox/InboxLive";
 import { Avatar, EmptyState, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { progressText } from "@/lib/campaign-text";
@@ -63,6 +64,7 @@ export default async function InboxPage({
         {/* Conversation list */}
         <div className={cx("flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-stone-200/80 lg:border-r", open && "hidden lg:flex")}>
           <FilterBar accounts={options.accounts} campaigns={options.campaigns} tags={options.tags} />
+          <InboxLive />
           <nav className="flex gap-1 overflow-x-auto whitespace-nowrap border-b border-stone-100 px-3 py-2" aria-label="Show">
             {INBOX_FILTERS.map((f) => (
               <Link
