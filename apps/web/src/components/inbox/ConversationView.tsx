@@ -32,7 +32,7 @@ export function ConversationView({ c, suggestions, backHref }: { c: Conversation
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const bottom = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
 
   const sending = c.pending.some((p) => !p.failed);
   useEffect(() => {
@@ -42,7 +42,9 @@ export function ConversationView({ c, suggestions, backHref }: { c: Conversation
   }, [sending, router]);
   // Newer browsers return a promise from scrollIntoView; an effect must return nothing.
   useEffect(() => {
-    bottom.current?.scrollIntoView({ block: "end" });
+    // Scroll only the message area (scrollIntoView would also scroll the page and the list sideways).
+    const el = scroller.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [c.id, c.messages.length, c.pending.length]);
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
@@ -111,7 +113,7 @@ export function ConversationView({ c, suggestions, backHref }: { c: Conversation
       </div>
 
       {/* Messages */}
-      <div className="min-h-0 flex-1 overflow-y-auto bg-stone-50/50 px-5 py-4">
+      <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-stone-50/50 px-5 py-4">
         {c.messages.length === 0 && c.pending.length === 0 && (
           <p className="py-10 text-center text-[15px] text-stone-500">The messages show up after the next inbox check.</p>
         )}
@@ -130,7 +132,6 @@ export function ConversationView({ c, suggestions, backHref }: { c: Conversation
             </li>
           ))}
         </ol>
-        <div ref={bottom} />
       </div>
 
       <ReplyBox id={c.id} name={c.name} active={c.account.active} accountLabel={c.account.label} />
@@ -143,12 +144,12 @@ function Bubble({ fromMe, text, meta, warn, faint }: { fromMe: boolean; text: st
     <div className={cx("flex flex-col", fromMe ? "items-end" : "items-start")}>
       <div
         className={cx(
-          "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-[15px] leading-relaxed sm:max-w-[70%]",
+          "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-[15px] leading-relaxed [overflow-wrap:anywhere] sm:max-w-[70%]",
           fromMe ? "rounded-br-md bg-stone-900 text-white" : "rounded-bl-md border border-stone-200 bg-white text-stone-800",
           faint && "opacity-60",
         )}
       >
-        {text}
+        {linkify(text, fromMe)}
       </div>
       <p className={cx("mt-1 px-1 text-[12px]", warn ? "text-rose-700" : "text-stone-400")}>{meta}</p>
     </div>
@@ -258,5 +259,18 @@ function ReplyBox({ id, name, active, accountLabel }: { id: string; name: string
         </button>
       </div>
     </div>
+  );
+}
+
+/** Web links in a message become clickable (opened in a new tab). */
+function linkify(text: string, onDark: boolean) {
+  return text.split(/(https?:\/\/[^\s<>"]+)/g).map((part, i) =>
+    i % 2 === 1 ? (
+      <a key={i} href={part} target="_blank" rel="noreferrer noopener" className={cx("underline underline-offset-2", onDark ? "text-brand-200" : "text-sky-700")}>
+        {part}
+      </a>
+    ) : (
+      part
+    ),
   );
 }

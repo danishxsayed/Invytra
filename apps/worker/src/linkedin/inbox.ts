@@ -149,9 +149,10 @@ export function snippetBody(name: string, snippet: string): string {
   const s = snippet.trim();
   const m = /^([^:]{1,60}):\s+([\s\S]*)$/.exec(s);
   if (!m) return s;
-  const who = m[1]!.trim().toLowerCase();
-  const first = name.trim().split(/\s+/)[0]!.toLowerCase();
-  return who === "you" || who === first || who === name.trim().toLowerCase() ? m[2]!.trim() : s;
+  // LinkedIn prefixes the sender: "You:", their first name, or a longer start of their name ("Mohammed Tahur:").
+  const who = m[1]!.trim().replace(/\s+/g, " ").toLowerCase();
+  const full = name.trim().replace(/\s+/g, " ").toLowerCase();
+  return who === "you" || full === who || full.startsWith(`${who} `) ? m[2]!.trim() : s;
 }
 
 function escapeRegex(s: string): string {
