@@ -108,9 +108,10 @@ export async function getConversation(prisma: PrismaClient, workspaceId: string,
       campaignLead: { select: LEAD_SELECT },
       messages: { orderBy: { sentAt: "asc" }, take: 300, select: { id: true, fromMe: true, text: true, sentAt: true } },
       replies: {
-        where: { type: "REPLY", status: { not: "SUCCEEDED" } },
+        // (error is empty while it waits; "NOT error = CANCELLED" alone would drop those too)
+        where: { type: "REPLY", status: { not: "SUCCEEDED" }, OR: [{ error: null }, { error: { not: "CANCELLED" } }] },
         orderBy: { createdAt: "asc" },
-        select: { id: true, status: true, error: true, payload: true, createdAt: true },
+        select: { id: true, status: true, error: true, payload: true, createdAt: true, scheduledAt: true },
       },
     },
   });
@@ -221,5 +222,15 @@ export async function setLeadPaused(prisma: PrismaClient, workspaceId: string, c
     const state = (["QUEUED", "IN_PROGRESS", "WAITING_ACCEPT", "DONE", "REPLIED", "NOT_ACCEPTED", "SKIPPED", "FAILED"].includes(to) ? to : "IN_PROGRESS") as "IN_PROGRESS";
     await prisma.campaignLead.update({ where: { id: lead.id }, data: { state, reason: null, nextAt: ACTIVE.includes(state) ? new Date() : null } });
   }
+  return { ok: true, value: undefined };
+}
+
+/** Cancel a reply that hasn't been sent yet. */
+export async function cancelReply(prisma: PrismaClient, workspaceId: string, actionId: string): Promise<Result> {
+  const r = await prisma.action.updateMany({
+    where: { id: actionId, type: "REPLY", status: "QUEUED", account: { workspaceId } },
+    data: { status: "SKIPPED", error: "CANCELLED", executedAt: new Date() },
+  });
+  if (r.count === 0) return { ok: false, error: "It's already being sent, or was sent." };
   return { ok: true, value: undefined };
 }

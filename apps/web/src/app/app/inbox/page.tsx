@@ -196,11 +196,24 @@ function toView(c: ConversationFull, now: Date): ConversationViewData {
       day: dayLabel(m.sentAt, tz, now),
       time: m.sentAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz }),
     })),
-    pending: c.replies.map((r) => ({
-      id: r.id,
-      text: String((r.payload as { text?: unknown } | null)?.text ?? ""),
-      failed: r.status === "FAILED" || r.status === "SKIPPED",
-      error: r.error && !r.error.startsWith("waiting: ") ? r.error.split("\n")[0]! : null,
-    })),
+    pending: c.replies.map((r) => {
+      const failed = r.status === "FAILED" || r.status === "SKIPPED";
+      const at = r.scheduledAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
+      const waiting = r.error?.startsWith("waiting: ") ? r.error.slice(9) : null;
+      let status: string;
+      if (failed) status = `Not sent: ${r.error?.split("\n")[0] ?? "something went wrong"}`;
+      else if (r.status === "RUNNING") status = "Sending now…";
+      else if (waiting === "ACCOUNT_NOT_ACTIVE") status = `Waiting: ${c.account.label} isn't connected and active`;
+      else if (waiting) status = `Waiting for ${c.account.label} to finish another action · next try ${at}`;
+      else if (now.getTime() - r.createdAt.getTime() > 2 * 60_000) status = "Waiting for the worker. Check that `pnpm worker` is running.";
+      else status = "Sending…";
+      return {
+        id: r.id,
+        text: String((r.payload as { text?: unknown } | null)?.text ?? ""),
+        failed,
+        status,
+        cancellable: r.status === "QUEUED",
+      };
+    }),
   };
 }

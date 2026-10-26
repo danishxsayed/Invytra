@@ -1,7 +1,7 @@
 /** Replying from the inbox (only with TEST_DATABASE_URL — it is wiped). */
 import { PrismaClient } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { getConversation, sendReply } from "../src/lib/inbox";
+import { cancelReply, getConversation, sendReply } from "../src/lib/inbox";
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -39,6 +39,13 @@ d("inbox replies", () => {
     const a = await prisma.action.findUniqueOrThrow({ where: { id: r.ok ? r.value : "" } });
     expect(a).toMatchObject({ type: "REPLY", status: "QUEUED", accountId: "acc-rep-a", conversationId: "rm1", payload: { name: "Jane Doe", text: "Great, talk Tuesday!" } });
     expect((await getConversation(prisma, A, "rm1"))!.replies).toMatchObject([{ status: "QUEUED" }]);
+  });
+
+  it("can cancel a reply before it goes, which then disappears", async () => {
+    const extra = await prisma.action.create({ data: { accountId: "acc-rep-a", type: "REPLY", status: "QUEUED", conversationId: "rm1", payload: { name: "Jane Doe", text: "oops" } } });
+    expect(await cancelReply(prisma, B, extra.id)).toMatchObject({ ok: false });
+    expect(await cancelReply(prisma, A, extra.id)).toEqual({ ok: true, value: undefined });
+    expect((await getConversation(prisma, A, "rm1"))!.replies.map((r) => r.id)).not.toContain(extra.id);
   });
 
   it("won't send a second reply while the first is still going", async () => {

@@ -17,6 +17,10 @@ import {
   retryAt,
 } from "./plan.js";
 
+/** Replies: skip an after-action gap up to this long; otherwise look again this soon. */
+const REPLY_GAP_MAX_MS = 5 * 60_000;
+const REPLY_RETRY_MS = 15_000;
+
 export interface ProcessorDeps {
   prisma: PrismaClient;
   session: SessionManagerDeps;
@@ -101,7 +105,13 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
   // A reply the user is waiting for goes ahead of queued campaign work.
   if (head && head.id !== action.id && action.type !== "REPLY") return defer(scaled(pollAgainAt(now, null)), "WAITING_TURN");
   const heldUntil = await deps.pacing.claim(action.accountId, now, new Date(now.getTime() + CLAIM_HOLD_MS));
-  if (heldUntil) return defer(scaled(pollAgainAt(now, heldUntil)), "PACING");
+  if (heldUntil) {
+    if (action.type !== "REPLY") return defer(scaled(pollAgainAt(now, heldUntil)), "PACING");
+    // A reply the user is waiting for skips the human-like gap after the last action (a few
+    // minutes at most), but never runs while another action is still going (a 15-minute hold).
+    if (heldUntil.getTime() - now.getTime() > REPLY_GAP_MAX_MS) return defer(new Date(now.getTime() + REPLY_RETRY_MS), "ACCOUNT_BUSY");
+    await deps.pacing.set(action.accountId, "nextActionAt", new Date(now.getTime() + CLAIM_HOLD_MS));
+  }
 
   // 4. Run it
   const payload = { ...((action.payload ?? {}) as Record<string, unknown>) };
@@ -131,7 +141,7 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
   if (result.status === "FAILED" && result.errorKind === "BUSY") {
     await prisma.action.update({ where: { id: action.id }, data: { status: "QUEUED", attempts: { decrement: 1 } } });
     await deps.pacing.set(action.accountId, "nextActionAt", finished); // release our claim
-    return defer(busyRetryAt(finished), "ACCOUNT_BUSY");
+    return defer(action.type === "REPLY" ? new Date(finished.getTime() + REPLY_RETRY_MS) : busyRetryAt(finished), "ACCOUNT_BUSY");
   }
 
   if (result.status !== "FAILED" && (result.data as { noteLimitHit?: boolean } | undefined)?.noteLimitHit) {

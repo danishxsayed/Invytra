@@ -4,7 +4,7 @@ import { ArrowLeft, Check, CirclePause, CirclePlay, ExternalLink, Loader2, Plus,
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { sendReplyAction, setDoneAction, setLeadPausedAction, setTagsAction } from "@/app/app/inbox/actions";
+import { cancelReplyAction, sendReplyAction, setDoneAction, setLeadPausedAction, setTagsAction } from "@/app/app/inbox/actions";
 import { Avatar, cx } from "../ui";
 
 export interface ConversationViewData {
@@ -22,7 +22,7 @@ export interface ConversationViewData {
   tags: string[];
   done: boolean;
   messages: { id: string; fromMe: boolean; text: string; time: string; day: string }[];
-  pending: { id: string; text: string; failed: boolean; error: string | null }[];
+  pending: { id: string; text: string; failed: boolean; status: string; cancellable: boolean }[];
 }
 
 const pill =
@@ -128,7 +128,18 @@ export function ConversationView({ c, suggestions, backHref }: { c: Conversation
           ))}
           {c.pending.map((p) => (
             <li key={p.id}>
-              <Bubble fromMe text={p.text} meta={p.failed ? `Not sent: ${p.error ?? "something went wrong"}` : "Sending…"} warn={p.failed} faint={!p.failed} />
+              <Bubble fromMe text={p.text} meta={p.status} warn={p.failed} faint={!p.failed} />
+              {p.cancellable && (
+                <p className="text-right">
+                  <button
+                    disabled={pending}
+                    onClick={() => run(() => cancelReplyAction(p.id))}
+                    className="px-1 text-[12px] font-medium text-stone-500 underline underline-offset-2 hover:text-stone-900"
+                  >
+                    Cancel
+                  </button>
+                </p>
+              )}
             </li>
           ))}
         </ol>

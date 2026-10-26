@@ -88,12 +88,18 @@ export async function fetchInbox(ctx: SessionTaskContext, opts: InboxOptions | n
 
   if (known) {
     const changed = threads.filter((t) => t.unread || known[t.name] !== t.messageKey).slice(0, maxOpen);
+    let misses = 0;
     for (const t of changed) {
       try {
         t.messages = await readThread(ctx, t.name);
+        misses = t.messages.length ? 0 : misses + 1;
       } catch {
         // Couldn't open this one; its snippet is still stored. Try again next time.
+        misses++;
       }
+      // Two chats in a row couldn't be read (e.g. LinkedIn changed the page): stop for now,
+      // so the account isn't kept busy and replies aren't held up.
+      if (misses >= 2) break;
     }
   }
   return { outcome: "DONE", data: { threads } };
@@ -108,7 +114,7 @@ async function readThread(ctx: SessionTaskContext, name: string): Promise<Thread
   await humanClick(page, heading);
   await humanPause(page, 1500, 3000);
   await ctx.assertHealthy();
-  await page.locator(SELECTORS.inbox.threadMessage).first().waitFor({ state: "attached", timeout: 10_000 });
+  await page.locator(SELECTORS.inbox.threadMessage).first().waitFor({ state: "attached", timeout: 5_000 });
 
   const read = await page.locator(SELECTORS.inbox.threadEvent).evaluateAll(
     (events, sel) => {
