@@ -121,9 +121,6 @@ export function LeadsStep({
           <button type="button" onClick={onImport} className={btn.secondary}>
             + New list from a LinkedIn or Sales Navigator search
           </button>
-          <Link href="/app/leads" className={btn.ghost}>
-            Upload a CSV in Leads
-          </Link>
         </div>
       )}
       {locked && <p className="text-[14px] text-stone-500">The lead list can't change after launch. New people added to it join automatically.</p>}
