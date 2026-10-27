@@ -24,6 +24,7 @@ import { DetailsStep, LaunchModal, LeadsStep, inviteLimit } from "./BuilderSteps
 import { ConfigureStep } from "./ConfigureStep";
 import { Preview } from "./Preview";
 import { SequenceEditor } from "./SequenceEditor";
+import { SequenceTypeStep } from "./SequenceTypeStep";
 import { Stepper, type WizardStep } from "./Stepper";
 
 export interface BuilderInitial {
@@ -40,10 +41,11 @@ const STEPS: WizardStep[] = [
   { key: "details", label: "Details", hint: "Name and sending accounts" },
   { key: "leads", label: "Add people", hint: "The lead list to work through" },
   { key: "configure", label: "Configure", hint: "Who to include, and how" },
+  { key: "type", label: "Sequence type", hint: "From scratch or advanced" },
   { key: "sequence", label: "Sequence", hint: "Visits, invites and messages" },
   { key: "review", label: "Review & launch", hint: "Preview what people receive" },
 ];
-const TITLES = ["Campaign details", "Add people", "Configure settings", "Build the sequence", "Review and launch"];
+const TITLES = ["Campaign details", "Add people", "Configure settings", "Select sequence type", "Build the sequence", "Review and launch"];
 
 /** New campaigns: invite 2nd and 3rd+ connections (1st-degree people are already connected). */
 const NEW_SETTINGS: CampaignSettings = { ...DEFAULT_CAMPAIGN_SETTINGS, degrees: [2, 3] };
@@ -57,6 +59,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
   const [preset, setPreset] = useState<SequencePreset | null>(initial ? null : "invite_followups");
   const [steps, setSteps] = useState<CampaignStep[]>(initial?.steps ?? (SEQUENCE_PRESETS.invite_followups.steps as CampaignStep[]));
   const [settings, setSettings] = useState<CampaignSettings>(initial?.settings ?? NEW_SETTINGS);
+  const [seqType, setSeqType] = useState<"scratch" | null>(initial ? "scratch" : null);
   const [current, setCurrent] = useState(0);
   const [reached, setReached] = useState(initial ? STEPS.length - 1 : 0);
   const [error, setError] = useState<string | null>(null);
@@ -82,8 +85,9 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
     const configure: string[] = [];
     if (settings.degrees.length === 0) configure.push("Pick at least one connection level.");
     const sequence = [...sequenceProblems(steps), ...audienceProblems(steps, settings)];
-    return [details, leads, configure, sequence, []];
-  }, [name, senders, listId, list, steps, settings]);
+    const type = seqType ? [] : ["Choose a sequence type."];
+    return [details, leads, configure, type, sequence, []];
+  }, [name, senders, listId, list, steps, settings, seqType]);
   const allProblems = problems.flat();
   const complete = problems.map((p) => p.length === 0);
   // Drafts go in order: a step opens once every step before it is complete.
@@ -155,6 +159,15 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
           )}
           {current === 2 && <ConfigureStep settings={settings} onSettings={setSettings} />}
           {current === 3 && (
+            <SequenceTypeStep
+              value={seqType}
+              onChoose={(t) => {
+                setSeqType(t);
+                go(4);
+              }}
+            />
+          )}
+          {current === 4 && (
             <div>
               {!launched && (
                 <div className="mb-5 grid gap-2 sm:grid-cols-3">
@@ -187,7 +200,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
               />
             </div>
           )}
-          {current === 4 && (
+          {current === 5 && (
             <div className="space-y-6">
               <dl className="grid gap-x-6 gap-y-3 text-[15px] sm:grid-cols-2">
                 <Summary label="Campaign" value={name || "Not set"} onEdit={() => go(0)} />
@@ -203,7 +216,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
                   value={settings.fetchAllAtOnce ? "Fetch all at once (search lists)" : "Collected gradually (search lists)"}
                   onEdit={() => go(2)}
                 />
-                <Summary label="Sequence" value={steps.map(stepLabel).join(" → ") || "No steps"} onEdit={() => go(3)} />
+                <Summary label="Sequence" value={steps.map(stepLabel).join(" → ") || "No steps"} onEdit={() => go(4)} />
               </dl>
               {estimate && <p className="text-[15px] text-stone-500">{estimate}</p>}
               <div>
