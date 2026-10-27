@@ -27,8 +27,8 @@ export function SequenceTypeStep({ value, onChoose }: { value: "scratch" | null;
         </span>
         <span className="mt-4 text-[18px] font-semibold text-stone-900">From scratch</span>
         <span className="mt-1 text-[15px] text-stone-500">
-          Build the sequence step by step: profile visits, likes, invites and messages, with your own wording and waits. Start from a
-          ready-made template if you like.
+          Build the sequence step by step: connection requests, messages, profile views, follows and likes, with your own wording and
+          waits.
         </span>
       </button>
 

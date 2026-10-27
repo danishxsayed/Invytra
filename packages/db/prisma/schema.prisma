@@ -84,6 +84,8 @@ enum ActionType {
   WITHDRAW_INVITE
   /// A reply typed by the user in Invytra's inbox
   REPLY
+  /// Follows the person's profile
+  FOLLOW_PROFILE
 }
 
 enum ImportKind {
@@ -128,6 +130,11 @@ model LinkedinAccount {
   /// Read from LinkedIn after connecting (the person's display name and profile link)
   profileName      String?       @map("profile_name")
   profileUrl       String?       @map("profile_url")
+  /// Whether this LinkedIn account has Premium, as last detected (null = not known yet)
+  premium          Boolean?
+  premiumCheckedAt DateTime?     @map("premium_checked_at")
+  /// Set by the user when detection is wrong: true = Premium, false = free
+  premiumOverride  Boolean?      @map("premium_override")
   /// First successful connection through the dashboard or CLI
   connectedAt      DateTime?     @map("connected_at")
   /// Daily limits ramp up until this time (new accounts); null = no warm-up

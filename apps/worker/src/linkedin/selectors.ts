@@ -136,6 +136,18 @@ export const SELECTORS = {
     /** "React Like" in the 2026 feed, "Like" before; aria-pressed=true once liked. */
     likeButton: /^(React )?Like\b/i,
   },
+  account: {
+    /** Upsells LinkedIn shows free members (lower-case). */
+    freeMarkers: ["try premium", "reactivate premium", "try for ₹0", "try for $0", "get premium"],
+  },
+  follow: {
+    /**
+     * "Follow <name>" on the profile card (button or link), or "Follow" under More.
+     * Once followed it reads "Following" / "Unfollow". UNVERIFIED on the real 2026 layout.
+     */
+    control: /^Follow\b/i,
+    done: /^(Following|Unfollow)\b/i,
+  },
   withdraw: {
     /** On a profile with a pending invite: the Pending control, or "Withdraw invitation" under More. */
     menuItem: /^Withdraw( invitation)?$/i,

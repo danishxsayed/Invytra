@@ -11,6 +11,8 @@ import {
   sequenceProblems,
   sequenceSchema,
   audienceIsFiltered,
+  accountIsPremium,
+  canAddMessage,
   audienceProblems,
   audienceSkip,
   parseDegree,
@@ -38,7 +40,6 @@ describe("sequence rules", () => {
   it("explains what's wrong", () => {
     expect(sequenceProblems([])).toContain("Add at least one step.");
     expect(sequenceProblems([{ type: "VISIT", delayDays: 0 }])).toContain("Add an invite or a message.");
-    expect(sequenceProblems([steps[1]!, steps[0]!])).toContain("Put the profile visit before the invite.");
     expect(sequenceProblems([steps[1]!, steps[1]!])).toContain("Use only one invite step.");
     expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: " " }])).toEqual(["Step 1: write the message."]);
     expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "Hi {first}" }])[0]).toMatch(/unknown placeholder/);
@@ -242,5 +243,37 @@ describe("campaign audience", () => {
   it("an audience skip found on the profile stops the lead", () => {
     const u = applyResult([], settings(), { state: "IN_PROGRESS", step: 0, invitedAt: null, connectedAt: null }, { type: "LIKE_POST", status: "SKIPPED", error: "AUDIENCE:DEGREE_3" }, new Date());
     expect(u).toMatchObject({ state: "SKIPPED", reason: "AUDIENCE:DEGREE_3" });
+  });
+});
+
+describe("step picker rules", () => {
+  const settings = (o: Partial<CampaignSettings> = {}) => campaignSettingsSchema.parse(o);
+  it("a follow step runs a FOLLOW_PROFILE action and never stops the lead", () => {
+    const steps: CampaignStep[] = [{ type: "FOLLOW", delayDays: 0 }, { type: "INVITE", delayDays: 1, note: "" }];
+    const lead: FlowLead = { state: "QUEUED", step: 0, invitedAt: null, connectedAt: null };
+    expect(plannedAction(steps, lead)).toEqual({ type: "FOLLOW_PROFILE" });
+    const u = applyResult(steps, settings(), lead, { type: "FOLLOW_PROFILE", status: "SKIPPED", error: "ALREADY_FOLLOWING" }, new Date(), () => 0);
+    expect(u).toMatchObject({ state: "IN_PROGRESS", step: 1 });
+  });
+  it("allows a few profile views anywhere, one follow", () => {
+    const v: CampaignStep = { type: "VISIT", delayDays: 0 };
+    const inv: CampaignStep = { type: "INVITE", delayDays: 0, note: "" };
+    expect(sequenceProblems([v, inv, v])).toEqual([]);
+    expect(sequenceProblems([v, v, v, v, inv])[0]).toMatch(/at most 3 profile visit/);
+    expect(sequenceProblems([{ type: "FOLLOW", delayDays: 0 }, { type: "FOLLOW", delayDays: 0 }, inv])[0]).toMatch(/only one follow/);
+  });
+  it("messages need an invite first, or 1st-degree connections", () => {
+    const msg: CampaignStep = { type: "MESSAGE", delayDays: 0, text: "Hi" };
+    const inv: CampaignStep = { type: "INVITE", delayDays: 0, note: "" };
+    expect(canAddMessage([], settings({ degrees: [2, 3] }))).toBe(false);
+    expect(canAddMessage([inv], settings({ degrees: [2, 3] }))).toBe(true);
+    expect(canAddMessage([], settings({ degrees: [1] }))).toBe(true);
+    expect(audienceProblems([msg, inv], settings({ degrees: [2, 3] }))[0]).toMatch(/before the invite only reaches 1st-degree/);
+    expect(audienceProblems([inv, msg], settings({ degrees: [2, 3] }))).toEqual([]);
+  });
+  it("an account's plan: what the user set wins over what was detected", () => {
+    expect(accountIsPremium({ premium: null })).toBeNull();
+    expect(accountIsPremium({ premium: false, premiumOverride: true })).toBe(true);
+    expect(accountIsPremium({ premium: true })).toBe(true);
   });
 });

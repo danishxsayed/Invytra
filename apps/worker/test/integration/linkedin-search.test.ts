@@ -9,7 +9,8 @@ import { AccountLock } from "../../src/browser/account-lock.js";
 import { withAccountSession, type SessionManagerDeps } from "../../src/browser/session-manager.js";
 import type { BrowserAccount, SessionTaskContext, StorageState } from "../../src/browser/types.js";
 import { sendConnectionRequest } from "../../src/linkedin/actions.js";
-import { likeLatestPost, withdrawInvite } from "../../src/linkedin/engage.js";
+import { readOwnPremium } from "../../src/linkedin/account.js";
+import { followProfile, likeLatestPost, withdrawInvite } from "../../src/linkedin/engage.js";
 import { fetchInbox } from "../../src/linkedin/inbox.js";
 import { sendReply } from "../../src/linkedin/reply.js";
 import { companyFromHeadline, readSearchPage } from "../../src/linkedin/search.js";
@@ -116,6 +117,24 @@ describe("liking and withdrawing (fake site)", { timeout: 60_000 }, () => {
     expect(state.withdrawn).toEqual(["alice"]);
     expect(await run((ctx) => withdrawInvite(ctx, url("carol")))).toMatchObject({ outcome: "SKIPPED", reason: "CONNECTED" });
     expect(await run((ctx) => withdrawInvite(ctx, url("bob")))).toMatchObject({ outcome: "SKIPPED", reason: "NOT_PENDING" });
+  });
+});
+
+describe("following and the account's own plan (fake site)", { timeout: 60_000 }, () => {
+  it("follows a profile from the card, and skips someone already followed", async () => {
+    expect(await run((ctx) => followProfile(ctx, url("alice")))).toMatchObject({ outcome: "DONE", data: { followed: true, degree: 2 } });
+    expect(state.follows).toEqual(["alice"]);
+    expect(await run((ctx) => followProfile(ctx, url("alice")))).toMatchObject({ outcome: "SKIPPED", reason: "ALREADY_FOLLOWING" });
+    expect(await run((ctx) => followProfile(ctx, url("bob"), { degrees: [3], premiumOnly: false }))).toMatchObject({ outcome: "SKIPPED", reason: "AUDIENCE:DEGREE_2" });
+    expect(state.follows).toEqual(["alice"]);
+  });
+  it("reads whether the logged-in account has Premium, without guessing", async () => {
+    expect(await run((ctx) => readOwnPremium(ctx.page, ctx.baseUrl))).toBeNull();
+    state.mePlan = "free";
+    expect(await run((ctx) => readOwnPremium(ctx.page, ctx.baseUrl))).toBe(false);
+    state.mePlan = "premium";
+    expect(await run((ctx) => readOwnPremium(ctx.page, ctx.baseUrl))).toBe(true);
+    delete state.mePlan;
   });
 });
 

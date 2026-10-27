@@ -75,3 +75,46 @@ export async function withdrawInvite(ctx: SessionTaskContext, profileUrl: string
   if (after.status === "PENDING") throw new Error(`The invitation to ${info.name} still shows as pending`);
   return { outcome: "DONE", data };
 }
+
+/** Follow the person's profile (they get a notification; their posts show in your feed). */
+export async function followProfile(ctx: SessionTaskContext, profileUrl: string, audience?: Audience): Promise<ActionOutcome<{ followed: boolean } & ProfileFacts>> {
+  const { page } = ctx;
+  const info = await openProfile(ctx, profileUrl, true);
+  if (info.status === "UNAVAILABLE") return { outcome: "SKIPPED", reason: "PROFILE_UNAVAILABLE" };
+  const data = { followed: false, degree: info.degree, premium: info.premium };
+  const outside = outsideAudience(audience, info);
+  if (outside) return { outcome: "SKIPPED", reason: outside, data };
+
+  const card = topCard(page);
+  const following = () => control(card, SELECTORS.follow.done).or(page.getByRole("menuitem", { name: SELECTORS.follow.done }).filter({ visible: true }));
+  if ((await control(card, SELECTORS.follow.done).count()) > 0) return { outcome: "SKIPPED", reason: "ALREADY_FOLLOWING", data };
+
+  let follow = control(card, SELECTORS.follow.control);
+  if ((await follow.count()) === 0) {
+    // Not on the card: it's under More.
+    await humanClick(page, control(card, SELECTORS.profile.moreButton).first());
+    await humanPause(page, 500, 1200);
+    if ((await page.getByRole("menuitem", { name: SELECTORS.follow.done }).filter({ visible: true }).count()) > 0) {
+      await page.keyboard.press("Escape");
+      return { outcome: "SKIPPED", reason: "ALREADY_FOLLOWING", data };
+    }
+    follow = page.getByRole("menuitem", { name: SELECTORS.follow.control }).filter({ visible: true });
+  }
+  if ((await follow.count()) === 0) return { outcome: "SKIPPED", reason: "FOLLOW_NOT_AVAILABLE", data };
+  await humanPause(page, 600, 1500);
+  await humanClick(page, follow.first());
+  await humanPause(page, 1200, 2500);
+  await ctx.assertHealthy();
+  if ((await following().count()) === 0) {
+    // The menu closes after a click; look on the card and in the menu again.
+    const more = control(card, SELECTORS.profile.moreButton);
+    if ((await control(card, SELECTORS.follow.done).count()) === 0 && (await more.count()) > 0) {
+      await humanClick(page, more.first());
+      await humanPause(page, 400, 900);
+      const ok = (await page.getByRole("menuitem", { name: SELECTORS.follow.done }).filter({ visible: true }).count()) > 0;
+      await page.keyboard.press("Escape");
+      if (!ok) throw new Error(`Following ${info.name} wasn't confirmed`);
+    }
+  }
+  return { outcome: "DONE", data: { ...data, followed: true } };
+}

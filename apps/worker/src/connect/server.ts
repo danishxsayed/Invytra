@@ -118,6 +118,8 @@ export function createConnectServer(deps: ConnectServerDeps): { server: Server; 
             connectedAt: account.connectedAt ?? new Date(),
             ...(profile.name && { profileName: profile.name }),
             ...(profile.url && { profileUrl: profile.url }),
+            premiumCheckedAt: new Date(),
+            ...(profile.premium != null && { premium: profile.premium }),
           },
         });
         log(`Connect: "${account.label}" logged in and saved`);

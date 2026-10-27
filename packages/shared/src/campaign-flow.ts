@@ -35,6 +35,7 @@ export const WITHDRAW_PENDING = "WITHDRAW";
 export type PlannedAction =
   | { type: "PROFILE_VISIT" }
   | { type: "LIKE_POST" }
+  | { type: "FOLLOW_PROFILE" }
   | { type: "WITHDRAW_INVITE" }
   | { type: "CONNECTION_REQUEST"; note: string }
   | { type: "MESSAGE"; text: string }
@@ -51,6 +52,8 @@ export function plannedAction(steps: CampaignStep[], lead: FlowLead): PlannedAct
       return { type: "PROFILE_VISIT" };
     case "LIKE_POST":
       return { type: "LIKE_POST" };
+    case "FOLLOW":
+      return { type: "FOLLOW_PROFILE" };
     case "INVITE":
       return { type: "CONNECTION_REQUEST", note: s.note.trim() };
     case "MESSAGE":
@@ -59,7 +62,7 @@ export function plannedAction(steps: CampaignStep[], lead: FlowLead): PlannedAct
 }
 
 export interface ActionResult {
-  type: "PROFILE_VISIT" | "CONNECTION_REQUEST" | "MESSAGE" | "CHECK_CONNECTION" | "LIKE_POST" | "WITHDRAW_INVITE";
+  type: "PROFILE_VISIT" | "CONNECTION_REQUEST" | "MESSAGE" | "CHECK_CONNECTION" | "LIKE_POST" | "WITHDRAW_INVITE" | "FOLLOW_PROFILE";
   status: "SUCCEEDED" | "SKIPPED" | "FAILED";
   /** Skip reason or error text from the action row. */
   error: string | null;
@@ -168,7 +171,8 @@ export function applyResult(
     }
 
     case "LIKE_POST":
-      // A like is a nice touch, never a reason to stop: no posts, already liked or a hiccup all move on.
+    case "FOLLOW_PROFILE":
+      // A like or follow is a nice touch, never a reason to stop: no posts, already done or a hiccup all move on.
       if (r.status === "SKIPPED" && reason === "PROFILE_UNAVAILABLE") return stop("SKIPPED", lead, reason);
       return advance(steps, lead, now, random);
 

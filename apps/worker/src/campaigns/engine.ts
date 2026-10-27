@@ -144,7 +144,7 @@ async function stopRepliedLeads(prisma: PrismaClient, c: Campaign, now: Date): P
 
 type Planned = NonNullable<ReturnType<typeof plannedAction>>;
 
-const TYPES = ["PROFILE_VISIT", "CONNECTION_REQUEST", "MESSAGE", "CHECK_CONNECTION", "LIKE_POST", "WITHDRAW_INVITE"] as const;
+const TYPES = ["PROFILE_VISIT", "CONNECTION_REQUEST", "MESSAGE", "CHECK_CONNECTION", "LIKE_POST", "WITHDRAW_INVITE", "FOLLOW_PROFILE"] as const;
 
 /**
  * Queues the next step for due leads. New leads are shared out between the

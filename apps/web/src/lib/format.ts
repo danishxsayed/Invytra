@@ -6,6 +6,7 @@ export const ACTION_LABEL: Record<string, string> = {
   INBOX_SYNC: "Inbox check",
   SEARCH_PAGE: "Search import",
   LIKE_POST: "Like latest post",
+  FOLLOW_PROFILE: "Follow profile",
   WITHDRAW_INVITE: "Withdraw invite",
   REPLY: "Reply from inbox",
 };
@@ -47,7 +48,7 @@ export function outcomeText(row: { status: string; error: string | null; payload
   switch (row.status) {
     case "SUCCEEDED":
       if (row.type === "CONNECTION_REQUEST") {
-        if (p.note && p.result?.withNote === false) return "Sent without note (LinkedIn's free-note limit)";
+        if (p.note && p.result?.withNote === false) return "Sent without note (free LinkedIn account)";
         return p.result?.withNote ? "Sent with note" : "Sent";
       }
       if (row.type === "SEARCH_PAGE") {
@@ -55,6 +56,7 @@ export function outcomeText(row: { status: string; error: string | null; payload
         return `${n} ${n === 1 ? "person" : "people"} found`;
       }
       if (row.type === "LIKE_POST") return "Liked";
+      if (row.type === "FOLLOW_PROFILE") return "Followed";
       if (row.type === "WITHDRAW_INVITE") return "Withdrawn";
       if (row.type === "REPLY") return "Sent";
       if (row.type === "INBOX_SYNC") return p.result?.newReplies ? `${p.result.newReplies} new repl${p.result.newReplies === 1 ? "y" : "ies"}` : "No new replies";

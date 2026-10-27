@@ -10,7 +10,8 @@ import {
   type ActionOutcome,
   type InboxThread,
 } from "../linkedin/actions.js";
-import { likeLatestPost, withdrawInvite } from "../linkedin/engage.js";
+import { readOwnPremium } from "../linkedin/account.js";
+import { followProfile, likeLatestPost, withdrawInvite } from "../linkedin/engage.js";
 import { sendReply } from "../linkedin/reply.js";
 import { readSearchPage } from "../linkedin/search.js";
 import { recordReply, storeConversations } from "./conversation-store.js";
@@ -81,11 +82,18 @@ export function workFor(spec: ActionSpec): (ctx: SessionTaskContext) => Promise<
       return (ctx) => sendMessage(ctx, url, String(p.text), varsOf(p), audience);
     case "INBOX_SYNC":
       // `known` (each conversation's last snippet) is added just before running, so changed chats get opened.
-      return (ctx) => fetchInbox(ctx, { known: (p.known ?? undefined) as Record<string, string> | undefined });
+      return async (ctx) => {
+        const r = await fetchInbox(ctx, { known: (p.known ?? undefined) as Record<string, string> | undefined });
+        if (p.checkPremium !== true || r.outcome !== "DONE") return r;
+        const ownPremium = await readOwnPremium(ctx.page, ctx.baseUrl).catch(() => null);
+        return { ...r, data: { ...r.data, ownPremium } };
+      };
     case "SEARCH_PAGE":
       return (ctx) => readSearchPage(ctx, url, p.kind as SearchKind);
     case "LIKE_POST":
       return (ctx) => likeLatestPost(ctx, url, audience);
+    case "FOLLOW_PROFILE":
+      return (ctx) => followProfile(ctx, url, audience);
     case "WITHDRAW_INVITE":
       return (ctx) => withdrawInvite(ctx, url);
     case "REPLY":
@@ -114,6 +122,14 @@ export async function afterSuccess(
     const account = await prisma.linkedinAccount.findUnique({ where: { id: accountId }, select: { timezone: true } });
     const newReplies = await storeInboxThreads(prisma, accountId, threads);
     const changed = await storeConversations(prisma, accountId, threads, account?.timezone ?? "UTC");
+    // Asked to look at the account's plan this time: record when (and what, if it could tell).
+    if (data && typeof data === "object" && "ownPremium" in data) {
+      const ownPremium = (data as { ownPremium: unknown }).ownPremium;
+      await prisma.linkedinAccount.update({
+        where: { id: accountId },
+        data: { premiumCheckedAt: new Date(), ...(typeof ownPremium === "boolean" && { premium: ownPremium }) },
+      });
+    }
     // Keep the action log small: the messages themselves live in conversation_messages.
     return { newReplies, changedConversations: changed, threads: threads.map(({ messages, ...t }) => ({ ...t, read: messages?.length ?? 0 })) };
   }

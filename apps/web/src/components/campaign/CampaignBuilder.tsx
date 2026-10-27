@@ -3,13 +3,12 @@
 import {
   DEFAULT_CAMPAIGN_SETTINGS,
   DEGREE_LABEL,
-  SEQUENCE_PRESETS,
+  accountIsPremium,
   audienceProblems,
   hasInvite,
   sequenceProblems,
   type CampaignSettings,
   type CampaignStep,
-  type SequencePreset,
 } from "@invytra/shared";
 import { AlertCircle, ArrowLeft, ArrowRight, Loader2, Rocket } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -25,6 +24,7 @@ import { ConfigureStep } from "./ConfigureStep";
 import { Preview } from "./Preview";
 import { SequenceEditor } from "./SequenceEditor";
 import { SequenceTypeStep } from "./SequenceTypeStep";
+import { StepPicker } from "./StepPicker";
 import { Stepper, type WizardStep } from "./Stepper";
 
 export interface BuilderInitial {
@@ -56,14 +56,12 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
   const [name, setName] = useState(initial?.name ?? "");
   const [accountIds, setAccountIds] = useState<string[]>(initial?.accountIds ?? (options.accounts.length === 1 ? [options.accounts[0]!.id] : []));
   const [listId, setListId] = useState(initial?.listId ?? presetListId ?? "");
-  const [preset, setPreset] = useState<SequencePreset | null>(initial ? null : "invite_followups");
-  const [steps, setSteps] = useState<CampaignStep[]>(initial?.steps ?? (SEQUENCE_PRESETS.invite_followups.steps as CampaignStep[]));
+  const [steps, setSteps] = useState<CampaignStep[]>(initial?.steps ?? []);
   const [settings, setSettings] = useState<CampaignSettings>(initial?.settings ?? NEW_SETTINGS);
   const [seqType, setSeqType] = useState<"scratch" | null>(initial ? "scratch" : null);
   const [current, setCurrent] = useState(0);
   const [reached, setReached] = useState(initial ? STEPS.length - 1 : 0);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [pending, start] = useTransition();
   const [importing, setImporting] = useState(false);
@@ -122,15 +120,15 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
       router.refresh();
     });
 
-  const choosePreset = (p: SequencePreset) => {
-    setPreset(p);
-    const next = structuredClone(SEQUENCE_PRESETS[p].steps) as CampaignStep[];
-    setSteps(next);
-    // Messaging without an invite only reaches 1st-degree connections.
-    if (!hasInvite(next) && !settings.degrees.includes(1)) {
-      setSettings({ ...settings, degrees: [1] });
-      setNotice("Connection levels changed to 1st only: without an invite you can only message your connections.");
-    } else setNotice(null);
+  // Invite notes need LinkedIn Premium: locked when every sender is a free account.
+  const plans = senders.map((a) => ({ label: a.label, premium: accountIsPremium(a) }));
+  const free = plans.filter((p) => p.premium === false).map((p) => `“${p.label}”`);
+  const notePlan = {
+    blocked:
+      plans.length > 0 && free.length === plans.length
+        ? `Only Premium LinkedIn accounts can add a note to invites. ${free.join(" and ")} ${free.length === 1 ? "is a free account" : "are free accounts"}, so invites go without a note. If that's wrong, change the plan in the account's settings.`
+        : null,
+    hint: free.length > 0 ? `Invites from ${free.join(" and ")} (free LinkedIn) go without the note.` : null,
   };
 
   const here = problems[current]!;
@@ -169,35 +167,18 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
           )}
           {current === 4 && (
             <div>
-              {!launched && (
-                <div className="mb-5 grid gap-2 sm:grid-cols-3">
-                  {(Object.keys(SEQUENCE_PRESETS) as SequencePreset[]).map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => choosePreset(p)}
-                      className={cx(
-                        "rounded-xl border px-4 py-3 text-left transition",
-                        preset === p ? "border-stone-900 bg-white ring-1 ring-stone-900" : "border-stone-200 bg-stone-50/60 hover:border-stone-300",
-                      )}
-                    >
-                      <p className="text-[15px] font-semibold text-stone-900">{SEQUENCE_PRESETS[p].label}</p>
-                      <p className="text-[14px] text-stone-500">{SEQUENCE_PRESETS[p].hint}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {notice && <p className="mb-4 rounded-xl bg-sky-50 px-4 py-3 text-[15px] text-sky-900">{notice}</p>}
               <SequenceEditor
                 steps={steps}
                 settings={settings}
-                onSteps={(s) => {
-                  setSteps(s);
-                  setPreset(null);
-                }}
+                onSteps={setSteps}
                 onSettings={setSettings}
                 locked={launched ? (initial?.steps.length ?? 0) : 0}
+                noteBlocked={notePlan.blocked}
+                noteHint={notePlan.hint}
               />
+              <div className={steps.length ? "mt-6" : ""}>
+                <StepPicker steps={steps} settings={settings} onAdd={(s) => setSteps([...steps, s])} />
+              </div>
             </div>
           )}
           {current === 5 && (

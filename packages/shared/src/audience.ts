@@ -61,5 +61,23 @@ export function audienceProblems(steps: CampaignStep[], a: Audience): string[] {
   if (!invites && messages && a.degrees.length > 0 && !a.degrees.includes(1)) {
     p.push("Without an invite step you can only message 1st-degree connections. Include 1st, or add an invite.");
   }
+  const invite = steps.findIndex((s) => s.type === "INVITE");
+  const early = steps.findIndex((s) => s.type === "MESSAGE");
+  if (invites && early !== -1 && early < invite && !a.degrees.includes(1)) {
+    p.push(`Step ${early + 1}: a message before the invite only reaches 1st-degree connections. Move it after the invite.`);
+  }
   return p;
+}
+
+/**
+ * Whether a message step makes sense yet: people must be connected first, so the sequence needs
+ * an invite, or the campaign must include 1st-degree connections.
+ */
+export function canAddMessage(steps: CampaignStep[], a: Pick<Audience, "degrees">): boolean {
+  return steps.some((s) => s.type === "INVITE") || a.degrees.includes(1);
+}
+
+/** A connected LinkedIn account's plan: what the user set, else what was detected (null = unknown). */
+export function accountIsPremium(a: { premium?: boolean | null; premiumOverride?: boolean | null }): boolean | null {
+  return a.premiumOverride ?? a.premium ?? null;
 }

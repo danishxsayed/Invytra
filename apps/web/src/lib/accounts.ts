@@ -69,6 +69,8 @@ export const settingsSchema = z.object({
   /** Omitted or empty = keep the current proxy. */
   proxyUrl: proxySchema.optional(),
   removeProxy: z.boolean().default(false),
+  /** The LinkedIn plan when detection is wrong: true = Premium, false = free, null = detect it. */
+  premiumOverride: z.boolean().nullable().optional(),
 });
 export type AccountSettingsInput = z.infer<typeof settingsSchema>;
 
@@ -154,7 +156,15 @@ export async function updateSettings(
   const warmupUntil = input.warmup ? (current.warmupUntil && current.warmupUntil > new Date() ? current.warmupUntil : warmupEndFrom()) : null;
   await prisma.linkedinAccount.update({
     where: { id: current.id },
-    data: { label: input.label, timezone: input.timezone, limits: input.limits, workingHours: input.workingHours, proxyUrl, warmupUntil },
+    data: {
+      label: input.label,
+      timezone: input.timezone,
+      limits: input.limits,
+      workingHours: input.workingHours,
+      proxyUrl,
+      warmupUntil,
+      ...(input.premiumOverride !== undefined && { premiumOverride: input.premiumOverride }),
+    },
   });
   return { ok: true, value: undefined };
 }

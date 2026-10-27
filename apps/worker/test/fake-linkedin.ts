@@ -62,6 +62,10 @@ export interface FakeState {
   withdrawn: string[];
   /** Replies sent from the Messaging page. */
   inboxReplies: { name: string; text: string }[];
+  /** Profiles followed. */
+  follows: string[];
+  /** The logged-in member's plan as their own profile shows it (unset = no badge, no upsell). */
+  mePlan?: "premium" | "free";
 }
 
 /** Sales Navigator member ids → profile names (LinkedIn redirects /in/<id>/ to the profile). */
@@ -88,21 +92,26 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
   // 2026 layout uses links for Connect/Message and a text-only "More" button; old layout uses buttons.
   const link = (attrs: string, text: string) => (old ? `<button ${attrs}>${text}</button>` : `<a href="#" ${attrs}>${text}</a>`);
   const moreBtn = (id = "") => (old ? `<button ${id} aria-label="More actions">More</button>` : `<button ${id}>More</button>`);
+  const followBtn = state.follows.includes(slug)
+    ? `<button aria-label="Following ${p.name}, click to unfollow">Following</button>`
+    : `<button id="follow" aria-label="Follow ${p.name}">Follow</button>`;
   let actions = "";
   if (pending) {
     actions = `${link(`aria-label="Pending, click to withdraw invitation sent to ${p.name}"`, "Pending")}${moreBtn()}`;
   } else if (connected) {
     actions = `${link('id="msg"', "Message")}${moreBtn()}`;
   } else if (p.kind === "more") {
-    actions = `<button aria-label="Follow ${p.name}">Follow</button>${moreBtn('id="more"')}
+    actions = `${followBtn}${moreBtn('id="more"')}
       <div id="menu" role="menu" hidden><div role="menuitem" tabindex="0">Send profile in a message</div>
       <div role="menuitem" tabindex="0" id="connect" ${invite}>Connect</div>
       <div role="menuitem" tabindex="0">Save to PDF</div></div>`;
   } else {
-    actions = `${link(`id="connect" ${invite}`, "Connect")}${link('id="msg-nc"', "Message")}${moreBtn()}`;
+    actions = `${link(`id="connect" ${invite}`, "Connect")}${link('id="msg-nc"', "Message")}${followBtn}${moreBtn()}`;
   }
   const degree = connected ? "· 1st" : `· ${p.degree ?? "2nd"}`;
-  const badge = p.premium ? '<span data-test-icon="linkedin-bug-premium-xsmall" aria-hidden="true"></span>' : "";
+  const me = slug === "tess";
+  const upsell = me && state.mePlan === "free" ? '<nav><a href="/premium/">Try Premium for ₹0</a></nav>' : "";
+  const badge = p.premium || (me && state.mePlan === "premium") ? '<span data-test-icon="linkedin-bug-premium-xsmall" aria-hidden="true"></span>' : "";
   const header = old
     ? `<section id="top"><h1>${p.name}</h1>${badge}<div class="text-body-medium">${p.headline}</div><span>${degree}</span><div class="actions">${actions}</div></section>`
     : `<section aria-label="Primary content"><div componentkey="com.linkedin.sdui.profile.card.ref${slug}Topcard"><section>
@@ -114,7 +123,7 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
   const sticky = old ? "" : `<div style="display:none"><a href="#" ${invite}>Connect</a><button aria-label="More">More</button></div>`;
   return page(
     `${p.name} | LinkedIn`,
-    `<main>${header}${old ? "" : "</section>"}
+    `${upsell}<main>${header}${old ? "" : "</section>"}
       <section><h2>More profiles for you</h2><h3>Zed Zero</h3><button aria-label="Invite Zed Zero to connect">Connect</button></section>
     </main>${sticky}${HIDDEN_CAPTCHA}
     <aside><h2>People also viewed</h2><button aria-label="Invite Yan Yo to connect">Connect</button></aside>
@@ -126,6 +135,8 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
     <script>
       const slug=${JSON.stringify(slug)}, kind=${JSON.stringify(p.kind)}, name=${JSON.stringify(p.name)}, old=${old};
       const more=document.getElementById('more'); if(more) more.onclick=()=>document.getElementById('menu').hidden=false;
+      const fl=document.getElementById('follow'); if(fl) fl.onclick=async()=>{await fetch('/api/follow/'+slug,{method:'POST'});
+        fl.textContent='Following';fl.setAttribute('aria-label','Following '+name+', click to unfollow');fl.removeAttribute('id');};
       const c=document.getElementById('connect'); if(c) c.onclick=(e)=>{ e.preventDefault();
         const root=document.getElementById('modal-root');
         if(kind==='limit'){root.innerHTML='<div role="dialog"><p>You’ve reached the weekly invitation limit</p><button>Got it</button></div>';return;}
@@ -276,7 +287,7 @@ const inboxHtml = (state: FakeState) =>
   );
 
 export function startFakeLinkedIn(): { server: Server; state: FakeState } {
-  const state: FakeState = { invites: [], messages: [], logins: [], accepted: [], replies: [], likes: [], withdrawn: [], inboxReplies: [] };
+  const state: FakeState = { invites: [], messages: [], logins: [], accepted: [], replies: [], likes: [], withdrawn: [], inboxReplies: [], follows: [] };
   const server = createServer((req, res) => {
     const cookie = req.headers.cookie ?? "";
     const loggedIn = /li_at=valid/.test(cookie);
@@ -307,6 +318,7 @@ export function startFakeLinkedIn(): { server: Server; state: FakeState } {
         if (kind === "message") state.messages.push({ slug: slug!, text: data.text });
         if (kind === "like") state.likes.push(`${slug}#${data.post}`);
         if (kind === "withdraw") state.withdrawn.push(slug!);
+        if (kind === "follow") state.follows.push(slug!);
         if (kind === "reply") state.inboxReplies.push({ name: data.name, text: data.text });
         send(200, "{}", { "content-type": "application/json" });
       });

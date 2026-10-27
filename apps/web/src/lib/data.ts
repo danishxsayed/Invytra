@@ -26,6 +26,9 @@ export async function accountsOverview(prisma: PrismaClient, workspaceId: string
       warmupUntil: true,
       sessionUpdatedAt: true,
       proxyUrl: true,
+      premium: true,
+      premiumOverride: true,
+      premiumCheckedAt: true,
     },
   });
   const now = new Date();
@@ -52,6 +55,11 @@ export async function accountsOverview(prisma: PrismaClient, workspaceId: string
         profileUrl: a.profileUrl,
         connectedAt: a.connectedAt,
         hasSession: !!a.sessionUpdatedAt,
+        /** LinkedIn plan: what the user set, else what was detected; null = not known yet. */
+        premium: a.premiumOverride ?? a.premium,
+        premiumDetected: a.premium,
+        premiumOverride: a.premiumOverride,
+        premiumCheckedAt: a.premiumCheckedAt,
         proxy: proxyHost(a.proxyUrl),
         warmupUntil: a.warmupUntil,
         warmupDay: warmupDay(a.warmupUntil, now),
@@ -71,7 +79,7 @@ export type AccountOverview = Awaited<ReturnType<typeof accountsOverview>>[numbe
 
 export interface ActivityFilter {
   status?: "SUCCEEDED" | "FAILED" | "SKIPPED" | "QUEUED";
-  type?: "PROFILE_VISIT" | "CONNECTION_REQUEST" | "CHECK_CONNECTION" | "MESSAGE" | "INBOX_SYNC" | "SEARCH_PAGE" | "LIKE_POST" | "WITHDRAW_INVITE" | "REPLY";
+  type?: "PROFILE_VISIT" | "CONNECTION_REQUEST" | "CHECK_CONNECTION" | "MESSAGE" | "INBOX_SYNC" | "SEARCH_PAGE" | "LIKE_POST" | "WITHDRAW_INVITE" | "REPLY" | "FOLLOW_PROFILE";
   accountId?: string;
   campaignId?: string;
   take?: number;

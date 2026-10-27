@@ -1,5 +1,16 @@
 import type { PrismaClient } from "@invytra/db";
-import { ACTION_DELAY_SECONDS, FETCH_ALL_SEARCH_PAGES_PER_DAY, SEARCH_DELAY_SECONDS, randomActionDelayMs } from "@invytra/shared";
+import { ACTION_DELAY_SECONDS, FETCH_ALL_SEARCH_PAGES_PER_DAY, SEARCH_DELAY_SECONDS, accountIsPremium, randomActionDelayMs } from "@invytra/shared";
+
+/** Only Premium accounts add notes to invites; a free account sends the invite without one. */
+export function dropNoteForFreeAccount(payload: Record<string, unknown>, account: { premium?: boolean | null; premiumOverride?: boolean | null }): void {
+  if (payload.note && accountIsPremium(account) === false) {
+    delete payload.note;
+    payload.noteDropped = "FREE_ACCOUNT";
+  }
+}
+
+/** How often an inbox check also re-reads whether the account has Premium. */
+const PREMIUM_RECHECK_MS = 7 * 24 * 3600_000;
 import type { SessionManagerDeps } from "../browser/session-manager.js";
 import { isRetryable, workFor } from "../actions/registry.js";
 import { accountSettings, checkPolicy, executeActionRow } from "../actions/run-action.js";
@@ -122,7 +133,11 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
   if (action.type === "INBOX_SYNC") {
     const convs = await prisma.conversation.findMany({ where: { accountId: action.accountId }, select: { participantName: true, lastSnippetKey: true } });
     payload.known = Object.fromEntries(convs.map((c) => [c.participantName, c.lastSnippetKey ?? ""]));
+    // About once a week, also look at whether the account has LinkedIn Premium (invite notes need it).
+    const checked = action.account.premiumCheckedAt;
+    if (!checked || now.getTime() - checked.getTime() > PREMIUM_RECHECK_MS) payload.checkPremium = true;
   }
+  if (action.type === "CONNECTION_REQUEST") dropNoteForFreeAccount(payload, action.account);
   if (action.type === "CONNECTION_REQUEST" && payload.note) {
     const notesBlocked = await deps.pacing.get(action.accountId, "notesBlockedUntil");
     if (notesBlocked && notesBlocked > now) payload.notesBlocked = true;

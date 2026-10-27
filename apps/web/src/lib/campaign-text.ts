@@ -35,6 +35,8 @@ const REASONS: Record<string, string> = {
   CANCELLED: "Cancelled",
   EXPIRED_WITHDRAWN: "Didn't accept in time, invite withdrawn",
   NO_POSTS: "Hasn't posted anything to like",
+  FOLLOW_NOT_AVAILABLE: "No Follow option on their profile",
+  ALREADY_FOLLOWING: "Already followed",
   SENDER_REMOVED: "Its sending account was removed from the campaign after contacting them",
 };
 
@@ -52,6 +54,7 @@ export function reasonText(code: string | null | undefined): string {
 export function stepLabel(s: CampaignStep | undefined): string {
   if (!s) return "";
   if (s.type === "LIKE_POST") return "Like latest post";
+  if (s.type === "FOLLOW") return "Follow profile";
   return s.type === "VISIT" ? "Visit profile" : s.type === "INVITE" ? (s.note.trim() ? "Invite with note" : "Invite") : "Message";
 }
 

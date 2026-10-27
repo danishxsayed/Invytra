@@ -19,10 +19,16 @@ export const stepSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("VISIT"), delayDays: delay }),
   /** Like their most recent post — a light touch before (or after) the invite. */
   z.object({ type: z.literal("LIKE_POST"), delayDays: delay }),
+  /** Follow their profile — they get a notification, and you see their posts. */
+  z.object({ type: z.literal("FOLLOW"), delayDays: delay }),
   z.object({ type: z.literal("INVITE"), delayDays: delay, note: z.string().max(NOTE_MAX, `Notes can be at most ${NOTE_MAX} characters`) }),
   z.object({ type: z.literal("MESSAGE"), delayDays: delay, text: z.string().max(MESSAGE_MAX, `Messages can be at most ${MESSAGE_MAX} characters`) }),
 ]);
 export type CampaignStep = z.infer<typeof stepSchema>;
+
+/** How many of each step a sequence may have. */
+export const MAX_OF = { VISIT: 3, LIKE_POST: 2, FOLLOW: 1, INVITE: 1 } as const;
+export const MAX_STEPS = 10;
 
 /** Problems that make a sequence unusable, in plain words (empty = fine). */
 export function sequenceProblems(steps: CampaignStep[]): string[] {
@@ -30,11 +36,9 @@ export function sequenceProblems(steps: CampaignStep[]): string[] {
   const count = (t: CampaignStep["type"]) => steps.filter((s) => s.type === t).length;
   if (steps.length === 0) out.push("Add at least one step.");
   if (count("INVITE") > 1) out.push("Use only one invite step.");
-  if (count("VISIT") > 1) out.push("Use only one profile visit step.");
-  if (count("LIKE_POST") > 2) out.push("Use at most two “like their latest post” steps.");
-  const invite = steps.findIndex((s) => s.type === "INVITE");
-  const visit = steps.findIndex((s) => s.type === "VISIT");
-  if (invite !== -1 && visit > invite) out.push("Put the profile visit before the invite.");
+  if (count("VISIT") > MAX_OF.VISIT) out.push(`Use at most ${MAX_OF.VISIT} profile visit steps.`);
+  if (count("LIKE_POST") > MAX_OF.LIKE_POST) out.push(`Use at most ${MAX_OF.LIKE_POST} “like their latest post” steps.`);
+  if (count("FOLLOW") > MAX_OF.FOLLOW) out.push("Use only one follow step.");
   if (steps.length && !steps.some((s) => s.type === "INVITE" || s.type === "MESSAGE")) out.push("Add an invite or a message.");
   steps.forEach((s, i) => {
     const n = i + 1;

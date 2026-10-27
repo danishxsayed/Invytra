@@ -52,7 +52,7 @@ describe("format", () => {
     expect(timeAgo(new Date("2026-10-22T14:00:00Z"), now)).toBe("in 2 h");
   });
   it("explains outcomes in plain words", () => {
-    expect(outcomeText({ status: "SUCCEEDED", type: "CONNECTION_REQUEST", error: null, payload: { note: "x", result: { withNote: false } } })).toMatch(/free-note limit/);
+    expect(outcomeText({ status: "SUCCEEDED", type: "CONNECTION_REQUEST", error: null, payload: { note: "x", result: { withNote: false } } })).toMatch(/without note \(free LinkedIn account\)/);
     expect(outcomeText({ status: "SKIPPED", type: "CONNECTION_REQUEST", error: "PENDING", payload: {} })).toBe("Already invited");
     expect(outcomeText({ status: "QUEUED", type: "MESSAGE", error: "waiting: OUTSIDE_WORKING_HOURS", payload: {} })).toBe("Waiting for working hours");
   });

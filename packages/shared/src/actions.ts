@@ -9,6 +9,7 @@ export const ACTION_TYPES = [
   "LIKE_POST",
   "WITHDRAW_INVITE",
   "REPLY",
+  "FOLLOW_PROFILE",
 ] as const;
 
 export type ActionType = (typeof ACTION_TYPES)[number];
@@ -26,6 +27,6 @@ export function isLimitedAction(type: ActionType): type is LimitedActionType {
  */
 export function limitBucket(type: ActionType): LimitedActionType | null {
   // These open the person's profile or their activity page, so LinkedIn sees a visit.
-  if (type === "CHECK_CONNECTION" || type === "LIKE_POST" || type === "WITHDRAW_INVITE") return "PROFILE_VISIT";
+  if (type === "CHECK_CONNECTION" || type === "LIKE_POST" || type === "WITHDRAW_INVITE" || type === "FOLLOW_PROFILE") return "PROFILE_VISIT";
   return isLimitedAction(type) ? type : null;
 }
