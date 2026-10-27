@@ -23,10 +23,13 @@ export function SendSchedule({
   settings,
   onSettings,
   canChangeStart,
+  bare,
 }: {
   settings: CampaignSettings;
   onSettings: (s: CampaignSettings) => void;
   canChangeStart: boolean;
+  /** Inside its own card: no divider above. */
+  bare?: boolean;
 }) {
   const days = settings.days;
   const toggle = (d: number) => onSettings({ ...settings, days: days.includes(d) ? days.filter((x) => x !== d) : [...days, d].sort((a, b) => a - b) });
@@ -34,7 +37,7 @@ export function SendSchedule({
   const scheduled = !!settings.startAt;
 
   return (
-    <div className="mt-5 grid gap-5 border-t border-stone-100 pt-5 lg:grid-cols-[1.2fr_1fr]">
+    <div className={cx("grid gap-5 lg:grid-cols-[1.2fr_1fr]", !bare && "mt-5 border-t border-stone-100 pt-5")}>
       <div>
         <p className="text-[15px] font-medium text-stone-700">
           Send on <span className="font-normal text-stone-500">· {days.length ? daysText(days) : "no days picked"}</span>

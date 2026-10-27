@@ -41,6 +41,11 @@ const REASONS: Record<string, string> = {
 export function reasonText(code: string | null | undefined): string {
   if (!code) return "";
   if (code.startsWith("MISSING_DETAIL:")) return `No {${code.slice(15)}} in your list for this person`;
+  if (code === "AUDIENCE:NOT_PREMIUM") return "Not a Premium member (this campaign is Premium only)";
+  if (code.startsWith("AUDIENCE:DEGREE_")) {
+    const d = code.slice(16);
+    return `${d === "1" ? "1st" : d === "2" ? "2nd" : "3rd+"}-degree connection, not in this campaign's connection levels`;
+  }
   return REASONS[code] ?? code.split("\n")[0]!;
 }
 

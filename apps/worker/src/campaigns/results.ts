@@ -55,6 +55,7 @@ export async function applyFinishedActions(prisma: PrismaClient, now: Date, rand
       continue;
     }
     await release(prisma, lead, updateFor(lead, action, now, random));
+    await recordFactsOnList(prisma, lead, action);
     await resolveProfileUrl(prisma, lead, action);
     applied++;
   }
@@ -86,6 +87,22 @@ async function resolveProfileUrl(prisma: PrismaClient, lead: CampaignLead, actio
   }
 }
 
+/** Connection degree / Premium badge the action saw on the profile, if any. */
+function factsOf(action: Action): { degree?: number; premium?: boolean } {
+  const r = ((action.payload ?? {}) as { result?: { degree?: unknown; premium?: unknown } }).result ?? {};
+  return {
+    ...(r.degree === 1 || r.degree === 2 || r.degree === 3 ? { degree: r.degree } : {}),
+    ...(typeof r.premium === "boolean" ? { premium: r.premium } : {}),
+  };
+}
+
+/** The lead list keeps what we learned too (shown on the list, used by later campaigns). */
+async function recordFactsOnList(prisma: PrismaClient, lead: CampaignLead, action: Action): Promise<void> {
+  const facts = factsOf(action);
+  if (!lead.leadId || Object.keys(facts).length === 0) return;
+  await prisma.lead.updateMany({ where: { id: lead.leadId }, data: facts });
+}
+
 /** Only clears/updates the lead if it still waits on this same action. */
 async function release(prisma: PrismaClient, lead: CampaignLead, data: Prisma.CampaignLeadUpdateManyMutationInput) {
   await prisma.campaignLead.updateMany({ where: { id: lead.id, actionId: lead.actionId }, data: { ...data, actionId: null } });
@@ -101,6 +118,7 @@ function updateFor(
   const common: Prisma.CampaignLeadUpdateManyMutationInput = {
     lastActionAt: action.executedAt ?? now,
     ...(typeof name === "string" && name.trim() && { linkedinName: name.trim() }),
+    ...factsOf(action),
     ...(action.type === "MESSAGE" && action.status === "SUCCEEDED" && !lead.messagedAt && { messagedAt: action.executedAt ?? now }),
   };
   // A reply arrived while this action was running: the lead stays REPLIED.

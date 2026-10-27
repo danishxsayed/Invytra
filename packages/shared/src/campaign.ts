@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Degree } from "./audience.js";
 import { outreachTextProblem } from "./text.js";
 
 /*
@@ -82,9 +83,31 @@ export const campaignSettingsSchema = z.object({
    * blocks re-inviting that person for about three weeks.)
    */
   withdrawExpired: z.boolean().default(true),
+  /**
+   * Who to include, by connection degree (1 = 1st, 2 = 2nd, 3 = 3rd and beyond). Anyone
+   * whose degree is known and not listed is skipped before they are contacted.
+   * Default (older campaigns): everyone.
+   */
+  degrees: z
+    .array(z.union([z.literal(1), z.literal(2), z.literal(3)]))
+    .min(1, "Pick at least one connection level.")
+    .transform((d) => [...new Set(d)].sort() as Degree[])
+    .default([1, 2, 3]),
+  /** Only contact people with a LinkedIn Premium badge. */
+  premiumOnly: z.boolean().default(false),
+  /** Skip people who are already in another of the workspace's campaigns. */
+  skipOtherCampaigns: z.boolean().default(true),
 });
 export type CampaignSettings = z.infer<typeof campaignSettingsSchema>;
-export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = { acceptWithinDays: 21, days: [...WEEKDAYS], startAt: null, withdrawExpired: true };
+export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = {
+  acceptWithinDays: 21,
+  days: [...WEEKDAYS],
+  startAt: null,
+  withdrawExpired: true,
+  degrees: [1, 2, 3],
+  premiumOnly: false,
+  skipOtherCampaigns: true,
+};
 
 /** Whether a launched campaign is still waiting for its start date. */
 export function waitingToStart(settings: Pick<CampaignSettings, "startAt">, now: Date): boolean {

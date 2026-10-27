@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@invytra/db";
-import { outreachTextProblem, type ActionType, type SearchKind, type TemplateVars } from "@invytra/shared";
+import { campaignSettingsSchema, outreachTextProblem, type ActionType, type Audience, type SearchKind, type TemplateVars } from "@invytra/shared";
 import type { SessionTaskContext } from "../browser/types.js";
 import {
   checkConnectionStatus,
@@ -50,14 +50,22 @@ function varsOf(p: Record<string, unknown>): TemplateVars {
   return { firstName: str("firstName"), lastName: str("lastName"), company: str("company"), title: str("title") };
 }
 
+/** A campaign's audience (connection levels / Premium only), sent with a lead's first contact. */
+function audienceOf(p: Record<string, unknown>): Audience | undefined {
+  if (!p.audience || typeof p.audience !== "object") return undefined;
+  const r = campaignSettingsSchema.pick({ degrees: true, premiumOnly: true }).safeParse(p.audience);
+  return r.success ? r.data : undefined;
+}
+
 /** The browser work for one action. */
 export function workFor(spec: ActionSpec): (ctx: SessionTaskContext) => Promise<ActionOutcome<any>> {
   validateSpec(spec);
   const url = spec.targetUrl ?? "";
   const p = spec.payload ?? {};
+  const audience = audienceOf(p);
   switch (spec.type) {
     case "PROFILE_VISIT":
-      return (ctx) => visitProfile(ctx, url);
+      return (ctx) => visitProfile(ctx, url, audience);
     case "CHECK_CONNECTION":
       return (ctx) => checkConnectionStatus(ctx, url);
     case "CONNECTION_REQUEST":
@@ -67,16 +75,17 @@ export function workFor(spec: ActionSpec): (ctx: SessionTaskContext) => Promise<
           requireNote: p.requireNote === true,
           notesBlocked: p.notesBlocked === true,
           vars: varsOf(p),
+          audience,
         });
     case "MESSAGE":
-      return (ctx) => sendMessage(ctx, url, String(p.text), varsOf(p));
+      return (ctx) => sendMessage(ctx, url, String(p.text), varsOf(p), audience);
     case "INBOX_SYNC":
       // `known` (each conversation's last snippet) is added just before running, so changed chats get opened.
       return (ctx) => fetchInbox(ctx, { known: (p.known ?? undefined) as Record<string, string> | undefined });
     case "SEARCH_PAGE":
       return (ctx) => readSearchPage(ctx, url, p.kind as SearchKind);
     case "LIKE_POST":
-      return (ctx) => likeLatestPost(ctx, url);
+      return (ctx) => likeLatestPost(ctx, url, audience);
     case "WITHDRAW_INVITE":
       return (ctx) => withdrawInvite(ctx, url);
     case "REPLY":

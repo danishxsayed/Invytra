@@ -1,4 +1,4 @@
-import { parseProfileUrl } from "@invytra/shared";
+import { parseDegree, parseProfileUrl, type Degree } from "@invytra/shared";
 import type { Locator, Page } from "playwright";
 import { SELECTORS } from "./selectors.js";
 
@@ -9,6 +9,10 @@ export interface ProfileInfo {
   name: string;
   headline: string;
   status: ConnectionStatus;
+  /** Connection degree shown on the card (null if not shown, e.g. your own profile). */
+  degree: Degree | null;
+  /** Whether the card shows a Premium badge. */
+  premium: boolean;
 }
 
 /**
@@ -41,7 +45,7 @@ export function control(card: Locator, name: RegExp): Locator {
 /** Reads name, headline and connection status from an open profile page. */
 export async function readProfile(page: Page): Promise<ProfileInfo> {
   const card = topCard(page);
-  if ((await card.count()) === 0) return { url: page.url(), name: "", headline: "", status: "UNAVAILABLE" };
+  if ((await card.count()) === 0) return { url: page.url(), name: "", headline: "", status: "UNAVAILABLE", degree: null, premium: false };
 
   // One read of the card's text structure (no named helpers inside: this runs in the page).
   const raw = await card.evaluate((el, sel) => {
@@ -56,7 +60,7 @@ export async function readProfile(page: Page): Promise<ProfileInfo> {
     };
   }, { name: SELECTORS.profile.name, headline: SELECTORS.profile.headline });
 
-  if (!raw.name) return { url: page.url(), name: "", headline: "", status: "UNAVAILABLE" };
+  if (!raw.name) return { url: page.url(), name: "", headline: "", status: "UNAVAILABLE", degree: null, premium: false };
 
   // 2026 layout: the headline is the first paragraph that isn't the degree ("· 2nd") or a separator.
   const headline =
@@ -70,7 +74,13 @@ export async function readProfile(page: Page): Promise<ProfileInfo> {
   if ((await pending.count()) > 0) status = "PENDING";
   else if (SELECTORS.profile.firstDegree.test(raw.text)) status = "CONNECTED";
 
-  return { url: page.url(), name: raw.name, headline: headline.split("\n")[0]!, status };
+  // The degree is its own short line ("· 2nd") in both layouts.
+  const lines = [...raw.paragraphs, ...raw.text.split("\n")].map((l) => l.trim()).filter((l) => l.length > 0 && l.length <= 40);
+  let degree: Degree | null = status === "CONNECTED" ? 1 : null;
+  for (const l of lines) degree ??= parseDegree(l);
+  const premium = (await card.locator(SELECTORS.profile.premiumBadge).count()) > 0;
+
+  return { url: page.url(), name: raw.name, headline: headline.split("\n")[0]!, status, degree, premium };
 }
 
 /** The Connect control for THIS profile's person (checked against their name). */

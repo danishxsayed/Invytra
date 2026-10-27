@@ -17,6 +17,7 @@ import {
   sendMessage,
   visitProfile,
 } from "../../src/linkedin/actions.js";
+import { likeLatestPost } from "../../src/linkedin/engage.js";
 import { normalizeProfileUrl } from "../../src/linkedin/profile.js";
 import { FakeRedis } from "../fake-redis.js";
 import { startFakeLinkedIn, type FakeState } from "../fake-linkedin.js";
@@ -62,12 +63,31 @@ describe("normalizeProfileUrl", () => {
 describe("LinkedIn actions (fake site)", { timeout: 60_000 }, () => {
   it("visits a profile and reads name, headline and status", async () => {
     const r = await run((ctx) => visitProfile(ctx, url("alice")));
-    expect(r).toMatchObject({ outcome: "DONE", data: { name: "Alice Smith", headline: "Founder at Acme", status: "NOT_CONNECTED" } });
+    expect(r).toMatchObject({ outcome: "DONE", data: { name: "Alice Smith", headline: "Founder at Acme", status: "NOT_CONNECTED", degree: 2, premium: false } });
+  });
+
+  it("reads the connection level and Premium badge, and skips people outside a campaign's audience", async () => {
+    expect(await run((ctx) => visitProfile(ctx, url("pam")))).toMatchObject({ data: { degree: 2, premium: true } });
+    expect(await run((ctx) => checkConnectionStatus(ctx, url("carol")))).toMatchObject({ data: { degree: 1 } });
+    // 2nd and 3rd+ only: a 1st-degree connection is skipped before the invite is even tried.
+    expect(await run((ctx) => sendConnectionRequest(ctx, url("carol"), { audience: { degrees: [2, 3], premiumOnly: false } }))).toMatchObject({
+      outcome: "SKIPPED",
+      reason: "AUDIENCE:DEGREE_1",
+    });
+    expect(await run((ctx) => visitProfile(ctx, url("alice"), { degrees: [1, 2, 3], premiumOnly: true }))).toMatchObject({
+      outcome: "SKIPPED",
+      reason: "AUDIENCE:NOT_PREMIUM",
+    });
+    expect(await run((ctx) => likeLatestPost(ctx, url("alice"), { degrees: [3], premiumOnly: false }))).toMatchObject({
+      outcome: "SKIPPED",
+      reason: "AUDIENCE:DEGREE_2",
+    });
+    expect(state.likes.filter((l) => l.startsWith("alice#"))).toEqual([]);
   });
 
   it("reads the pre-2026 profile layout too", async () => {
     const r = await run((ctx) => visitProfile(ctx, url("olga")));
-    expect(r).toMatchObject({ outcome: "DONE", data: { name: "Olga Old", headline: "Old layout person", status: "NOT_CONNECTED" } });
+    expect(r).toMatchObject({ outcome: "DONE", data: { name: "Olga Old", headline: "Old layout person", status: "NOT_CONNECTED", degree: 3 } });
   });
 
   it("invites on the pre-2026 layout", async () => {

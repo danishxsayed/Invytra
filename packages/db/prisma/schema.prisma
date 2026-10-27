@@ -244,6 +244,10 @@ model Lead {
   company     String?
   title       String?
   location    String?
+  /// Connection degree seen on LinkedIn (1, 2, 3 = 3rd+), from a search import or a profile visit
+  degree      Int?
+  /// LinkedIn Premium badge seen (null = not known yet)
+  premium     Boolean?
   /// Other columns from the uploaded file, for personalisation later
   extra       Json     @default("{}")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -323,6 +327,9 @@ model CampaignLead {
   title        String?
   /// The name LinkedIn shows — used to match replies in the inbox
   linkedinName String?           @map("linkedin_name")
+  /// Connection degree (1, 2, 3 = 3rd+) and Premium badge, as last seen; used by the campaign's audience settings
+  degree       Int?
+  premium      Boolean?
   state        CampaignLeadState @default(QUEUED)
   /// Index of the next step to run
   step         Int               @default(0)

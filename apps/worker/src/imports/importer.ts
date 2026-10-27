@@ -107,6 +107,9 @@ export async function applyPage(prisma: PrismaClient, imp: LeadImport, action: F
         company: cut(p.company),
         title: cut(p.title),
         location: cut(p.location),
+        degree: p.degree ?? null,
+        // Only a badge we saw counts; no badge in a search result isn't proof (it may not be shown there).
+        premium: p.premium ? true : null,
       })),
       skipDuplicates: true,
     });

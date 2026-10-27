@@ -210,7 +210,7 @@ export async function leadsPage(
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       skip: (Math.max(1, page) - 1) * pageSize,
       take: pageSize,
-      select: { id: true, profileUrl: true, firstName: true, lastName: true, company: true, title: true, location: true, createdAt: true },
+      select: { id: true, profileUrl: true, firstName: true, lastName: true, company: true, title: true, location: true, degree: true, premium: true, createdAt: true },
     }),
   ]);
   const statuses = await leadStatuses(prisma, workspaceId, rows.map((r) => r.profileUrl));

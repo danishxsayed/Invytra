@@ -11,6 +11,10 @@ interface Person {
   name: string;
   headline: string;
   kind: Kind;
+  /** Connection degree when not connected (default "2nd"). */
+  degree?: "2nd" | "3rd+";
+  /** Shows a Premium badge. */
+  premium?: boolean;
 }
 
 export const PEOPLE: Record<string, Person> = {
@@ -20,10 +24,10 @@ export const PEOPLE: Record<string, Person> = {
   dave: { name: "Dave Brown", headline: "Engineer", kind: "pending" },
   erin: { name: "Erin Green", headline: "Designer", kind: "email" },
   frank: { name: "Frank Black", headline: "Recruiter", kind: "limit" },
-  olga: { name: "Olga Old", headline: "Old layout person", kind: "open" },
+  olga: { name: "Olga Old", headline: "Old layout person", kind: "open", degree: "3rd+" },
   ivan: { name: "Ivan Instant", headline: "Sends with no dialog", kind: "instant" },
   nina: { name: "Nina Native", headline: "Native dialog element", kind: "native" },
-  pam: { name: "Pam Premium", headline: "Out of free notes", kind: "notelimit" },
+  pam: { name: "Pam Premium", headline: "Out of free notes", kind: "notelimit", premium: true },
   quinn: { name: "Quinn Quota", headline: "Out of free notes too", kind: "notelimit" },
   tess: { name: "Tess Tester", headline: "The logged-in member", kind: "open" },
 };
@@ -97,12 +101,13 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
   } else {
     actions = `${link(`id="connect" ${invite}`, "Connect")}${link('id="msg-nc"', "Message")}${moreBtn()}`;
   }
-  const degree = connected ? "· 1st" : "· 2nd";
+  const degree = connected ? "· 1st" : `· ${p.degree ?? "2nd"}`;
+  const badge = p.premium ? '<span data-test-icon="linkedin-bug-premium-xsmall" aria-hidden="true"></span>' : "";
   const header = old
-    ? `<section id="top"><h1>${p.name}</h1><div class="text-body-medium">${p.headline}</div><span>${degree}</span><div class="actions">${actions}</div></section>`
+    ? `<section id="top"><h1>${p.name}</h1>${badge}<div class="text-body-medium">${p.headline}</div><span>${degree}</span><div class="actions">${actions}</div></section>`
     : `<section aria-label="Primary content"><div componentkey="com.linkedin.sdui.profile.card.ref${slug}Topcard"><section>
          <a href="#" aria-label="Manage notifications about ${p.name}"></a>
-         <a href="#"><h2>${p.name}</h2></a><p>${degree}</p><p>${p.headline}</p><p>Some City</p><p>·</p>
+         <a href="#"><h2>${p.name}</h2></a>${badge}<p>${degree}</p><p>${p.headline}</p><p>Some City</p><p>·</p>
          <p>98</p><p>connections</p><div class="actions">${actions}</div></section></div>
        <div componentkey="aboutcard"><h2>About</h2><p>Lorem ipsum 1st place award</p></div>`;
   // A hidden sticky header duplicates the Connect link (invisible), like the real site.
@@ -185,7 +190,7 @@ function searchHtml(params: URLSearchParams): string {
     const p = PEOPLE[slug]!;
     return `<li><div><a href="/in/${slug}?miniProfileUrn=urn%3Ali%3Afs_miniProfile%3AACoAAX"><img alt=""></a>
       <a href="/in/${slug}?miniProfileUrn=x"><span aria-hidden="true">${p.name}${slug === "olga" ? ", MBA" : ""}</span><span class="visually-hidden">View ${p.name}’s profile</span></a>
-      <span>• 2nd</span><div>${p.headline}</div><div>Pune, Maharashtra, India</div><button aria-label="Invite ${p.name} to connect">Connect</button></div></li>`;
+      ${p.premium ? '<span data-test-icon="linkedin-bug-premium-xsmall"></span>' : ""}<span>• ${p.degree ?? "2nd"}</span><div>${p.headline}</div><div>Pune, Maharashtra, India</div><button aria-label="Invite ${p.name} to connect">Connect</button></div></li>`;
   };
   const member = `<li><div><span>LinkedIn Member</span><div>Head of Growth at Hidden Co</div></div></li>`;
   return page(

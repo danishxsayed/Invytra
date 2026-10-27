@@ -1,3 +1,4 @@
+import { AUDIENCE_SKIP } from "./audience.js";
 import type { CampaignSettings, CampaignStep } from "./campaign.js";
 
 /**
@@ -126,6 +127,8 @@ export function applyResult(
   const reason = (r.error ?? "").split("\n")[0]!.trim();
   // Someone stopped it (campaign paused, or the action was cancelled): try the same step again later.
   if (r.status === "SKIPPED" && reason === "CANCELLED") return { state: lead.state, step: lead.step, nextAt: now };
+  // Outside the campaign's audience (connection level / Premium), found when their profile was opened.
+  if (r.status === "SKIPPED" && reason.startsWith(`${AUDIENCE_SKIP}:`)) return stop("SKIPPED", lead, reason);
 
   switch (r.type) {
     case "PROFILE_VISIT":

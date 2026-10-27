@@ -2,31 +2,31 @@
 
 import {
   DEFAULT_CAMPAIGN_SETTINGS,
-  DEFAULT_LIMITS,
-  daysText,
-  waitingToStart,
+  DEGREE_LABEL,
   SEQUENCE_PRESETS,
-  limitsSchema,
+  audienceProblems,
+  daysText,
+  hasInvite,
   sequenceProblems,
+  waitingToStart,
   type CampaignSettings,
   type CampaignStep,
   type SequencePreset,
 } from "@invytra/shared";
-import { AlertCircle, Check, Loader2, Rocket } from "lucide-react";
-import Link from "next/link";
+import { AlertCircle, ArrowLeft, ArrowRight, Loader2, Rocket } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { saveCampaignAction } from "@/app/app/campaigns/actions";
 import type { BuilderOptions } from "@/lib/campaigns";
+import { startText, stepLabel } from "@/lib/campaign-text";
 import { btn } from "../AccountControls";
-import { Field, inputCls } from "../fields";
-import { Modal } from "../Modal";
-import { Card, cx } from "../ui";
-import { Preview } from "./Preview";
-import { startText } from "@/lib/campaign-text";
-import { SendSchedule } from "./SendSchedule";
-import { SequenceEditor } from "./SequenceEditor";
 import { ImportLeads } from "../ImportLeads";
+import { Card, cx } from "../ui";
+import { DetailsStep, LaunchModal, LeadsStep, inviteLimit } from "./BuilderSteps";
+import { ConfigureStep } from "./ConfigureStep";
+import { Preview } from "./Preview";
+import { SequenceEditor } from "./SequenceEditor";
+import { Stepper, type WizardStep } from "./Stepper";
 
 export interface BuilderInitial {
   id: string;
@@ -38,22 +38,17 @@ export interface BuilderInitial {
   status: "DRAFT" | "ACTIVE" | "PAUSED";
 }
 
-const STATUS_TEXT: Record<string, string> = { ACTIVE: "Connected", DISCONNECTED: "Not connected", PAUSED: "Paused", NEEDS_ATTENTION: "Needs attention" };
+const STEPS: WizardStep[] = [
+  { key: "details", label: "Details", hint: "Name and sending accounts" },
+  { key: "leads", label: "Add people", hint: "The lead list to work through" },
+  { key: "configure", label: "Configure", hint: "Who to include, and when" },
+  { key: "sequence", label: "Sequence", hint: "Visits, invites and messages" },
+  { key: "review", label: "Review & launch", hint: "Preview what people receive" },
+];
+const TITLES = ["Campaign details", "Add people", "Configure settings", "Build the sequence", "Review and launch"];
 
-function Section({ n, title, hint, children }: { n: number; title: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <Card className="p-5 sm:p-6">
-      <div className="mb-4 flex items-start gap-3">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-stone-900 text-[14px] font-semibold text-white">{n}</span>
-        <div>
-          <h2 className="text-[18px] font-semibold text-stone-900">{title}</h2>
-          {hint && <p className="text-[15px] text-stone-500">{hint}</p>}
-        </div>
-      </div>
-      {children}
-    </Card>
-  );
-}
+/** New campaigns: invite 2nd and 3rd+ connections (1st-degree people are already connected). */
+const NEW_SETTINGS: CampaignSettings = { ...DEFAULT_CAMPAIGN_SETTINGS, degrees: [2, 3] };
 
 export function CampaignBuilder({ options, initial, presetListId }: { options: BuilderOptions; initial?: BuilderInitial; presetListId?: string }) {
   const router = useRouter();
@@ -63,40 +58,59 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
   const [listId, setListId] = useState(initial?.listId ?? presetListId ?? "");
   const [preset, setPreset] = useState<SequencePreset | null>(initial ? null : "invite_followups");
   const [steps, setSteps] = useState<CampaignStep[]>(initial?.steps ?? (SEQUENCE_PRESETS.invite_followups.steps as CampaignStep[]));
-  const [settings, setSettings] = useState<CampaignSettings>(initial?.settings ?? DEFAULT_CAMPAIGN_SETTINGS);
+  const [settings, setSettings] = useState<CampaignSettings>(initial?.settings ?? NEW_SETTINGS);
+  const [current, setCurrent] = useState(0);
+  const [reached, setReached] = useState(initial ? STEPS.length - 1 : 0);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [pending, start] = useTransition();
   const [importing, setImporting] = useState(false);
 
   const senders = options.accounts.filter((a) => accountIds.includes(a.id));
   const list = options.lists.find((l) => l.id === listId);
-  const problems = useMemo(() => {
-    const p: string[] = [];
-    if (!name.trim()) p.push("Give the campaign a name.");
-    if (senders.length === 0) p.push("Choose at least one LinkedIn account to send from.");
-    else if (senders.every((a) => a.status === "DISCONNECTED")) {
-      p.push(senders.length === 1 ? `Connect “${senders[0]!.label}” to LinkedIn first.` : "Connect at least one of the chosen accounts to LinkedIn first.");
-    }
-    if (settings.days.length === 0) p.push("Pick at least one day to send on.");
-    if (!listId) p.push("Choose a lead list.");
-    else if (list && list.count === 0 && list.coming === 0) p.push("The lead list is empty.");
-    return [...p, ...sequenceProblems(steps)];
-  }, [name, senders, listId, list, steps, settings.days]);
-  // The start date can change until the campaign has actually started.
-  const canChangeStart = !launched || waitingToStart(initial!.settings, new Date());
-  // Working days a week, to turn "working days" into a rough count.
-  const perWeek = settings.days.length || 5;
 
+  // What's missing on each step, in plain words. A step is complete when its list is empty.
+  const problems = useMemo(() => {
+    const details: string[] = [];
+    if (!name.trim()) details.push("Give the campaign a name.");
+    if (senders.length === 0) details.push("Choose at least one LinkedIn account to send from.");
+    else if (senders.every((a) => a.status === "DISCONNECTED")) {
+      details.push(senders.length === 1 ? `Connect “${senders[0]!.label}” to LinkedIn first.` : "Connect at least one of the chosen accounts to LinkedIn first.");
+    }
+    const leads: string[] = [];
+    if (!listId) leads.push("Choose a lead list.");
+    else if (list && list.count === 0 && list.coming === 0) leads.push("The lead list is empty.");
+    const configure: string[] = [];
+    if (settings.days.length === 0) configure.push("Pick at least one day to send on.");
+    if (settings.degrees.length === 0) configure.push("Pick at least one connection level.");
+    const sequence = [...sequenceProblems(steps), ...audienceProblems(steps, settings)];
+    return [details, leads, configure, sequence, []];
+  }, [name, senders, listId, list, steps, settings]);
+  const allProblems = problems.flat();
+  const complete = problems.map((p) => p.length === 0);
+  // Drafts go in order: a step opens once every step before it is complete.
+  const canOpen = (i: number) => launched || i <= reached || complete.slice(0, i).every(Boolean);
+  const done = complete.map((c, i) => c && (i < reached || i < current || launched));
+
+  const canChangeStart = !launched || waitingToStart(initial!.settings, new Date());
+  const perWeek = settings.days.length || 5;
   const toggleSender = (id: string) => setAccountIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
-  // Each sender keeps its own daily limit, so together they invite the sum.
-  const invitesPerDay = senders
-    .filter((a) => a.status !== "DISCONNECTED")
-    .reduce((n, a) => n + (limitsSchema.safeParse(a.limits).data ?? DEFAULT_LIMITS).connectionRequestsPerDay, 0);
-  const usesInvites = steps.some((s) => s.type === "INVITE");
-  // A list still being collected from a search counts what's coming too.
+  const invitesPerDay = senders.filter((a) => a.status !== "DISCONNECTED").reduce((n, a) => n + inviteLimit(a), 0);
+  const usesInvites = hasInvite(steps);
   const listSize = list ? list.count + list.coming : 0;
   const days = list && invitesPerDay ? Math.max(1, Math.ceil(listSize / (usesInvites ? invitesPerDay : 40 * senders.length))) : 0;
+  const estimate =
+    list && usesInvites && invitesPerDay > 0
+      ? `At up to ${invitesPerDay} invites a day${senders.length > 1 ? ` across ${senders.length} accounts` : ""}, inviting ${list.coming ? "up to " : "all "}${listSize.toLocaleString()} leads takes about ${days} sending ${days === 1 ? "day" : "days"}${days > perWeek ? ` (about ${Math.ceil(days / perWeek)} weeks at ${daysText(settings.days)})` : ""}. New leads added to this list later join the campaign automatically.`
+      : null;
+
+  const go = (i: number) => {
+    setError(null);
+    setCurrent(i);
+    setReached((r) => Math.max(r, i));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const save = (launch: boolean) =>
     start(async () => {
@@ -111,167 +125,140 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
 
   const choosePreset = (p: SequencePreset) => {
     setPreset(p);
-    setSteps(structuredClone(SEQUENCE_PRESETS[p].steps) as CampaignStep[]);
+    const next = structuredClone(SEQUENCE_PRESETS[p].steps) as CampaignStep[];
+    setSteps(next);
+    // Messaging without an invite only reaches 1st-degree connections.
+    if (!hasInvite(next) && !settings.degrees.includes(1)) {
+      setSettings({ ...settings, degrees: [1] });
+      setNotice("Connection levels changed to 1st only: without an invite you can only message your connections.");
+    } else setNotice(null);
   };
 
+  const here = problems[current]!;
+  const last = current === STEPS.length - 1;
+
   return (
-    <div className="space-y-5">
-      <Section n={1} title="Who sends, to whom, and when">
-        <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Campaign name">
-            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="e.g. Pune founders – Q4" />
-          </Field>
-          <Field label="Lead list">
-            <select className={inputCls} value={listId} onChange={(e) => setListId(e.target.value)} disabled={launched && !!initial?.listId}>
-              <option value="">Choose…</option>
-              {options.lists.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name} · {l.count.toLocaleString()} {l.count === 1 ? "lead" : "leads"}
-                  {l.coming ? " (collecting…)" : ""}
-                </option>
-              ))}
-            </select>
-            {!(launched && initial?.listId) && (
-              <button type="button" onClick={() => setImporting(true)} className="mt-1.5 text-[14px] font-medium text-brand-800 hover:underline">
-                + New list from a LinkedIn or Sales Navigator search
-              </button>
-            )}
-          </Field>
-        </div>
-        {options.accounts.length > 0 && (
-          <fieldset className="mt-5">
-            <legend className="text-[15px] font-medium text-stone-700">
-              Send from {senders.length > 1 && <span className="font-normal text-stone-500">· {senders.length} accounts share the leads</span>}
-            </legend>
-            <p className="mb-2.5 text-[14px] text-stone-500">
-              Pick one account, or several to go faster. Each lead is given to one of them and stays with it; every account keeps its own limits and hours.
-              {launched && " Accounts can be added or removed while the campaign runs."}
+    <div className="grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)]">
+      <div className="min-w-0 lg:sticky lg:top-6 lg:self-start">
+        <Stepper steps={STEPS} current={current} done={done} canOpen={canOpen} onOpen={go} />
+      </div>
+
+      <div className="min-w-0 space-y-5">
+        <Card className="p-5 sm:p-7">
+          <div className="mb-5">
+            <p className="text-[13px] font-medium uppercase tracking-wide text-stone-400">
+              Step {current + 1} of {STEPS.length}
             </p>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {options.accounts.map((a) => {
-                const on = accountIds.includes(a.id);
-                const limit = (limitsSchema.safeParse(a.limits).data ?? DEFAULT_LIMITS).connectionRequestsPerDay;
-                return (
-                  <label
-                    key={a.id}
-                    className={cx(
-                      "flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-2.5 transition",
-                      on ? "border-stone-900 bg-white ring-1 ring-stone-900" : "border-stone-200 bg-stone-50/60 hover:border-stone-300",
-                    )}
-                  >
-                    <input type="checkbox" className="sr-only" checked={on} onChange={() => toggleSender(a.id)} />
-                    <span
-                      aria-hidden
-                      className={cx("flex h-5 w-5 shrink-0 items-center justify-center rounded-md border", on ? "border-stone-900 bg-stone-900 text-white" : "border-stone-300 bg-white")}
-                    >
-                      {on && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-semibold text-stone-900">{a.label}</span>
-                      <span className="block truncate text-[13px] text-stone-500">
-                        {a.profileName ? `${a.profileName} · ` : ""}
-                        <span className={a.status === "ACTIVE" ? "" : "text-amber-700"}>{STATUS_TEXT[a.status] ?? a.status}</span> · {limit} invites/day
-                      </span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
-        )}
-        <SendSchedule settings={settings} onSettings={setSettings} canChangeStart={canChangeStart} />
-        {(options.accounts.length === 0 || options.lists.length === 0) && (
-          <p className="mt-3 text-[15px] text-stone-500">
-            {options.accounts.length === 0 && (
-              <>
-                <Link href="/app/accounts?add=1" className="font-semibold text-brand-800 underline">Connect a LinkedIn account</Link>{" "}
-              </>
-            )}
-            {options.lists.length === 0 && (
-              <>
-                {options.accounts.length === 0 ? "and " : ""}
-                <Link href="/app/leads" className="font-semibold text-brand-800 underline">create a lead list</Link>
-              </>
-            )}{" "}
-            first.
-          </p>
-        )}
-        {list && usesInvites && invitesPerDay > 0 && (
-          <p className="mt-3 text-[15px] text-stone-500">
-            At up to {invitesPerDay} invites a day{senders.length > 1 ? ` across ${senders.length} accounts` : ""}, inviting {list.coming ? "up to " : "all "}{listSize.toLocaleString()} leads takes about {days} sending {days === 1 ? "day" : "days"}
-            {days > perWeek && ` (about ${Math.ceil(days / perWeek)} weeks at ${daysText(settings.days)})`}. New leads added
-            to this list later join the campaign automatically.
-          </p>
-        )}
-      </Section>
-
-      <Section n={2} title="Sequence" hint="Each person moves through these steps on their own clock, inside the account's working hours and daily limits.">
-        {!launched && (
-          <div className="mb-5 grid gap-2 sm:grid-cols-3">
-            {(Object.keys(SEQUENCE_PRESETS) as SequencePreset[]).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => choosePreset(p)}
-                className={cx(
-                  "rounded-xl border px-4 py-3 text-left transition",
-                  preset === p ? "border-stone-900 bg-white ring-1 ring-stone-900" : "border-stone-200 bg-stone-50/60 hover:border-stone-300",
-                )}
-              >
-                <p className="text-[15px] font-semibold text-stone-900">{SEQUENCE_PRESETS[p].label}</p>
-                <p className="text-[14px] text-stone-500">{SEQUENCE_PRESETS[p].hint}</p>
-              </button>
-            ))}
+            <h2 className="text-[24px] font-semibold tracking-tight text-stone-900">{TITLES[current]}</h2>
           </div>
-        )}
-        <SequenceEditor
-          steps={steps}
-          settings={settings}
-          onSteps={(s) => {
-            setSteps(s);
-            setPreset(null);
-          }}
-          onSettings={setSettings}
-          locked={launched ? (initial?.steps.length ?? 0) : 0}
-        />
-        <p className="mt-4 rounded-xl bg-emerald-50/70 px-4 py-3 text-[15px] text-emerald-900">
-          Follow-ups stop as soon as someone replies. People your accounts already invited or messaged, or who are in another campaign, are skipped.
-        </p>
-      </Section>
 
-      <Section n={3} title="Preview" hint="Exactly what a few people from your list would receive.">
-        <Preview steps={steps} sample={list?.sample ?? []} />
-      </Section>
-
-      <div className="sticky bottom-3 z-20 rounded-2xl border border-stone-200 bg-white/95 p-4 shadow-pop backdrop-blur">
-        {(error || (problems.length > 0 && !launched)) && (
-          <div className="mb-3 flex items-start gap-2 text-[15px]">
-            <AlertCircle className={cx("mt-0.5 h-4 w-4 shrink-0", error ? "text-rose-600" : "text-amber-600")} aria-hidden />
-            <p className={error ? "text-rose-700" : "text-stone-600"}>
-              {error ?? (
-                <>
-                  To launch: {problems[0]}
-                  {problems.length > 1 ? ` (+${problems.length - 1} more)` : ""}
-                </>
-              )}
-            </p>
-          </div>
-        )}
-        <div className="flex flex-wrap justify-end gap-2">
-          {launched ? (
-            <button className={btn.primary} disabled={pending || problems.length > 0} onClick={() => save(false)} title={problems[0]}>
-              {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Save changes
-            </button>
-          ) : (
-            <>
-              <button className={btn.secondary} disabled={pending || !name.trim()} onClick={() => save(false)}>
-                Save draft
-              </button>
-              <button className={btn.primary} disabled={pending || problems.length > 0} onClick={() => setConfirm(true)}>
-                <Rocket className="h-4 w-4" aria-hidden /> Launch campaign
-              </button>
-            </>
+          {current === 0 && (
+            <DetailsStep name={name} onName={setName} accounts={options.accounts} accountIds={accountIds} onToggle={toggleSender} launched={launched} />
           )}
+          {current === 1 && (
+            <LeadsStep lists={options.lists} listId={listId} onList={setListId} locked={launched && !!initial?.listId} onImport={() => setImporting(true)} estimate={estimate} />
+          )}
+          {current === 2 && <ConfigureStep settings={settings} onSettings={setSettings} canChangeStart={canChangeStart} />}
+          {current === 3 && (
+            <div>
+              {!launched && (
+                <div className="mb-5 grid gap-2 sm:grid-cols-3">
+                  {(Object.keys(SEQUENCE_PRESETS) as SequencePreset[]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => choosePreset(p)}
+                      className={cx(
+                        "rounded-xl border px-4 py-3 text-left transition",
+                        preset === p ? "border-stone-900 bg-white ring-1 ring-stone-900" : "border-stone-200 bg-stone-50/60 hover:border-stone-300",
+                      )}
+                    >
+                      <p className="text-[15px] font-semibold text-stone-900">{SEQUENCE_PRESETS[p].label}</p>
+                      <p className="text-[14px] text-stone-500">{SEQUENCE_PRESETS[p].hint}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {notice && <p className="mb-4 rounded-xl bg-sky-50 px-4 py-3 text-[15px] text-sky-900">{notice}</p>}
+              <SequenceEditor
+                steps={steps}
+                settings={settings}
+                onSteps={(s) => {
+                  setSteps(s);
+                  setPreset(null);
+                }}
+                onSettings={setSettings}
+                locked={launched ? (initial?.steps.length ?? 0) : 0}
+              />
+            </div>
+          )}
+          {current === 4 && (
+            <div className="space-y-6">
+              <dl className="grid gap-x-6 gap-y-3 text-[15px] sm:grid-cols-2">
+                <Summary label="Campaign" value={name || "Not set"} onEdit={() => go(0)} />
+                <Summary label="Send from" value={senders.map((a) => a.label).join(", ") || "None chosen"} onEdit={() => go(0)} />
+                <Summary label="Lead list" value={list ? `${list.name} · ${listSize.toLocaleString()} leads` : "None chosen"} onEdit={() => go(1)} />
+                <Summary
+                  label="Who"
+                  value={`${settings.degrees.map((d) => DEGREE_LABEL[d]).join(", ")} connections${settings.premiumOnly ? ", Premium only" : ""}${settings.skipOtherCampaigns ? "" : ", including people in other campaigns"}`}
+                  onEdit={() => go(2)}
+                />
+                <Summary
+                  label="When"
+                  value={`${daysText(settings.days)}${settings.startAt ? `, from ${startText(settings.startAt)}` : ", starting right away"}`}
+                  onEdit={() => go(2)}
+                />
+                <Summary label="Sequence" value={steps.map(stepLabel).join(" → ") || "No steps"} onEdit={() => go(3)} />
+              </dl>
+              {estimate && <p className="text-[15px] text-stone-500">{estimate}</p>}
+              <div>
+                <h3 className="mb-1 text-[17px] font-semibold text-stone-900">Preview</h3>
+                <p className="mb-3 text-[15px] text-stone-500">Exactly what a few people from your list would receive.</p>
+                <Preview steps={steps} sample={list?.sample ?? []} />
+              </div>
+            </div>
+          )}
+        </Card>
+
+        <div className="sticky bottom-3 z-20 rounded-2xl border border-stone-200 bg-white/95 p-4 shadow-pop backdrop-blur">
+          {(error || here.length > 0 || (last && allProblems.length > 0)) && (
+            <div className="mb-3 flex items-start gap-2 text-[15px]">
+              <AlertCircle className={cx("mt-0.5 h-4 w-4 shrink-0", error ? "text-rose-600" : "text-amber-600")} aria-hidden />
+              <p className={error ? "text-rose-700" : "text-stone-600"}>
+                {error ?? (here.length > 0 ? `To continue: ${here[0]}` : `Before launching: ${allProblems[0]}`)}
+              </p>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex gap-2">
+              {current > 0 && (
+                <button className={btn.ghost} onClick={() => go(current - 1)} disabled={pending}>
+                  <ArrowLeft className="h-4 w-4" aria-hidden /> Back
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              {launched ? (
+                <button className={btn.primary} disabled={pending || allProblems.length > 0} onClick={() => save(false)} title={allProblems[0]}>
+                  {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Save changes
+                </button>
+              ) : (
+                <button className={btn.secondary} disabled={pending || !name.trim()} onClick={() => save(false)}>
+                  Save draft
+                </button>
+              )}
+              {!last && (
+                <button className={launched ? btn.secondary : btn.primary} disabled={here.length > 0} onClick={() => go(current + 1)}>
+                  Continue <ArrowRight className="h-4 w-4" aria-hidden />
+                </button>
+              )}
+              {last && !launched && (
+                <button className={btn.primary} disabled={pending || allProblems.length > 0} onClick={() => setConfirm(true)}>
+                  <Rocket className="h-4 w-4" aria-hidden /> Launch campaign
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -289,32 +276,33 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
       )}
 
       {confirm && senders.length > 0 && list && (
-        <Modal title="Launch this campaign?" onClose={() => setConfirm(false)} busy={pending}>
-          <ul className="space-y-2 text-[15px] text-stone-700">
-            <li>
-              <b>{senders.length === 1 ? senders[0]!.label : `${senders.length} accounts`}</b> {senders.length === 1 ? "starts" : "start"} working through <b>{list.coming ? `up to ${listSize.toLocaleString()}` : listSize.toLocaleString()}</b> leads in “{list.name}”
-              {list.coming ? " as they're collected" : ""}.
-            </li>
-            {senders.length > 1 && <li>Each lead goes to one account and stays with it, so nobody hears from two of your accounts.</li>}
-            <li>
-              Sends {daysText(settings.days).replace("Every day", "every day")}, in each account's working hours
-              {settings.startAt && waitingToStart(settings, new Date()) ? `, starting ${startText(settings.startAt)}` : ""}.
-            </li>
-            {usesInvites && invitesPerDay > 0 && <li>Up to {invitesPerDay} invites a day, so about {days} sending {days === 1 ? "day" : "days"} to invite everyone.</li>}
-            <li>Anyone already contacted, or in another campaign, is skipped. Follow-ups stop when someone replies.</li>
-            <li>You can pause at any time.</li>
-          </ul>
-          {error && <p className="mt-3 text-[15px] text-rose-700">{error}</p>}
-          <div className="mt-6 flex justify-end gap-2">
-            <button className={btn.secondary} onClick={() => setConfirm(false)} disabled={pending}>
-              Not yet
-            </button>
-            <button className={btn.primary} onClick={() => save(true)} disabled={pending}>
-              {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Rocket className="h-4 w-4" aria-hidden />} Launch
-            </button>
-          </div>
-        </Modal>
+        <LaunchModal
+          senders={senders}
+          list={list}
+          settings={settings}
+          usesInvites={usesInvites}
+          invitesPerDay={invitesPerDay}
+          days={days}
+          error={error}
+          pending={pending}
+          onCancel={() => setConfirm(false)}
+          onLaunch={() => save(true)}
+        />
       )}
+    </div>
+  );
+}
+
+function Summary({ label, value, onEdit }: { label: string; value: string; onEdit: () => void }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-stone-100 bg-stone-50/60 px-4 py-3">
+      <dt className="flex items-center justify-between text-[13px] font-medium uppercase tracking-wide text-stone-400">
+        {label}
+        <button type="button" onClick={onEdit} className="normal-case tracking-normal text-brand-800 hover:underline">
+          Edit
+        </button>
+      </dt>
+      <dd className="mt-0.5 break-words text-stone-800">{value}</dd>
     </div>
   );
 }

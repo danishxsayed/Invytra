@@ -1,5 +1,17 @@
 import { Prisma, type Campaign, type CampaignLead, type PrismaClient } from "@invytra/db";
-import { campaignSettingsSchema, hasInvite, missingVariables, waitingToStart, nameKey, plannedAction, type CampaignStep, type LeadState } from "@invytra/shared";
+import {
+  audienceIsFiltered,
+  audienceSkip,
+  campaignSettingsSchema,
+  hasInvite,
+  missingVariables,
+  waitingToStart,
+  nameKey,
+  plannedAction,
+  type CampaignSettings,
+  type CampaignStep,
+  type LeadState,
+} from "@invytra/shared";
 import type { Queue } from "bullmq";
 import { createActionRow, scheduleAction, type ActionJob } from "../queue/queue.js";
 import { applyFinishedActions, campaignPlan } from "./results.js";
@@ -71,8 +83,8 @@ export async function syncLeads(prisma: PrismaClient, c: Campaign): Promise<void
   if (!list || (c.leadsSyncedAt && c.leadsSyncedAt >= list.updatedAt)) return;
   const syncedAt = new Date();
   await prisma.$executeRaw(Prisma.sql`
-    INSERT INTO campaign_leads (id, campaign_id, workspace_id, lead_id, profile_url, first_name, last_name, company, title, state, step, created_at, updated_at)
-    SELECT gen_random_uuid()::text, ${c.id}, ${c.workspaceId}, l.id, l.profile_url, l.first_name, l.last_name, l.company, l.title,
+    INSERT INTO campaign_leads (id, campaign_id, workspace_id, lead_id, profile_url, first_name, last_name, company, title, degree, premium, state, step, created_at, updated_at)
+    SELECT gen_random_uuid()::text, ${c.id}, ${c.workspaceId}, l.id, l.profile_url, l.first_name, l.last_name, l.company, l.title, l.degree, l.premium,
            'QUEUED', 0, now(), now()
     FROM leads l
     WHERE l.list_id = ${c.listId} AND l.workspace_id = ${c.workspaceId}
@@ -140,7 +152,7 @@ const TYPES = ["PROFILE_VISIT", "CONNECTION_REQUEST", "MESSAGE", "CHECK_CONNECTI
  */
 async function queueDueLeads(deps: EngineDeps, c: Campaign, now: Date): Promise<number> {
   const { prisma } = deps;
-  const { steps } = campaignPlan(c);
+  const { steps, settings } = campaignPlan(c);
   if (steps.length === 0) return 0;
   const cap = deps.maxPendingPerType ?? 2;
 
@@ -201,7 +213,7 @@ async function queueDueLeads(deps: EngineDeps, c: Campaign, now: Date): Promise<
     }
     if (lead.state === "QUEUED") {
       // Decided up front (even when queues are full), so skipped leads show as skipped right away.
-      const skip = await skipReason(prisma, c, lead, steps);
+      const skip = await skipReason(prisma, c, lead, steps, settings);
       if (skip) {
         await prisma.campaignLead.update({ where: { id: lead.id }, data: { state: "SKIPPED", reason: skip, nextAt: null } });
         continue;
@@ -217,7 +229,9 @@ async function queueDueLeads(deps: EngineDeps, c: Campaign, now: Date): Promise<
       continue; // its sender is paused, disconnected or busy — the lead waits for it
     }
 
-    if (await enqueueStep(deps, c, lead, accountId, plan, now)) {
+    // Not contacted yet and we don't know yet if they fit the audience: the action checks their profile first.
+    const audience = audienceIsFiltered(settings) && !started ? { degrees: settings.degrees, premiumOnly: settings.premiumOnly } : undefined;
+    if (await enqueueStep(deps, c, lead, accountId, plan, now, audience)) {
       pending.set(`${accountId}:${plan.type}`, pendingOf(accountId, plan.type) + 1);
       if (lead.accountId !== accountId) load.set(accountId, (load.get(accountId) ?? 0) + 1);
       queued++;
@@ -227,8 +241,11 @@ async function queueDueLeads(deps: EngineDeps, c: Campaign, now: Date): Promise<
 }
 
 /** Why a lead should not be contacted at all, or null. */
-async function skipReason(prisma: PrismaClient, c: Campaign, lead: CampaignLead, steps: CampaignStep[]): Promise<string | null> {
-  const inOther = await prisma.campaignLead.findFirst({
+async function skipReason(prisma: PrismaClient, c: Campaign, lead: CampaignLead, steps: CampaignStep[], settings: CampaignSettings): Promise<string | null> {
+  // Known from a search import (or an earlier visit) to be outside who this campaign is for.
+  const outside = audienceSkip(settings, { degree: lead.degree, premium: lead.premium });
+  if (outside) return outside;
+  const inOther = settings.skipOtherCampaigns && await prisma.campaignLead.findFirst({
     where: {
       workspaceId: c.workspaceId,
       profileUrl: lead.profileUrl,
@@ -255,10 +272,18 @@ async function skipReason(prisma: PrismaClient, c: Campaign, lead: CampaignLead,
   return null;
 }
 
-async function enqueueStep(deps: EngineDeps, c: Campaign, lead: CampaignLead, accountId: string, plan: Planned, now: Date): Promise<boolean> {
+async function enqueueStep(
+  deps: EngineDeps,
+  c: Campaign,
+  lead: CampaignLead,
+  accountId: string,
+  plan: Planned,
+  now: Date,
+  audience?: Pick<CampaignSettings, "degrees" | "premiumOnly">,
+): Promise<boolean> {
   const { prisma, queue } = deps;
   const vars = { firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title };
-  const payload: Record<string, unknown> = { campaignId: c.id, vars };
+  const payload: Record<string, unknown> = { campaignId: c.id, vars, ...(audience && { audience }) };
   if (plan.type === "CONNECTION_REQUEST" && plan.note) payload.note = plan.note;
   if (plan.type === "MESSAGE") payload.text = plan.text;
   try {

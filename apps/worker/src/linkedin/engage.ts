@@ -1,13 +1,23 @@
+import type { Audience } from "@invytra/shared";
 import type { SessionTaskContext } from "../browser/types.js";
-import type { ActionOutcome } from "./actions.js";
-import { openProfile } from "./actions.js";
+import type { ActionOutcome, ProfileFacts } from "./actions.js";
+import { openProfile, outsideAudience } from "./actions.js";
 import { humanBrowse, humanClick, humanPause } from "./human.js";
 import { control, normalizeProfileUrl, readProfile, topCard } from "./profile.js";
 import { SELECTORS } from "./selectors.js";
 
 /** Like the person's most recent post (their activity page, newest first). */
-export async function likeLatestPost(ctx: SessionTaskContext, profileUrl: string): Promise<ActionOutcome<{ liked: boolean }>> {
+export async function likeLatestPost(ctx: SessionTaskContext, profileUrl: string, audience?: Audience): Promise<ActionOutcome<{ liked: boolean } & ProfileFacts>> {
   const { page } = ctx;
+  // First contact in a campaign with an audience: look at their profile card before liking anything.
+  let facts: ProfileFacts = {};
+  if (audience) {
+    const info = await openProfile(ctx, profileUrl, false);
+    if (info.status === "UNAVAILABLE") return { outcome: "SKIPPED", reason: "PROFILE_UNAVAILABLE" };
+    facts = { degree: info.degree, premium: info.premium };
+    const outside = outsideAudience(audience, info);
+    if (outside) return { outcome: "SKIPPED", reason: outside, data: { liked: false, ...facts } };
+  }
   const url = new URL(SELECTORS.activity.path, normalizeProfileUrl(profileUrl, ctx.baseUrl)).toString();
   const res = await page.goto(url, { waitUntil: "domcontentloaded" });
   await humanPause(page, 2000, 4000);
@@ -17,17 +27,17 @@ export async function likeLatestPost(ctx: SessionTaskContext, profileUrl: string
 
   const posts = page.locator(SELECTORS.activity.post).filter({ visible: true }).filter({ has: page.getByRole("button", { name: SELECTORS.activity.likeButton }) });
   if ((await posts.count()) === 0) {
-    return { outcome: "SKIPPED", reason: "NO_POSTS" };
+    return { outcome: "SKIPPED", reason: "NO_POSTS", data: { liked: false, ...facts } };
   }
   const like = posts.first().getByRole("button", { name: SELECTORS.activity.likeButton }).filter({ visible: true }).first();
-  if ((await like.getAttribute("aria-pressed")) === "true") return { outcome: "SKIPPED", reason: "ALREADY_LIKED" };
+  if ((await like.getAttribute("aria-pressed")) === "true") return { outcome: "SKIPPED", reason: "ALREADY_LIKED", data: { liked: false, ...facts } };
   await humanPause(page, 800, 2000);
   await humanClick(page, like);
   await humanPause(page, 1200, 2500);
   await ctx.assertHealthy();
   const pressed = await like.getAttribute("aria-pressed");
   if (pressed === "false") throw new Error("The like didn't register");
-  return { outcome: "DONE", data: { liked: true } };
+  return { outcome: "DONE", data: { liked: true, ...facts } };
 }
 
 /** Withdraw a pending invitation from the person's profile. */

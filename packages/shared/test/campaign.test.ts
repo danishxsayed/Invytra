@@ -10,6 +10,11 @@ import {
   plannedAction,
   sequenceProblems,
   sequenceSchema,
+  audienceIsFiltered,
+  audienceProblems,
+  audienceSkip,
+  parseDegree,
+  type CampaignSettings,
   type CampaignStep,
   type FlowLead,
 } from "../src/index.js";
@@ -141,7 +146,7 @@ describe("reply matching names", () => {
 
 describe("campaign sending days and start date", () => {
   it("defaults to Monday–Friday, starting right away (older campaigns too)", () => {
-    expect(campaignSettingsSchema.parse({})).toEqual({ acceptWithinDays: 21, days: [1, 2, 3, 4, 5], startAt: null, withdrawExpired: true });
+    expect(campaignSettingsSchema.parse({})).toEqual({ acceptWithinDays: 21, days: [1, 2, 3, 4, 5], startAt: null, withdrawExpired: true, degrees: [1, 2, 3], premiumOnly: false, skipOtherCampaigns: true });
   });
   it("allows weekends, sorted and without repeats", () => {
     expect(campaignSettingsSchema.parse({ days: [7, 6, 6, 1] }).days).toEqual([1, 6, 7]);
@@ -195,5 +200,47 @@ describe("like and withdraw steps", () => {
     expect(
       applyResult(steps, { ...S, withdrawExpired: false }, waiting, { type: "CHECK_CONNECTION", status: "SUCCEEDED", error: null, connection: "PENDING" }, now),
     ).toMatchObject({ state: "NOT_ACCEPTED", reason: "EXPIRED" });
+  });
+});
+
+describe("campaign audience", () => {
+  const settings = (o: Partial<CampaignSettings> = {}) => campaignSettingsSchema.parse(o);
+
+  it("older campaigns include everyone and skip other campaigns", () => {
+    const s = settings();
+    expect(s.degrees).toEqual([1, 2, 3]);
+    expect(s.premiumOnly).toBe(false);
+    expect(s.skipOtherCampaigns).toBe(true);
+    expect(audienceIsFiltered(s)).toBe(false);
+  });
+
+  it("reads connection degrees only from degree-shaped text", () => {
+    expect(parseDegree("· 2nd")).toBe(2);
+    expect(parseDegree("Kenny Stewart • 3rd+")).toBe(3);
+    expect(parseDegree("1st")).toBe(1);
+    expect(parseDegree("3rd+ degree connection")).toBe(3);
+    expect(parseDegree("2nd degree connection")).toBe(2);
+    expect(parseDegree("1st Choice Flooring")).toBeNull();
+    expect(parseDegree("Founder at 21st Century Ltd")).toBeNull();
+    expect(parseDegree(null)).toBeNull();
+  });
+
+  it("skips known non-matches and lets unknowns through", () => {
+    const a = settings({ degrees: [2, 3], premiumOnly: true });
+    expect(audienceSkip(a, { degree: 1 })).toBe("AUDIENCE:DEGREE_1");
+    expect(audienceSkip(a, { degree: 2, premium: false })).toBe("AUDIENCE:NOT_PREMIUM");
+    expect(audienceSkip(a, { degree: 3, premium: true })).toBeNull();
+    expect(audienceSkip(a, {})).toBeNull();
+  });
+
+  it("a message-only campaign must include 1st-degree connections", () => {
+    const steps: CampaignStep[] = [{ type: "MESSAGE", text: "Hi", delayDays: 0 }];
+    expect(audienceProblems(steps, settings({ degrees: [2, 3] }))[0]).toMatch(/only message 1st-degree/);
+    expect(audienceProblems(steps, settings({ degrees: [1] }))).toEqual([]);
+  });
+
+  it("an audience skip found on the profile stops the lead", () => {
+    const u = applyResult([], settings(), { state: "IN_PROGRESS", step: 0, invitedAt: null, connectedAt: null }, { type: "LIKE_POST", status: "SKIPPED", error: "AUDIENCE:DEGREE_3" }, new Date());
+    expect(u).toMatchObject({ state: "SKIPPED", reason: "AUDIENCE:DEGREE_3" });
   });
 });

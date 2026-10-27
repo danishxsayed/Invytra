@@ -1,4 +1,4 @@
-import { cleanPersonName, RESULTS_PER_PAGE, splitName, type SearchKind } from "@invytra/shared";
+import { cleanPersonName, parseDegree, RESULTS_PER_PAGE, splitName, type Degree, type SearchKind } from "@invytra/shared";
 import type { SessionTaskContext } from "../browser/types.js";
 import { humanPause } from "./human.js";
 import { SEARCH_MARKERS, SELECTORS } from "./selectors.js";
@@ -12,6 +12,10 @@ export interface FoundPerson {
   title: string | null;
   company: string | null;
   location: string | null;
+  /** Connection degree shown in the results (1, 2, 3 = 3rd+), if shown. */
+  degree?: Degree | null;
+  /** Premium badge shown next to the name. */
+  premium?: boolean;
 }
 
 export interface SearchPageResult {
@@ -86,6 +90,8 @@ export async function readSearchPage(ctx: SessionTaskContext, url: string, kind:
       title: r.title || null,
       company: r.company || companyFromHeadline(r.title) || null,
       location: r.location || null,
+      degree: parseDegree(r.name) ?? r.degreeLines.map(parseDegree).find((d) => d !== null) ?? null,
+      premium: r.premium,
     });
   }
 
@@ -103,13 +109,16 @@ interface RawResult {
   title: string;
   company: string;
   location: string;
+  /** Short lines of the result that may hold the degree ("• 2nd", "3rd"). */
+  degreeLines: string[];
+  premium: boolean;
 }
 
 /** LinkedIn people search. No named helper functions inside evaluate (tsx adds a __name helper the page lacks). */
 async function readLinkedIn(ctx: SessionTaskContext): Promise<RawResult[]> {
   return ctx.page.locator(SELECTORS.search.profileLink).evaluateAll(
     (links, sel) => {
-      const out: { path: string; name: string; title: string; company: string; location: string }[] = [];
+      const out: { path: string; name: string; title: string; company: string; location: string; degreeLines: string[]; premium: boolean }[] = [];
       const done = new Set<string>();
       for (const a of links as HTMLAnchorElement[]) {
         const m = /\/in\/([^/?#]+)/.exec(a.getAttribute("href") ?? "");
@@ -126,11 +135,13 @@ async function readLinkedIn(ctx: SessionTaskContext): Promise<RawResult[]> {
           (l) => l !== name && !/^[•·]?\s*(1st|2nd|3rd\+?)$/i.test(l) && !/degree connection/i.test(l) && !/^view .*profile/i.test(l) &&
             !/^(connect|message|follow|pending)$/i.test(l) && !/mutual connection|followers$/i.test(l) && l !== "•" && l !== "·",
         );
-        out.push({ path, name, title: rest[0] ?? "", company: "", location: rest[1] ?? "" });
+        const degreeLines = lines;
+        const premium = !!box?.querySelector(sel.premium);
+        out.push({ path, name, title: rest[0] ?? "", company: "", location: rest[1] ?? "", degreeLines, premium });
       }
       return out;
     },
-    { linkName: SELECTORS.search.linkName, result: SELECTORS.search.result },
+    { linkName: SELECTORS.search.linkName, result: SELECTORS.search.result, premium: SELECTORS.profile.premiumBadge },
   );
 }
 
@@ -138,7 +149,7 @@ async function readLinkedIn(ctx: SessionTaskContext): Promise<RawResult[]> {
 async function readSales(ctx: SessionTaskContext): Promise<RawResult[]> {
   return ctx.page.locator(SELECTORS.search.salesLeadLink).evaluateAll(
     (links, sel) => {
-      const out: { path: string; name: string; title: string; company: string; location: string }[] = [];
+      const out: { path: string; name: string; title: string; company: string; location: string; degreeLines: string[]; premium: boolean }[] = [];
       const done = new Set<string>();
       for (const a of links as HTMLAnchorElement[]) {
         const m = /\/sales\/lead\/([^,/?#]+)/.exec(a.getAttribute("href") ?? "");
@@ -150,10 +161,18 @@ async function readSales(ctx: SessionTaskContext): Promise<RawResult[]> {
         const name = pick(sel.name) || (a.textContent ?? "").replace(/\s+/g, " ").trim();
         if (!name) continue;
         done.add(path);
-        out.push({ path, name, title: pick(sel.title), company: pick(sel.company), location: pick(sel.location) });
+        const degreeLines = (box?.innerText ?? "").split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+        const premium = !!box?.querySelector(sel.premium);
+        out.push({ path, name, title: pick(sel.title), company: pick(sel.company), location: pick(sel.location), degreeLines, premium });
       }
       return out;
     },
-    { name: SELECTORS.search.salesName, title: SELECTORS.search.salesTitle, company: SELECTORS.search.salesCompany, location: SELECTORS.search.salesLocation },
+    {
+      name: SELECTORS.search.salesName,
+      title: SELECTORS.search.salesTitle,
+      company: SELECTORS.search.salesCompany,
+      location: SELECTORS.search.salesLocation,
+      premium: SELECTORS.profile.premiumBadge,
+    },
   );
 }

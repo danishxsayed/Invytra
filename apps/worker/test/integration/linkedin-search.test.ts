@@ -59,13 +59,15 @@ describe("reading search pages (fake site)", { timeout: 60_000 }, () => {
     const d = (r as { data: { people: { profileUrl: string; firstName: string | null; lastName: string | null; title: string | null; company: string | null; location: string | null }[]; hasNext: boolean } }).data;
     expect(d.people.map((p) => p.profileUrl.replace("https://www.linkedin.com", ""))).toEqual(["/in/alice/", "/in/bob/", "/in/olga/", "/in/ivan/"]);
     expect(d.people[0]).toMatchObject({ firstName: "Alice", lastName: "Smith", title: "Founder at Acme", company: "Acme", location: "Pune, Maharashtra, India" });
-    expect(d.people[2]).toMatchObject({ firstName: "Olga", lastName: "Old" }); // ", MBA" dropped
+    expect(d.people[2]).toMatchObject({ firstName: "Olga", lastName: "Old", degree: 3 }); // ", MBA" dropped
+    expect(d.people[0]).toMatchObject({ degree: 2, premium: false });
     expect(d.hasNext).toBe(true);
   });
 
   it("knows the last page", async () => {
     const r = await run((ctx) => readSearchPage(ctx, `${base}/search/results/people/?keywords=founders&page=2`, "LINKEDIN_SEARCH"));
     expect(r).toMatchObject({ outcome: "DONE", data: { hasNext: false } });
+    expect((r as { data: { people: { firstName: string | null; premium?: boolean }[] } }).data.people.find((p) => p.firstName === "Pam")).toMatchObject({ premium: true });
     const r3 = await run((ctx) => readSearchPage(ctx, `${base}/search/results/people/?keywords=founders&page=3`, "LINKEDIN_SEARCH"));
     expect(r3).toMatchObject({ outcome: "DONE", data: { people: [], hasNext: false } });
   });

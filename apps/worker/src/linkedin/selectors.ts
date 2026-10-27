@@ -87,6 +87,12 @@ export const SELECTORS = {
     messageControl: /^Message\b/i,
     /** Connection degree line, e.g. "· 1st" / "· 2nd". */
     firstDegree: /·\s*1st\b/,
+    /**
+     * LinkedIn Premium badge (the gold "in" next to the name). UNVERIFIED on the real 2026 layout:
+     * check a Premium profile and fix here if "Premium only" campaigns skip Premium members.
+     */
+    premiumBadge:
+      '[data-test-icon*="premium" i], [aria-label*="Premium member" i], [aria-label="Premium" i], [title*="Premium member" i], .pv-member-badge--for-top-card, .premium-icon',
   },
   invite: {
     /** ARIA dialogs, alert dialogs, and native <dialog> elements (no explicit role attribute). */

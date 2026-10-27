@@ -11,3 +11,4 @@ export * from "./campaign.js";
 export * from "./campaign-flow.js";
 export * from "./search-url.js";
 export * from "./pricing.js";
+export * from "./audience.js";

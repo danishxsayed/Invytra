@@ -1,4 +1,4 @@
-import { CONNECTION_NOTE_MAX_CHARS, fillTemplate as fillShared, type TemplateVars } from "@invytra/shared";
+import { CONNECTION_NOTE_MAX_CHARS, audienceSkip, fillTemplate as fillShared, type Audience, type TemplateVars } from "@invytra/shared";
 import type { SessionTaskContext } from "../browser/types.js";
 import { humanBrowse, humanClick, humanPause, humanType } from "./human.js";
 import {
@@ -30,6 +30,23 @@ export class InviteLimitReachedError extends Error {
   }
 }
 
+/** What a profile showed about who they are (stored on the campaign lead). */
+export interface ProfileFacts {
+  degree?: number | null;
+  premium?: boolean;
+}
+
+const factsOf = (info: ProfileInfo): ProfileFacts => ({ degree: info.degree, premium: info.premium });
+
+/**
+ * A campaign's audience check on first contact: "AUDIENCE:…" if this person is outside it
+ * (wrong connection level, or not Premium when only Premium members are wanted).
+ */
+export function outsideAudience(audience: Audience | undefined, info: ProfileInfo): string | null {
+  if (!audience || info.status === "UNAVAILABLE") return null;
+  return audienceSkip(audience, { degree: info.degree, premium: info.premium });
+}
+
 export async function openProfile(ctx: SessionTaskContext, profileUrl: string, browse: boolean): Promise<ProfileInfo> {
   const url = normalizeProfileUrl(profileUrl, ctx.baseUrl);
   await ctx.page.goto(url, { waitUntil: "domcontentloaded" });
@@ -45,9 +62,11 @@ async function pageMentions(ctx: SessionTaskContext, markers: readonly string[])
 }
 
 /** 1. Visit a profile like a person would (scroll, pause) and read the header. */
-export async function visitProfile(ctx: SessionTaskContext, profileUrl: string): Promise<ActionOutcome<ProfileInfo>> {
+export async function visitProfile(ctx: SessionTaskContext, profileUrl: string, audience?: Audience): Promise<ActionOutcome<ProfileInfo>> {
   const info = await openProfile(ctx, profileUrl, true);
   if (info.status === "UNAVAILABLE") return { outcome: "SKIPPED", reason: "PROFILE_UNAVAILABLE", data: info };
+  const outside = outsideAudience(audience, info);
+  if (outside) return { outcome: "SKIPPED", reason: outside, data: info };
   return { outcome: "DONE", data: info };
 }
 
@@ -55,9 +74,9 @@ export async function visitProfile(ctx: SessionTaskContext, profileUrl: string):
 export async function checkConnectionStatus(
   ctx: SessionTaskContext,
   profileUrl: string,
-): Promise<ActionOutcome<{ status: ConnectionStatus; name: string }>> {
+): Promise<ActionOutcome<{ status: ConnectionStatus; name: string } & ProfileFacts>> {
   const info = await openProfile(ctx, profileUrl, false);
-  return { outcome: "DONE", data: { status: info.status, name: info.name } };
+  return { outcome: "DONE", data: { status: info.status, name: info.name, ...factsOf(info) } };
 }
 
 export interface InviteOptions {
@@ -69,9 +88,11 @@ export interface InviteOptions {
   notesBlocked?: boolean;
   /** Lead details for {firstName}, {company}, … (names fall back to the profile). */
   vars?: TemplateVars;
+  /** The campaign's audience, checked before a first contact. */
+  audience?: Audience;
 }
 
-export interface InviteResult {
+export interface InviteResult extends ProfileFacts {
   name: string;
   withNote: boolean;
   /** LinkedIn said this account is out of free custom notes. */
@@ -95,7 +116,9 @@ export async function sendConnectionRequest(
   if (filledNote && filledNote.length > CONNECTION_NOTE_MAX_CHARS) {
     throw new Error(`Note is ${filledNote.length} characters after filling in the name; LinkedIn allows ${CONNECTION_NOTE_MAX_CHARS}`);
   }
-  const data: InviteResult = { name: info.name, withNote: false };
+  const data: InviteResult = { name: info.name, withNote: false, ...factsOf(info) };
+  const outside = outsideAudience(opts.audience, info);
+  if (outside) return { outcome: "SKIPPED", reason: outside, data };
   if (info.status !== "NOT_CONNECTED") return { outcome: "SKIPPED", reason: info.status, data };
   // A placeholder with no value (e.g. {company} for a lead without one): never send "Hi ,".
   if (filledNote === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
@@ -224,14 +247,18 @@ export async function sendMessage(
   profileUrl: string,
   text: string,
   vars: TemplateVars = {},
-): Promise<ActionOutcome<{ name: string }>> {
+  audience?: Audience,
+): Promise<ActionOutcome<{ name: string } & ProfileFacts>> {
   const body = text.trim();
   if (!body) throw new Error("Message text is empty");
   const { page } = ctx;
   const info = await openProfile(ctx, profileUrl, false);
-  if (info.status !== "CONNECTED") return { outcome: "SKIPPED", reason: `NOT_CONNECTED (${info.status})`, data: { name: info.name } };
+  const data = { name: info.name, ...factsOf(info) };
+  const outside = outsideAudience(audience, info);
+  if (outside) return { outcome: "SKIPPED", reason: outside, data };
+  if (info.status !== "CONNECTED") return { outcome: "SKIPPED", reason: `NOT_CONNECTED (${info.status})`, data };
   const filled = fillTemplate(body, info.name, vars);
-  if (filled === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data: { name: info.name } };
+  if (filled === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
 
   await humanClick(page, control(topCard(page), SELECTORS.profile.messageControl).first());
   const box = page.locator(SELECTORS.message.composeBox).filter({ visible: true }).last();
@@ -252,7 +279,7 @@ export async function sendMessage(
 
   const close = page.getByRole("button", { name: SELECTORS.message.closeConversation }).filter({ visible: true });
   if ((await close.count()) > 0) await humanClick(page, close.first());
-  return { outcome: "DONE", data: { name: info.name } };
+  return { outcome: "DONE", data };
 }
 
 // The inbox moved to ./inbox.ts; re-exported for older imports.
