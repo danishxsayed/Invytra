@@ -24,7 +24,7 @@ interface Props {
     label: string;
     timezone: string;
     limits: Limits;
-    workingHours: { days: number[]; startHour: number; endHour: number };
+    workingHours: { days: number[]; startHour: number; endHour: number; startAt?: string | null };
     warmup: boolean;
     proxy: string | null;
   };
@@ -35,6 +35,13 @@ interface Props {
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const HOURS = Array.from({ length: 25 }, (_, h) => h);
 const hh = (h: number) => `${String(h).padStart(2, "0")}:00`;
+
+/** yyyy-mm-dd in the browser's time zone, for <input type="date">. */
+function localDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const LIMIT_ROWS: { key: keyof Omit<Limits, "randomizeDaily">; label: string; hint: string; warnAbove: number }[] = [
   { key: "connectionRequestsPerDay", label: "Connection requests per day", hint: "LinkedIn watches invites most closely.", warnAbove: 25 },
@@ -150,7 +157,10 @@ export function SettingsForm({ id, zones, proxyRequired, initial, defaults, max 
         />
       </Section>
 
-      <Section title="Working hours" description="Actions only run in these hours, in the account's own time zone. Each campaign picks its own sending days; these days apply to everything else.">
+      <Section
+        title="Sending days and hours"
+        description="Campaigns and imports from this account only run on these days and hours, in the account's own time zone."
+      >
         <div>
           <span className="text-[15px] font-medium text-stone-700">Days</span>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -195,6 +205,32 @@ export function SettingsForm({ id, zones, proxyRequired, initial, defaults, max 
         </div>
         <Field label="Time zone">
           <TimeZoneSelect zones={zones} value={timezone} onChange={setTimezone} />
+        </Field>
+        <Field
+          label="Start sending from"
+          hint={
+            hours.startAt && new Date(hours.startAt) > new Date()
+              ? "This account's campaigns wait until this date. Clear it to start right away."
+              : "Optional. Leave empty to send as soon as a campaign is launched."
+          }
+        >
+          <div className="flex gap-2">
+            <input
+              type="date"
+              className={inputCls}
+              min={localDate(new Date().toISOString())}
+              value={localDate(hours.startAt)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setHours((h) => ({ ...h, startAt: v ? new Date(`${v}T00:00:00`).toISOString() : null }));
+              }}
+            />
+            {hours.startAt && (
+              <button type="button" className={cx(btn.ghost, "mt-1.5")} onClick={() => setHours((h) => ({ ...h, startAt: null }))}>
+                Clear
+              </button>
+            )}
+          </div>
         </Field>
       </Section>
 

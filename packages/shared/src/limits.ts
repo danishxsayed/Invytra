@@ -36,6 +36,8 @@ export const MAX_LIMITS = {
  * hit a monthly "commercial use" search limit.
  */
 export const SEARCH_PAGES_PER_DAY = 50;
+/** "Fetch all prospects at once": enough for a whole search (LinkedIn shows at most 100 pages). */
+export const FETCH_ALL_SEARCH_PAGES_PER_DAY = 100;
 
 /** Connection-request note limit enforced by LinkedIn. */
 export const CONNECTION_NOTE_MAX_CHARS = 300;

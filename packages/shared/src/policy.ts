@@ -32,12 +32,14 @@ export function canExecute(
   account: AccountPolicyInput,
   usage: UsageCounts,
   now: Date = new Date(),
+  /** Search pages allowed today (higher for "fetch all prospects at once"). */
+  searchPagesPerDay: number = SEARCH_PAGES_PER_DAY,
 ): PolicyDecision {
   if (account.status !== "ACTIVE") return { allowed: false, reason: "ACCOUNT_NOT_ACTIVE" };
   if (!isWithinWorkingHours(now, account.timeZone, account.workingHours)) {
     return { allowed: false, reason: "OUTSIDE_WORKING_HOURS" };
   }
-  if (type === "SEARCH_PAGE" && (usage.today.SEARCH_PAGE ?? 0) >= SEARCH_PAGES_PER_DAY) {
+  if (type === "SEARCH_PAGE" && (usage.today.SEARCH_PAGE ?? 0) >= searchPagesPerDay) {
     return { allowed: false, reason: "DAILY_LIMIT_REACHED" };
   }
   const bucket = limitBucket(type);

@@ -6,6 +6,8 @@ import {
   hasInvite,
   missingVariables,
   waitingToStart,
+  waitingForAccountStart,
+  workingHoursSchema,
   nameKey,
   plannedAction,
   type CampaignSettings,
@@ -158,11 +160,14 @@ async function queueDueLeads(deps: EngineDeps, c: Campaign, now: Date): Promise<
 
   const senders = await prisma.campaignSender.findMany({
     where: { campaignId: c.id },
-    select: { accountId: true, account: { select: { status: true } } },
+    select: { accountId: true, account: { select: { status: true, workingHours: true } } },
     orderBy: { createdAt: "asc" },
   });
   const senderIds = new Set(senders.map((s) => s.accountId));
-  const ready = senders.filter((s) => s.account.status === "ACTIVE").map((s) => s.accountId);
+  // Connected, and not waiting for its start date (Accounts → Settings).
+  const ready = senders
+    .filter((s) => s.account.status === "ACTIVE" && !waitingForAccountStart(workingHoursSchema.safeParse(s.account.workingHours).data ?? {}, now))
+    .map((s) => s.accountId);
 
   // How many campaign actions of each kind already wait in each sender's queue (all campaigns).
   const pendingRows = await prisma.action.groupBy({

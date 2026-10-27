@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   ACTION_DELAY_SECONDS,
   SEARCH_PAGES_PER_DAY,
+  FETCH_ALL_SEARCH_PAGES_PER_DAY,
+  waitingForAccountStart,
+  workingHoursSchema,
   DEFAULT_LIMITS,
   DEFAULT_WORKING_HOURS,
   canExecute,
@@ -124,5 +127,20 @@ describe("search pages and new actions", () => {
     const full: UsageCounts = { ...noUsage, today: { ...noUsage.today, PROFILE_VISIT: DEFAULT_LIMITS.profileVisitsPerDay } };
     expect(canExecute("LIKE_POST", account, full, WED_MORNING_IST)).toMatchObject({ allowed: false });
     expect(canExecute("WITHDRAW_INVITE", account, full, WED_MORNING_IST)).toMatchObject({ allowed: false });
+  });
+});
+
+describe("fetch all prospects at once", () => {
+  it("allows more search pages a day only when asked", () => {
+    const account = { status: "ACTIVE" as const, timeZone: "Asia/Kolkata", workingHours: { days: [1, 2, 3, 4, 5, 6, 7], startHour: 0, endHour: 24 }, limits: DEFAULT_LIMITS };
+    const usage: UsageCounts = { today: { PROFILE_VISIT: 0, CONNECTION_REQUEST: 0, MESSAGE: 0, SEARCH_PAGE: SEARCH_PAGES_PER_DAY }, connectionRequestsThisWeek: 0 };
+    expect(canExecute("SEARCH_PAGE", account, usage)).toEqual({ allowed: false, reason: "DAILY_LIMIT_REACHED" });
+    expect(canExecute("SEARCH_PAGE", account, usage, new Date(), FETCH_ALL_SEARCH_PAGES_PER_DAY)).toEqual({ allowed: true });
+  });
+  it("an account start date in the future holds its campaigns", () => {
+    const now = new Date("2026-10-27T06:00:00Z");
+    expect(waitingForAccountStart({ startAt: "2026-11-02T00:00:00.000Z" }, now)).toBe(true);
+    expect(waitingForAccountStart({ startAt: null }, now)).toBe(false);
+    expect(workingHoursSchema.safeParse({ days: [1], startHour: 9, endHour: 18 }).success).toBe(true);
   });
 });

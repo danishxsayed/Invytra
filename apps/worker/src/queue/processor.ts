@@ -1,9 +1,9 @@
 import type { PrismaClient } from "@invytra/db";
-import { ACTION_DELAY_SECONDS, SEARCH_DELAY_SECONDS, randomActionDelayMs } from "@invytra/shared";
+import { ACTION_DELAY_SECONDS, FETCH_ALL_SEARCH_PAGES_PER_DAY, SEARCH_DELAY_SECONDS, randomActionDelayMs } from "@invytra/shared";
 import type { SessionManagerDeps } from "../browser/session-manager.js";
 import { isRetryable, workFor } from "../actions/registry.js";
 import { accountSettings, checkPolicy, executeActionRow } from "../actions/run-action.js";
-import { hoursForAction, isOnDemandInboxCheck } from "../campaigns/sending-days.js";
+import { hoursForAction, isFetchAllPage, isOnDemandInboxCheck } from "../campaigns/sending-days.js";
 import type { PacingStore } from "./pacing.js";
 import {
   CLAIM_HOLD_MS,
@@ -59,7 +59,8 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
 
   // 1. Limits, working hours, account status
   const hours = await hoursForAction(prisma, action, accountSettings(action.account).hours);
-  const decision = await checkPolicy(prisma, action.account, action.type, now, deps.ignoreWorkingHours, hours);
+  const pages = isFetchAllPage(action) ? FETCH_ALL_SEARCH_PAGES_PER_DAY : undefined;
+  const decision = await checkPolicy(prisma, action.account, action.type, now, deps.ignoreWorkingHours, hours, pages);
   if (!decision.allowed) {
     return defer(rescheduleFor(decision.reason, now, action.account.timezone, hours), decision.reason);
   }

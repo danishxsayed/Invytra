@@ -81,3 +81,52 @@ d("search imports", () => {
     expect(await prisma.leadImport.findUniqueOrThrow({ where: { id: "imp-2" } })).toMatchObject({ status: "FAILED", reason: "NO_SALES_NAV", actionId: null });
   });
 });
+
+d("search imports: facts and fetch-all", () => {
+  let prisma: PrismaClient;
+  const WS = "ws-import2";
+  const queue = { add: async () => undefined } as unknown as Queue<ActionJob>;
+  const imp = () => prisma.leadImport.findUniqueOrThrow({ where: { id: "imp-2" } });
+
+  beforeAll(async () => {
+    prisma = new PrismaClient({ datasources: { db: { url } } });
+    await prisma.workspace.deleteMany({ where: { id: WS } });
+    await prisma.workspace.create({ data: { id: WS, name: "Import 2" } });
+    await prisma.linkedinAccount.create({ data: { id: "acc-i2", workspaceId: WS, label: "i2", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE" } });
+    await prisma.leadList.create({ data: { id: "list-i2", workspaceId: WS, name: "Flooring" } });
+    await prisma.leadImport.create({
+      data: { id: "imp-2", workspaceId: WS, listId: "list-i2", accountId: "acc-i2", kind: "LINKEDIN_SEARCH", url: "https://www.linkedin.com/search/results/people/?keywords=floor", maxLeads: 50 },
+    });
+    await prisma.campaign.create({ data: { id: "camp-fetch", workspaceId: WS, name: "Fetch", listId: "list-i2", steps: [], settings: { fetchAllAtOnce: true } } });
+  });
+  afterAll(async () => {
+    await prisma.workspace.deleteMany({ where: { id: WS } });
+    await prisma.$disconnect();
+  });
+
+  it("keeps connection level and Premium from the results; a 'fetch all at once' campaign lifts the daily page allowance", async () => {
+    await importTick({ prisma, queue });
+    const first = await prisma.action.findUniqueOrThrow({ where: { id: (await imp()).actionId! } });
+    expect(first.payload).toMatchObject({ fetchAll: true });
+    await prisma.action.update({
+      where: { id: first.id },
+      data: {
+        status: "SUCCEEDED",
+        executedAt: new Date(),
+        payload: { ...(first.payload as object), result: { people: [{ ...person("gus", "Gus"), degree: 3, premium: true }, { ...person("hal", "Hal"), degree: 2, premium: false }], hasNext: true } },
+      },
+    });
+    await importTick({ prisma, queue });
+    expect(await prisma.lead.findFirst({ where: { listId: "list-i2", profileUrl: U("gus") } })).toMatchObject({ degree: 3, premium: true });
+    // No badge in a search result isn't proof they lack Premium.
+    expect(await prisma.lead.findFirst({ where: { listId: "list-i2", profileUrl: U("hal") } })).toMatchObject({ degree: 2, premium: null });
+    // Without such a campaign, pages keep the normal allowance.
+    await prisma.campaign.delete({ where: { id: "camp-fetch" } });
+    const second = await prisma.action.findUniqueOrThrow({ where: { id: (await imp()).actionId! } });
+    expect(second.payload).toMatchObject({ fetchAll: true }); // queued before the change
+    await prisma.action.update({ where: { id: second.id }, data: { status: "SUCCEEDED", executedAt: new Date(), payload: { ...(second.payload as object), result: { people: [person("ivy", "Ivy")], hasNext: true } } } });
+    await importTick({ prisma, queue });
+    const third = await prisma.action.findUniqueOrThrow({ where: { id: (await imp()).actionId! } });
+    expect(third.payload).not.toHaveProperty("fetchAll");
+  });
+});

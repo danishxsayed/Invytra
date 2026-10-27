@@ -5,10 +5,8 @@ import {
   DEGREE_LABEL,
   SEQUENCE_PRESETS,
   audienceProblems,
-  daysText,
   hasInvite,
   sequenceProblems,
-  waitingToStart,
   type CampaignSettings,
   type CampaignStep,
   type SequencePreset,
@@ -18,7 +16,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { saveCampaignAction } from "@/app/app/campaigns/actions";
 import type { BuilderOptions } from "@/lib/campaigns";
-import { startText, stepLabel } from "@/lib/campaign-text";
+import { stepLabel } from "@/lib/campaign-text";
 import { btn } from "../AccountControls";
 import { ImportLeads } from "../ImportLeads";
 import { Card, cx } from "../ui";
@@ -41,7 +39,7 @@ export interface BuilderInitial {
 const STEPS: WizardStep[] = [
   { key: "details", label: "Details", hint: "Name and sending accounts" },
   { key: "leads", label: "Add people", hint: "The lead list to work through" },
-  { key: "configure", label: "Configure", hint: "Who to include, and when" },
+  { key: "configure", label: "Configure", hint: "Who to include, and how" },
   { key: "sequence", label: "Sequence", hint: "Visits, invites and messages" },
   { key: "review", label: "Review & launch", hint: "Preview what people receive" },
 ];
@@ -82,7 +80,6 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
     if (!listId) leads.push("Choose a lead list.");
     else if (list && list.count === 0 && list.coming === 0) leads.push("The lead list is empty.");
     const configure: string[] = [];
-    if (settings.days.length === 0) configure.push("Pick at least one day to send on.");
     if (settings.degrees.length === 0) configure.push("Pick at least one connection level.");
     const sequence = [...sequenceProblems(steps), ...audienceProblems(steps, settings)];
     return [details, leads, configure, sequence, []];
@@ -93,8 +90,6 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
   const canOpen = (i: number) => launched || i <= reached || complete.slice(0, i).every(Boolean);
   const done = complete.map((c, i) => c && (i < reached || i < current || launched));
 
-  const canChangeStart = !launched || waitingToStart(initial!.settings, new Date());
-  const perWeek = settings.days.length || 5;
   const toggleSender = (id: string) => setAccountIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   const invitesPerDay = senders.filter((a) => a.status !== "DISCONNECTED").reduce((n, a) => n + inviteLimit(a), 0);
   const usesInvites = hasInvite(steps);
@@ -102,7 +97,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
   const days = list && invitesPerDay ? Math.max(1, Math.ceil(listSize / (usesInvites ? invitesPerDay : 40 * senders.length))) : 0;
   const estimate =
     list && usesInvites && invitesPerDay > 0
-      ? `At up to ${invitesPerDay} invites a day${senders.length > 1 ? ` across ${senders.length} accounts` : ""}, inviting ${list.coming ? "up to " : "all "}${listSize.toLocaleString()} leads takes about ${days} sending ${days === 1 ? "day" : "days"}${days > perWeek ? ` (about ${Math.ceil(days / perWeek)} weeks at ${daysText(settings.days)})` : ""}. New leads added to this list later join the campaign automatically.`
+      ? `At up to ${invitesPerDay} invites a day${senders.length > 1 ? ` across ${senders.length} accounts` : ""}, inviting ${list.coming ? "up to " : "all "}${listSize.toLocaleString()} leads takes about ${days} sending ${days === 1 ? "day" : "days"}. New leads added to this list later join the campaign automatically.`
       : null;
 
   const go = (i: number) => {
@@ -158,7 +153,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
           {current === 1 && (
             <LeadsStep lists={options.lists} listId={listId} onList={setListId} locked={launched && !!initial?.listId} onImport={() => setImporting(true)} estimate={estimate} />
           )}
-          {current === 2 && <ConfigureStep settings={settings} onSettings={setSettings} canChangeStart={canChangeStart} />}
+          {current === 2 && <ConfigureStep settings={settings} onSettings={setSettings} />}
           {current === 3 && (
             <div>
               {!launched && (
@@ -204,8 +199,8 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
                   onEdit={() => go(2)}
                 />
                 <Summary
-                  label="When"
-                  value={`${daysText(settings.days)}${settings.startAt ? `, from ${startText(settings.startAt)}` : ", starting right away"}`}
+                  label="Prospects"
+                  value={settings.fetchAllAtOnce ? "Fetch all at once (search lists)" : "Collected gradually (search lists)"}
                   onEdit={() => go(2)}
                 />
                 <Summary label="Sequence" value={steps.map(stepLabel).join(" → ") || "No steps"} onEdit={() => go(3)} />

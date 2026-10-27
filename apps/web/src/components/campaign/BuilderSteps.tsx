@@ -1,10 +1,9 @@
 "use client";
 
-import { DEFAULT_LIMITS, DEGREE_LABEL, daysText, limitsSchema, waitingToStart, type CampaignSettings } from "@invytra/shared";
+import { DEFAULT_LIMITS, DEGREE_LABEL, limitsSchema, type CampaignSettings } from "@invytra/shared";
 import { Check, Loader2, Rocket } from "lucide-react";
 import Link from "next/link";
 import type { BuilderOptions } from "@/lib/campaigns";
-import { startText } from "@/lib/campaign-text";
 import { btn } from "../AccountControls";
 import { Field, inputCls } from "../fields";
 import { Modal } from "../Modal";
@@ -166,10 +165,7 @@ export function LaunchModal({
         <li>
           Only {levels} connections{settings.premiumOnly ? " with LinkedIn Premium" : ""}; anyone else is skipped.
         </li>
-        <li>
-          Sends {daysText(settings.days).replace("Every day", "every day")}, in each account's working hours
-          {settings.startAt && waitingToStart(settings, new Date()) ? `, starting ${startText(settings.startAt)}` : ""}.
-        </li>
+        <li>Sends on each account's working days and hours (Accounts → Settings).</li>
         {usesInvites && invitesPerDay > 0 && <li>Up to {invitesPerDay} invites a day, so about {days} sending {days === 1 ? "day" : "days"} to invite everyone.</li>}
         <li>
           Anyone already contacted{settings.skipOtherCampaigns ? ", or in another campaign," : ""} is skipped. Follow-ups stop when someone replies.

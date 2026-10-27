@@ -6,6 +6,8 @@ export const workingHoursSchema = z
     days: z.array(z.number().int().min(1).max(7)).min(1),
     startHour: z.number().int().min(0).max(23),
     endHour: z.number().int().min(1).max(24),
+    /** Campaign work for this account waits until this moment (ISO). Null/absent = no wait. */
+    startAt: z.string().datetime().nullable().optional(),
   })
   .refine((w) => w.endHour > w.startHour, { message: "endHour must be after startHour" });
 export type WorkingHours = z.infer<typeof workingHoursSchema>;
@@ -32,6 +34,11 @@ export function localTime(now: Date, timeZone: string): { weekday: number; hour:
     throw new Error(`Could not resolve local time for zone ${timeZone}`);
   }
   return { weekday, hour };
+}
+
+/** Whether the account's campaigns are still waiting for its start date. */
+export function waitingForAccountStart(hours: Pick<WorkingHours, "startAt">, now: Date): boolean {
+  return !!hours.startAt && new Date(hours.startAt) > now;
 }
 
 export function isWithinWorkingHours(now: Date, timeZone: string, hours: WorkingHours): boolean {

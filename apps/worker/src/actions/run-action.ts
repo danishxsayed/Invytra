@@ -59,8 +59,10 @@ export async function checkPolicy(
   type: ActionType,
   now: Date,
   ignoreWorkingHours = false,
-  /** Working hours to use instead of the account's (a campaign step uses its campaign's days). */
+  /** Working hours to use instead of the account's (e.g. replies run at any hour). */
   hoursOverride?: WorkingHours,
+  /** Search pages allowed today (more for "fetch all prospects at once"). */
+  searchPagesPerDay?: number,
 ): Promise<PolicyDecision> {
   const settings = accountSettings(account);
   const hours = hoursOverride ?? settings.hours;
@@ -76,6 +78,7 @@ export async function checkPolicy(
     { status: account.status, timeZone: account.timezone, workingHours: ignoreWorkingHours ? ALWAYS : hours, limits },
     await usageFor(prisma, account.id, now),
     now,
+    searchPagesPerDay,
   );
 }
 

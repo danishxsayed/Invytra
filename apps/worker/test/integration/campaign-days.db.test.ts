@@ -51,16 +51,22 @@ d("campaign days", () => {
     expect(await prisma.campaignLead.count({ where: { campaignId: "camp-weekend" } })).toBe(1);
   });
 
-  it("uses the campaign's days for its steps, with the account's hours", async () => {
+  it("campaign steps and inbox checks follow the account's days and hours; replies run any time", async () => {
     const action = await prisma.action.findFirstOrThrow({ where: { accountId: "acc-d", campaignLeadId: { not: null } } });
-    expect(await hoursForAction(prisma, action, DEFAULT_WORKING_HOURS)).toEqual({ days: [1, 2, 3, 4, 5, 6, 7], startHour: 9, endHour: 18 });
+    expect(await hoursForAction(prisma, action, DEFAULT_WORKING_HOURS)).toEqual(DEFAULT_WORKING_HOURS);
+    expect(await hoursForAction(prisma, { type: "INBOX_SYNC", accountId: "acc-d", campaignLeadId: null }, DEFAULT_WORKING_HOURS)).toEqual(DEFAULT_WORKING_HOURS);
+    expect((await hoursForAction(prisma, { type: "REPLY", accountId: "acc-d", campaignLeadId: null }, DEFAULT_WORKING_HOURS)).endHour).toBe(24);
   });
 
-  it("lets inbox checks run on the days a running campaign sends, but other actions keep the account's days", async () => {
-    expect((await hoursForAction(prisma, { type: "INBOX_SYNC", accountId: "acc-d", campaignLeadId: null }, DEFAULT_WORKING_HOURS)).days).toEqual([1, 2, 3, 4, 5, 6, 7]);
-    expect((await hoursForAction(prisma, { type: "PROFILE_VISIT", accountId: "acc-d", campaignLeadId: null }, DEFAULT_WORKING_HOURS)).days).toEqual([1, 2, 3, 4, 5]);
-    await prisma.campaign.update({ where: { id: "camp-weekend" }, data: { status: "PAUSED" } });
-    expect((await hoursForAction(prisma, { type: "INBOX_SYNC", accountId: "acc-d", campaignLeadId: null }, DEFAULT_WORKING_HOURS)).days).toEqual([1, 2, 3, 4, 5]);
+  it("an account with a start date in the future sends nothing until then", async () => {
+    await prisma.lead.create({ data: { workspaceId: WS, listId: "list-d", profileUrl: "https://www.linkedin.com/in/xena/", firstName: "Xena" } });
+    await prisma.campaign.update({ where: { id: "camp-weekend" }, data: { status: "ACTIVE", leadsSyncedAt: null } });
+    await prisma.linkedinAccount.update({ where: { id: "acc-d" }, data: { workingHours: { ...DEFAULT_WORKING_HOURS, startAt: "2026-11-02T00:00:00.000Z" } } });
+    const xena = () => prisma.action.count({ where: { targetUrl: "https://www.linkedin.com/in/xena/" } });
+    await campaignTick({ prisma, queue, now: () => new Date("2026-10-28T06:00:00Z") });
+    expect(await xena()).toBe(0);
+    await campaignTick({ prisma, queue, now: () => new Date("2026-11-02T06:00:00Z") });
+    expect(await xena()).toBe(1);
   });
 });
 

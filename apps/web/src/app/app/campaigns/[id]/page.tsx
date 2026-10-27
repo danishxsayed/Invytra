@@ -9,7 +9,7 @@ import { requireUser } from "@/lib/auth";
 import { pct, positionText, reasonText, startText, stepLabel } from "@/lib/campaign-text";
 import { CampaignNotFoundError, LEAD_FILTERS, campaignLeadsPage, campaignStats, getCampaign, launchProblems, senderStats, type LeadFilter } from "@/lib/campaigns";
 import { slugName, timeAgo } from "@/lib/format";
-import { daysText, waitingToStart } from "@invytra/shared";
+import { daysText, waitingForAccountStart, waitingToStart, workingHoursSchema } from "@invytra/shared";
 
 export const metadata = { title: "Campaign" };
 export const dynamic = "force-dynamic";
@@ -55,7 +55,13 @@ export default async function CampaignPage({
   const multi = c.senders.length > 1;
   const scheduled = c.status === "ACTIVE" && waitingToStart(c.settings, new Date());
   const zone = c.senders[0]?.timezone;
-  const sendDays = daysText(c.settings.days).replace("Every day", "every day");
+  // Days come from each sending account's working hours (Accounts → Settings).
+  const senderHours = c.senders.map((a) => ({ label: a.label, timezone: a.timezone, hours: workingHoursSchema.safeParse(a.workingHours).data }));
+  const sendDays =
+    senderHours.length === 1 && senderHours[0]!.hours
+      ? daysText(senderHours[0]!.hours.days).replace("Every day", "every day")
+      : "on each account's working days";
+  const waitingSenders = senderHours.filter((s) => s.hours && waitingForAccountStart(s.hours, new Date()));
   const now = new Date();
   const count = (f: LeadFilter) => (f === "all" ? stats.total : LEAD_FILTERS[f].reduce((n, s) => n + (stats.byState[s] ?? 0), 0));
   const contacted = Math.max(stats.invited, stats.messaged);
@@ -118,6 +124,12 @@ export default async function CampaignPage({
         </div>
       )}
       {c.status !== "DRAFT" && accountProblem && <Banner>{accountProblem}</Banner>}
+      {c.status === "ACTIVE" &&
+        waitingSenders.map((s) => (
+          <div key={s.label} className="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3.5 text-[15px] text-sky-900">
+            <b>{s.label}</b> starts sending on <b>{startText(s.hours!.startAt!, s.timezone)}</b> (set in its account settings). Its leads wait until then.
+          </div>
+        ))}
       {c.status === "DRAFT" && problems.length > 0 && <Banner>Before launching: {problems[0]}</Banner>}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">

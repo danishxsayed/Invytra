@@ -97,6 +97,11 @@ export const campaignSettingsSchema = z.object({
   premiumOnly: z.boolean().default(false),
   /** Skip people who are already in another of the workspace's campaigns. */
   skipOtherCampaigns: z.boolean().default(true),
+  /**
+   * When the campaign's list is being collected from a search: read the whole search in one
+   * go (up to FETCH_ALL_SEARCH_PAGES_PER_DAY pages a day) instead of SEARCH_PAGES_PER_DAY.
+   */
+  fetchAllAtOnce: z.boolean().default(false),
 });
 export type CampaignSettings = z.infer<typeof campaignSettingsSchema>;
 export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = {
@@ -107,6 +112,7 @@ export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = {
   degrees: [1, 2, 3],
   premiumOnly: false,
   skipOtherCampaigns: true,
+  fetchAllAtOnce: false,
 };
 
 /** Whether a launched campaign is still waiting for its start date. */

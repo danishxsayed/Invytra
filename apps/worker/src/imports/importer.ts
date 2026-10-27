@@ -49,6 +49,11 @@ export async function importTick(deps: ImportDeps): Promise<{ queued: number; ad
 
 async function queuePage(deps: ImportDeps, imp: LeadImport, now: Date): Promise<boolean> {
   const { prisma, queue } = deps;
+  // A campaign on this list asked for all prospects at once: a higher daily page allowance.
+  const fetchAll = !!(await prisma.campaign.findFirst({
+    where: { listId: imp.listId, workspaceId: imp.workspaceId, settings: { path: ["fetchAllAtOnce"], equals: true } },
+    select: { id: true },
+  }));
   const action = await prisma.$transaction(async (tx) => {
     const claimed = await tx.leadImport.updateMany({ where: { id: imp.id, status: "RUNNING", actionId: null }, data: { actionId: "pending" } });
     if (claimed.count === 0) return null;
@@ -56,7 +61,7 @@ async function queuePage(deps: ImportDeps, imp: LeadImport, now: Date): Promise<
       accountId: imp.accountId,
       type: "SEARCH_PAGE",
       targetUrl: searchPageUrl(imp.url, imp.nextPage),
-      payload: { importId: imp.id, kind: imp.kind, page: imp.nextPage },
+      payload: { importId: imp.id, kind: imp.kind, page: imp.nextPage, ...(fetchAll && { fetchAll: true }) },
       runAt: now,
     });
     await tx.leadImport.update({ where: { id: imp.id }, data: { actionId: row.id } });

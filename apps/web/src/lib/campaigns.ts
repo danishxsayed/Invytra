@@ -35,7 +35,7 @@ export const campaignInputSchema = z.object({
 });
 export type CampaignInput = z.input<typeof campaignInputSchema>;
 
-const SENDERS = { orderBy: { createdAt: "asc" }, select: { account: { select: { id: true, label: true, status: true, timezone: true } } } } as const;
+const SENDERS = { orderBy: { createdAt: "asc" }, select: { account: { select: { id: true, label: true, status: true, timezone: true, workingHours: true } } } } as const;
 
 export function readSteps(raw: unknown): CampaignStep[] {
   return z.array(stepSchema).safeParse(raw).data ?? [];

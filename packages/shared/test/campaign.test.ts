@@ -146,7 +146,7 @@ describe("reply matching names", () => {
 
 describe("campaign sending days and start date", () => {
   it("defaults to Monday–Friday, starting right away (older campaigns too)", () => {
-    expect(campaignSettingsSchema.parse({})).toEqual({ acceptWithinDays: 21, days: [1, 2, 3, 4, 5], startAt: null, withdrawExpired: true, degrees: [1, 2, 3], premiumOnly: false, skipOtherCampaigns: true });
+    expect(campaignSettingsSchema.parse({})).toEqual({ acceptWithinDays: 21, days: [1, 2, 3, 4, 5], startAt: null, withdrawExpired: true, degrees: [1, 2, 3], premiumOnly: false, skipOtherCampaigns: true, fetchAllAtOnce: false });
   });
   it("allows weekends, sorted and without repeats", () => {
     expect(campaignSettingsSchema.parse({ days: [7, 6, 6, 1] }).days).toEqual([1, 6, 7]);
