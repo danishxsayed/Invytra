@@ -39,8 +39,13 @@ export default {
       keyframes: {
         "fade-up": { from: { opacity: "0", transform: "translateY(6px)" }, to: { opacity: "1", transform: "none" } },
         pop: { from: { opacity: "0", transform: "translateY(-50%) scale(0.3)" }, to: { opacity: "1" } },
+        shimmer: { "100%": { transform: "translateX(100%)" } },
       },
-      animation: { "fade-up": "fade-up .35s ease-out backwards", pop: "pop .45s cubic-bezier(.2,.9,.3,1.3) backwards" },
+      animation: {
+        "fade-up": "fade-up .35s ease-out backwards",
+        pop: "pop .45s cubic-bezier(.2,.9,.3,1.3) backwards",
+        shimmer: "shimmer 1.4s ease-in-out infinite",
+      },
     },
   },
   plugins: [],

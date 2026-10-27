@@ -27,7 +27,8 @@ pnpm test
 ## Dashboard (Phase 1, in progress)
 
 ```bash
-pnpm web          # http://localhost:3000 — sign up, then see accounts, activity and replies
+pnpm web          # http://localhost:3000, fast production build (about a minute to start)
+pnpm web:dev      # same, in development mode (instant start, slower pages; for working on the code)
 ```
 
 Keep `pnpm worker` running in another tab. The **first person to sign up** takes over the

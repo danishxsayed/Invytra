@@ -3,7 +3,7 @@ import { prisma, type MemberRole } from "@invytra/db";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import { authKey, isProduction } from "./env";
+import { authKey, secureCookies } from "./env";
 import { SESSION_COOKIE, SESSION_DAYS, signSession, verifySession } from "./session-token";
 
 export interface CurrentUser {
@@ -17,7 +17,7 @@ export async function startSession(userId: string, workspaceId: string): Promise
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: isProduction,
+    secure: secureCookies,
     path: "/",
     maxAge: SESSION_DAYS * 24 * 60 * 60,
   });

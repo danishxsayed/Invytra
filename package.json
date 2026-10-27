@@ -26,7 +26,8 @@
     "queue": "pnpm --filter @invytra/worker queue",
     "queue:status": "pnpm --filter @invytra/worker queue:status",
     "queue:cancel": "pnpm --filter @invytra/worker queue:cancel",
-    "web": "pnpm packages:build && pnpm --filter @invytra/web dev",
+    "web": "pnpm packages:build && pnpm --filter @invytra/web build && pnpm --filter @invytra/web start",
+    "web:dev": "pnpm packages:build && pnpm --filter @invytra/web dev",
     "web:start": "pnpm --filter @invytra/web start"
   },
   "devDependencies": {

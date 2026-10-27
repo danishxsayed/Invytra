@@ -18,3 +18,10 @@ export function authKey(): Uint8Array {
 }
 
 export const isProduction = process.env.NODE_ENV === "production";
+
+/**
+ * Login cookies are "Secure" (HTTPS only) on the real site. A production build run on
+ * your own computer (http://localhost, `pnpm web`) must not set it, or Safari drops the
+ * cookie and you can't log in. WEB_ORIGIN is the dashboard's address (https://… when live).
+ */
+export const secureCookies = isProduction && (process.env.WEB_ORIGIN ?? "http://localhost:3000").startsWith("https://");
