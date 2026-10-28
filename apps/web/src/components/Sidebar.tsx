@@ -68,7 +68,7 @@ const statusOf = (s: string) => STATUS[s] ?? STATUS.DISCONNECTED!;
 const rank = (st: string) => (st === "NEEDS_ATTENTION" ? 0 : st === "DISCONNECTED" ? 1 : st === "PAUSED" ? 2 : 3);
 
 /** Photo (or initials) with a status dot. */
-function AccountFace({ a, size = "md" }: { a: Account; size?: "md" | "lg" }) {
+function AccountFace({ a, size = "md" }: { a: Account; size?: "sm" | "md" | "lg" }) {
   return (
     <span className="relative shrink-0">
       <Avatar name={a.profileName ?? a.label} src={a.photo} size={size} />
@@ -118,14 +118,14 @@ function AccountSwitcher({ accounts, onNavigate }: { accounts: Props["accounts"]
         aria-expanded={open}
         aria-haspopup="true"
         className={cx(
-          "flex w-full items-center gap-3 rounded-xl border bg-white px-3 py-2.5 text-left shadow-card transition hover:border-stone-300",
+          "flex w-full items-center gap-2.5 rounded-xl border bg-white px-2.5 py-1.5 text-left shadow-card transition hover:border-stone-300",
           open ? "border-stone-300 ring-4 ring-stone-100" : "border-stone-200",
         )}
       >
         {single ? (
-          <AccountFace a={single} />
+          <AccountFace a={single} size="sm" />
         ) : (
-          <span className="flex shrink-0 -space-x-2.5">
+          <span className="flex shrink-0 -space-x-2">
             {sorted
               .slice()
               .sort((a, b) => rank(b.status) - rank(a.status))
@@ -138,8 +138,8 @@ function AccountSwitcher({ accounts, onNavigate }: { accounts: Props["accounts"]
           </span>
         )}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-semibold text-stone-900">{single ? single.label : `${accounts.length} accounts`}</span>
-          <span className={cx("flex items-center gap-1.5 truncate text-[13px]", needs ? "text-amber-700" : "text-emerald-700")}>
+          <span className="block truncate text-[14px] font-semibold leading-5 text-stone-900">{single ? single.label : `${accounts.length} accounts`}</span>
+          <span className={cx("flex items-center gap-1.5 truncate text-[12px] leading-4", needs ? "text-amber-700" : "text-emerald-700")}>
             {single ? statusOf(single.status).text : needs ? `${connected} of ${accounts.length} connected` : "All connected"}
           </span>
         </span>
@@ -147,31 +147,31 @@ function AccountSwitcher({ accounts, onNavigate }: { accounts: Props["accounts"]
       </button>
 
       {open && (
-        <div className="absolute left-0 z-30 mt-2 w-[min(320px,calc(100vw-24px))] animate-fade-up overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-pop">
-          <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
+        <div className="absolute left-0 z-30 mt-1.5 w-[min(300px,calc(100vw-24px))] overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-pop">
+          <div className="flex items-center justify-between border-b border-stone-100 px-3.5 py-2.5">
             <p className="text-[14px] font-semibold text-stone-900">LinkedIn accounts</p>
             <Link href="/app/accounts" onClick={go} className="text-[13px] font-medium text-brand-800 hover:text-stone-900">
               Manage
             </Link>
           </div>
-          <ul className="max-h-[50vh] overflow-y-auto p-1.5">
+          <ul className="max-h-[50vh] overflow-y-auto p-1">
             {sorted.map((a) => {
               const st = statusOf(a.status);
               const needsConnect = a.status === "DISCONNECTED" || a.status === "NEEDS_ATTENTION";
               return (
-                <li key={a.id} className="group flex items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-stone-50">
+                <li key={a.id} className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-stone-50">
                   <Link href={`/app/accounts/${a.id}`} onClick={go} className="flex min-w-0 flex-1 items-center gap-3">
-                    <AccountFace a={a} size="lg" />
+                    <AccountFace a={a} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-medium text-stone-900">{a.label}</span>
-                      <span className="block truncate text-[13px] text-stone-500">{a.profileName ?? "Not connected yet"}</span>
+                      <span className="block truncate text-[14px] font-medium leading-5 text-stone-900">{a.label}</span>
+                      <span className="block truncate text-[12px] leading-4 text-stone-500">{a.profileName ?? "Not connected yet"}</span>
                     </span>
                   </Link>
                   {needsConnect ? (
                     <Link
                       href={`/app/accounts/${a.id}?connect=${a.id}`}
                       onClick={go}
-                      className="shrink-0 rounded-lg bg-stone-900 px-2.5 py-1 text-[13px] font-semibold text-white hover:bg-stone-700"
+                      className="shrink-0 rounded-md bg-stone-900 px-2 py-0.5 text-[12px] font-semibold leading-5 text-white hover:bg-stone-700"
                     >
                       {a.status === "NEEDS_ATTENTION" ? "Check" : "Connect"}
                     </Link>
@@ -185,7 +185,7 @@ function AccountSwitcher({ accounts, onNavigate }: { accounts: Props["accounts"]
           <Link
             href="/app/accounts?add=1"
             onClick={go}
-            className="flex items-center gap-2 border-t border-stone-100 px-4 py-3 text-[15px] font-medium text-brand-800 hover:bg-stone-50 hover:text-stone-900"
+            className="flex items-center gap-2 border-t border-stone-100 px-3.5 py-2.5 text-[14px] font-medium text-brand-800 hover:bg-stone-50 hover:text-stone-900"
           >
             <Plus className="h-4 w-4" aria-hidden /> Add account
           </Link>
