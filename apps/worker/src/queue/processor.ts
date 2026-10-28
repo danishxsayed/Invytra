@@ -1,15 +1,7 @@
 import type { PrismaClient } from "@invytra/db";
-import { ACTION_DELAY_SECONDS, FETCH_ALL_SEARCH_PAGES_PER_DAY, SEARCH_DELAY_SECONDS, accountIsPremium, randomActionDelayMs } from "@invytra/shared";
+import { ACTION_DELAY_SECONDS, FETCH_ALL_SEARCH_PAGES_PER_DAY, SEARCH_DELAY_SECONDS, randomActionDelayMs } from "@invytra/shared";
 
-/** Only Premium accounts add notes to invites; a free account sends the invite without one. */
-export function dropNoteForFreeAccount(payload: Record<string, unknown>, account: { premium?: boolean | null; premiumOverride?: boolean | null }): void {
-  if (payload.note && accountIsPremium(account) === false) {
-    delete payload.note;
-    payload.noteDropped = "FREE_ACCOUNT";
-  }
-}
-
-/** How often an inbox check also re-reads whether the account has Premium. */
+/** How often an inbox check also re-reads whether the account has Premium (shown on the Accounts page). */
 const PREMIUM_RECHECK_MS = 7 * 24 * 3600_000;
 import type { SessionManagerDeps } from "../browser/session-manager.js";
 import { isRetryable, workFor } from "../actions/registry.js";
@@ -137,7 +129,6 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
     const checked = action.account.premiumCheckedAt;
     if (!checked || now.getTime() - checked.getTime() > PREMIUM_RECHECK_MS) payload.checkPremium = true;
   }
-  if (action.type === "CONNECTION_REQUEST") dropNoteForFreeAccount(payload, action.account);
   if (action.type === "CONNECTION_REQUEST" && payload.note) {
     const notesBlocked = await deps.pacing.get(action.accountId, "notesBlockedUntil");
     if (notesBlocked && notesBlocked > now) payload.notesBlocked = true;

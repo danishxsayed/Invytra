@@ -27,7 +27,6 @@ interface Props {
     workingHours: { days: number[]; startHour: number; endHour: number; startAt?: string | null };
     warmup: boolean;
     proxy: string | null;
-    plan: { detected: boolean | null; override: boolean | null; checkedAt: string | null };
   };
   defaults: Limits;
   max: Omit<Limits, "randomizeDaily">;
@@ -68,7 +67,6 @@ export function SettingsForm({ id, zones, proxyRequired, initial, defaults, max 
   const [label, setLabel] = useState(initial.label);
   const [timezone, setTimezone] = useState(initial.timezone);
   const [limits, setLimits] = useState(initial.limits);
-  const [plan, setPlan] = useState<boolean | null>(initial.plan.override);
   const [hours, setHours] = useState(initial.workingHours);
   const [warmup, setWarmup] = useState(initial.warmup);
   const [proxyUrl, setProxyUrl] = useState("");
@@ -92,7 +90,7 @@ export function SettingsForm({ id, zones, proxyRequired, initial, defaults, max 
     if (hours.endHour <= hours.startHour) return setError("Working hours must end after they start.");
     start(async () => {
       setError(null);
-      const r = await saveSettingsAction(id, { label, timezone, limits, workingHours: hours, warmup, proxyUrl: proxyUrl || undefined, removeProxy, premiumOverride: plan });
+      const r = await saveSettingsAction(id, { label, timezone, limits, workingHours: hours, warmup, proxyUrl: proxyUrl || undefined, removeProxy });
       if (!r.ok) return setError(r.error);
       setSaved(true);
       setProxyUrl("");
@@ -157,30 +155,6 @@ export function SettingsForm({ id, zones, proxyRequired, initial, defaults, max 
           label="Warm up over 14 days"
           hint="Starts at about a third of the limits and grows daily. Turning it on restarts the ramp."
         />
-      </Section>
-
-      <Section
-        title="LinkedIn plan"
-        description="Only LinkedIn Premium accounts can add a note to connection requests. Invytra reads the plan from the account's own profile when it connects, and about once a week."
-      >
-        <Field
-          label="Plan"
-          hint={
-            initial.plan.detected === null
-              ? "Not detected yet. Set it here if you know it."
-              : `Detected: ${initial.plan.detected ? "LinkedIn Premium" : "free LinkedIn"}${initial.plan.checkedAt ? ` (checked ${new Date(initial.plan.checkedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })})` : ""}.`
-          }
-        >
-          <select
-            className={inputCls}
-            value={plan === null ? "auto" : plan ? "premium" : "free"}
-            onChange={(e) => setPlan(e.target.value === "auto" ? null : e.target.value === "premium")}
-          >
-            <option value="auto">Use what Invytra detects</option>
-            <option value="premium">LinkedIn Premium (notes allowed)</option>
-            <option value="free">Free LinkedIn (invites go without a note)</option>
-          </select>
-        </Field>
       </Section>
 
       <Section

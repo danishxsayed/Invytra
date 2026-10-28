@@ -95,18 +95,3 @@ describe("memoryPacingStore", () => {
   });
 });
 
-describe("invite notes and the sender's plan", () => {
-  it("drops the note only when the account is known (or set) to be free", async () => {
-    const { dropNoteForFreeAccount } = await import("../src/queue/processor.js");
-    const run = (account: { premium?: boolean | null; premiumOverride?: boolean | null }) => {
-      const p: Record<string, unknown> = { note: "Hi {firstName}" };
-      dropNoteForFreeAccount(p, account);
-      return p;
-    };
-    expect(run({ premium: false })).toEqual({ noteDropped: "FREE_ACCOUNT" });
-    expect(run({ premium: null })).toEqual({ note: "Hi {firstName}" });
-    expect(run({ premium: true })).toEqual({ note: "Hi {firstName}" });
-    expect(run({ premium: false, premiumOverride: true })).toEqual({ note: "Hi {firstName}" });
-    expect(run({ premium: true, premiumOverride: false })).toEqual({ noteDropped: "FREE_ACCOUNT" });
-  });
-});

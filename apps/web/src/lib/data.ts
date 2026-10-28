@@ -27,7 +27,6 @@ export async function accountsOverview(prisma: PrismaClient, workspaceId: string
       sessionUpdatedAt: true,
       proxyUrl: true,
       premium: true,
-      premiumOverride: true,
       premiumCheckedAt: true,
     },
   });
@@ -55,10 +54,8 @@ export async function accountsOverview(prisma: PrismaClient, workspaceId: string
         profileUrl: a.profileUrl,
         connectedAt: a.connectedAt,
         hasSession: !!a.sessionUpdatedAt,
-        /** LinkedIn plan: what the user set, else what was detected; null = not known yet. */
-        premium: a.premiumOverride ?? a.premium,
-        premiumDetected: a.premium,
-        premiumOverride: a.premiumOverride,
+        /** LinkedIn plan as detected from the account's own profile; null = not known yet. */
+        premium: a.premium,
         premiumCheckedAt: a.premiumCheckedAt,
         proxy: proxyHost(a.proxyUrl),
         warmupUntil: a.warmupUntil,

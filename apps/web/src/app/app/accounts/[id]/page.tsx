@@ -46,7 +46,6 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
           workingHours: a.workingHours,
           warmup: a.warmupDay !== null,
           proxy: a.proxy,
-          plan: { detected: a.premiumDetected, override: a.premiumOverride, checkedAt: a.premiumCheckedAt?.toISOString() ?? null },
         }}
       />
     </div>

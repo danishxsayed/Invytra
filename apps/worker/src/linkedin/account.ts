@@ -5,7 +5,7 @@ import { SELECTORS } from "./selectors.js";
 /**
  * Whether the logged-in member has LinkedIn Premium: their own profile shows the Premium
  * badge (→ true); a "Try Premium" style upsell means a free account (→ false); otherwise
- * unknown (null), and the user can set it in the account's settings. Opens their own profile. Selectors UNVERIFIED on the real 2026 layout.
+ * unknown (null). Opens their own profile. Selectors UNVERIFIED on the real 2026 layout.
  */
 export async function readOwnPremium(page: Page, baseUrl: string): Promise<boolean | null> {
   await page.goto(new URL("/in/me/", baseUrl).toString(), { waitUntil: "domcontentloaded", timeout: 20_000 });

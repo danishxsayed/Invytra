@@ -3,7 +3,6 @@
 import {
   DEFAULT_CAMPAIGN_SETTINGS,
   DEGREE_LABEL,
-  accountIsPremium,
   audienceProblems,
   hasInvite,
   sequenceProblems,
@@ -120,16 +119,12 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
       router.refresh();
     });
 
-  // Invite notes need LinkedIn Premium: locked when every sender is a free account.
-  const plans = senders.map((a) => ({ label: a.label, premium: accountIsPremium(a) }));
-  const free = plans.filter((p) => p.premium === false).map((p) => `“${p.label}”`);
-  const notePlan = {
-    blocked:
-      plans.length > 0 && free.length === plans.length
-        ? `Only Premium LinkedIn accounts can add a note to invites. ${free.join(" and ")} ${free.length === 1 ? "is a free account" : "are free accounts"}, so invites go without a note. If that's wrong, change the plan in the account's settings.`
-        : null,
-    hint: free.length > 0 ? `Invites from ${free.join(" and ")} (free LinkedIn) go without the note.` : null,
-  };
+  // Free LinkedIn accounts can still add notes, but only a few a month (then invites go without one).
+  const free = senders.filter((a) => a.premium === false).map((a) => `“${a.label}”`);
+  const noteHint =
+    free.length > 0
+      ? `${free.join(" and ")} ${free.length === 1 ? "is a free LinkedIn account" : "are free LinkedIn accounts"}: LinkedIn allows only a few notes a month on free accounts. When they run out, invites go without the note.`
+      : null;
 
   const here = problems[current]!;
   const last = current === STEPS.length - 1;
@@ -173,8 +168,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
                 onSteps={setSteps}
                 onSettings={setSettings}
                 locked={launched ? (initial?.steps.length ?? 0) : 0}
-                noteBlocked={notePlan.blocked}
-                noteHint={notePlan.hint}
+                noteHint={noteHint}
               />
               <div className={steps.length ? "mt-6" : ""}>
                 <StepPicker steps={steps} settings={settings} onAdd={(s) => setSteps([...steps, s])} />

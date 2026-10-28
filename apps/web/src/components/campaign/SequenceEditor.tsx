@@ -154,7 +154,7 @@ export function SequenceEditor({
                             placeholder="Hi {firstName}, …"
                           />
                           <p className="mt-1.5 text-[13px] text-stone-500">
-                            {noteHint ?? "Only Premium LinkedIn accounts can add a note. Invites from free accounts go without it."}
+                            {noteHint ?? "Free LinkedIn accounts get a few notes a month. When they run out, invites go without a note."}
                           </p>
                         </>
                       )}

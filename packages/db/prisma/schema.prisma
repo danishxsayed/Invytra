@@ -133,7 +133,7 @@ model LinkedinAccount {
   /// Whether this LinkedIn account has Premium, as last detected (null = not known yet)
   premium          Boolean?
   premiumCheckedAt DateTime?     @map("premium_checked_at")
-  /// Set by the user when detection is wrong: true = Premium, false = free
+  /// Not used (the plan is always detected); kept so older data still loads
   premiumOverride  Boolean?      @map("premium_override")
   /// First successful connection through the dashboard or CLI
   connectedAt      DateTime?     @map("connected_at")

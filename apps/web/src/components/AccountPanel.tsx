@@ -54,7 +54,7 @@ export function AccountPanel({ a, full = true }: { a: AccountOverview; full?: bo
             <StatusBadge status={a.status} />
             {a.premium !== null && (
               <span
-                title={a.premiumOverride !== null ? "Set by you in this account's settings" : "Detected from the LinkedIn profile"}
+                title="Detected from the account's own LinkedIn profile"
                 className={cx(
                   "rounded-full px-2.5 py-0.5 text-[13px] font-medium",
                   a.premium ? "bg-amber-50 text-amber-800 ring-1 ring-amber-600/20" : "bg-stone-100 text-stone-600",
