@@ -10,7 +10,7 @@ import {
   type ActionOutcome,
   type InboxThread,
 } from "../linkedin/actions.js";
-import { readOwnPremium } from "../linkedin/account.js";
+import { readOwnAccount } from "../linkedin/account.js";
 import { commentOnLatestPost, followProfile, inviteToEvent, likeLatestPost, withdrawInvite } from "../linkedin/engage.js";
 import { sendReply } from "../linkedin/reply.js";
 import { readSearchPage } from "../linkedin/search.js";
@@ -86,8 +86,8 @@ export function workFor(spec: ActionSpec): (ctx: SessionTaskContext) => Promise<
       return async (ctx) => {
         const r = await fetchInbox(ctx, { known: (p.known ?? undefined) as Record<string, string> | undefined });
         if (p.checkPremium !== true || r.outcome !== "DONE") return r;
-        const ownPremium = await readOwnPremium(ctx.page, ctx.baseUrl).catch(() => null);
-        return { ...r, data: { ...r.data, ownPremium } };
+        const own = await readOwnAccount(ctx.page, ctx.baseUrl).catch(() => ({ premium: null, photo: null }));
+        return { ...r, data: { ...r.data, ownPremium: own.premium, ownPhoto: own.photo } };
       };
     case "SEARCH_PAGE":
       return (ctx) => readSearchPage(ctx, url, p.kind as SearchKind);
@@ -129,14 +129,19 @@ export async function afterSuccess(
     const changed = await storeConversations(prisma, accountId, threads, account?.timezone ?? "UTC");
     // Asked to look at the account's plan this time: record when (and what, if it could tell).
     if (data && typeof data === "object" && "ownPremium" in data) {
-      const ownPremium = (data as { ownPremium: unknown }).ownPremium;
+      const { ownPremium, ownPhoto } = data as { ownPremium: unknown; ownPhoto?: { base64: string; type: string } | null };
       await prisma.linkedinAccount.update({
         where: { id: accountId },
-        data: { premiumCheckedAt: new Date(), ...(typeof ownPremium === "boolean" && { premium: ownPremium }) },
+        data: {
+          premiumCheckedAt: new Date(),
+          ...(typeof ownPremium === "boolean" && { premium: ownPremium }),
+          ...(ownPhoto && { avatar: Buffer.from(ownPhoto.base64, "base64"), avatarType: ownPhoto.type, avatarUpdatedAt: new Date() }),
+        },
       });
     }
     // Keep the action log small: the messages themselves live in conversation_messages.
-    return { newReplies, changedConversations: changed, threads: threads.map(({ messages, ...t }) => ({ ...t, read: messages?.length ?? 0 })) };
+    // The photo lives on the account row, not in the action log.
+    return { newReplies, changedConversations: changed, threads: threads.map(({ messages, ...t }) => ({ ...t, read: messages?.length ?? 0 })), ownPhoto: undefined };
   }
   return {};
 }

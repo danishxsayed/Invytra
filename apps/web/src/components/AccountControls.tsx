@@ -3,7 +3,8 @@
 import { Loader2, Pause, Play, Plug, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { pauseAction, removeAccountAction, resumeAfterCheckAction } from "@/app/app/accounts/actions";
 import { ConnectWindow } from "./ConnectWindow";
 import { cx } from "./ui";
@@ -31,6 +32,12 @@ export const btn = {
 export function AccountControls({ id, label, status, next, canResumeAfterCheck, full }: Props) {
   const router = useRouter();
   const [connecting, setConnecting] = useState(false);
+  // "Connect" in the sidebar's account list opens this account's login window straight away.
+  const params = useSearchParams();
+  const ask = params.get("connect");
+  useEffect(() => {
+    if (ask === id && (next === "connect" || next === "reconnect")) setConnecting(true);
+  }, [ask, id, next]);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();

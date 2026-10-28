@@ -135,6 +135,8 @@ describe("connect server", () => {
       data: { status: "ACTIVE", statusReason: null, profileName: "Tess Tester" },
     });
     expect(JSON.stringify(updates.at(-1))).toContain("/in/tess/");
+    // Their own profile photo is saved with the account.
+    expect(updates.at(-1)).toMatchObject({ data: { avatarType: "image/png" } });
     await s.waitFor(() => s.ws.readyState === WebSocket.CLOSED);
     await s.waitFor(() => connect.active() === 0);
     // The account lock was released.

@@ -91,6 +91,10 @@ export const SELECTORS = {
      * LinkedIn Premium badge (the gold "in" next to the name). UNVERIFIED on the real 2026 layout:
      * check a Premium profile and fix here if "Premium only" campaigns skip Premium members.
      */
+    /** The member's photo on the profile card. UNVERIFIED on the real 2026 layout. */
+    photo: 'img[src*="profile-displayphoto"], img[class*="profile-picture"], img[alt*="profile photo" i], img[alt*="profile picture" i]',
+    /** LinkedIn's grey placeholder for people without a photo. */
+    noPhoto: /ghost|static\.licdn\.com\/aero|\/sc\/h\//i,
     premiumBadge:
       '[data-test-icon*="premium" i], [aria-label*="Premium member" i], [aria-label="Premium" i], [title*="Premium member" i], .pv-member-badge--for-top-card, .premium-icon',
   },

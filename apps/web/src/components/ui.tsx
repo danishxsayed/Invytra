@@ -47,10 +47,14 @@ export function initials(name: string): string {
   return ((parts[0]?.[0] ?? "?") + (parts.length > 1 ? parts[parts.length - 1]![0] : "")).toUpperCase();
 }
 
-export function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
+export function Avatar({ name, size = "md", src }: { name: string; size?: "sm" | "md" | "lg"; src?: string | null }) {
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const sz = size === "sm" ? "h-7 w-7 text-[13px]" : size === "lg" ? "h-10 w-10 text-sm" : "h-8 w-8 text-xs";
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element -- a small private image served by our own route
+    return <img src={src} alt="" aria-hidden className={cx("shrink-0 rounded-full object-cover ring-1 ring-black/5", sz)} />;
+  }
   return (
     <span
       aria-hidden

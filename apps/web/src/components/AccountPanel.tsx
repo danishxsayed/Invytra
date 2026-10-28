@@ -47,7 +47,7 @@ export function AccountPanel({ a, full = true }: { a: AccountOverview; full?: bo
   return (
     <Card className="p-5">
       <div className="flex flex-wrap items-start gap-3">
-        <Avatar name={a.profileName ?? a.label} size="lg" />
+        <Avatar name={a.profileName ?? a.label} size="lg" src={a.photo} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="truncate text-[18px] font-semibold text-stone-900">{a.label}</h3>

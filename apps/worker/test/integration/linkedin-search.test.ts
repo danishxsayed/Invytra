@@ -9,13 +9,13 @@ import { AccountLock } from "../../src/browser/account-lock.js";
 import { withAccountSession, type SessionManagerDeps } from "../../src/browser/session-manager.js";
 import type { BrowserAccount, SessionTaskContext, StorageState } from "../../src/browser/types.js";
 import { sendConnectionRequest } from "../../src/linkedin/actions.js";
-import { readOwnPremium } from "../../src/linkedin/account.js";
+import { readOwnAccount, readOwnPremium } from "../../src/linkedin/account.js";
 import { commentOnLatestPost, followProfile, inviteToEvent, likeLatestPost, withdrawInvite } from "../../src/linkedin/engage.js";
 import { fetchInbox } from "../../src/linkedin/inbox.js";
 import { sendReply } from "../../src/linkedin/reply.js";
 import { companyFromHeadline, readSearchPage } from "../../src/linkedin/search.js";
 import { FakeRedis } from "../fake-redis.js";
-import { startFakeLinkedIn, type FakeState } from "../fake-linkedin.js";
+import { TINY_PNG, startFakeLinkedIn, type FakeState } from "../fake-linkedin.js";
 
 let server: Server;
 let state: FakeState;
@@ -158,6 +158,10 @@ describe("following and the account's own plan (fake site)", { timeout: 60_000 }
     state.mePlan = "premium";
     expect(await run((ctx) => readOwnPremium(ctx.page, ctx.baseUrl))).toBe(true);
     delete state.mePlan;
+  });
+  it("downloads the account's own profile photo", async () => {
+    const own = await run((ctx) => readOwnAccount(ctx.page, ctx.baseUrl));
+    expect(own.photo).toEqual({ type: "image/png", base64: TINY_PNG.toString("base64") });
   });
 });
 

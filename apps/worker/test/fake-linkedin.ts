@@ -114,13 +114,14 @@ function profileHtml(slug: string, p: Person, state: FakeState): string {
   }
   const degree = connected ? "· 1st" : `· ${p.degree ?? "2nd"}`;
   const me = slug === "tess";
+  const photo = me ? '<img src="/media/profile-displayphoto-tess.png" alt="Tess Tester profile photo" width="80" height="80">' : "";
   const upsell = me && state.mePlan === "free" ? '<nav><a href="/premium/">Try Premium for ₹0</a></nav>' : "";
   const badge = p.premium || (me && state.mePlan === "premium") ? '<span data-test-icon="linkedin-bug-premium-xsmall" aria-hidden="true"></span>' : "";
   const header = old
     ? `<section id="top"><h1>${p.name}</h1>${badge}<div class="text-body-medium">${p.headline}</div><span>${degree}</span><div class="actions">${actions}</div></section>`
     : `<section aria-label="Primary content"><div componentkey="com.linkedin.sdui.profile.card.ref${slug}Topcard"><section>
          <a href="#" aria-label="Manage notifications about ${p.name}"></a>
-         <a href="#"><h2>${p.name}</h2></a>${badge}<p>${degree}</p><p>${p.headline}</p><p>Some City</p><p>·</p>
+         ${photo}<a href="#"><h2>${p.name}</h2></a>${badge}<p>${degree}</p><p>${p.headline}</p><p>Some City</p><p>·</p>
          <p>98</p><p>connections</p><div class="actions">${actions}</div></section></div>
        <div componentkey="aboutcard"><h2>About</h2><p>Lorem ipsum 1st place award</p></div>`;
   // A hidden sticky header duplicates the Connect link (invisible), like the real site.
@@ -198,6 +199,9 @@ function activityHtml(slug: string, p: Person, state: FakeState): string {
       const p=document.createElement('p');p.className='c';p.textContent=t;post.appendChild(p);post.querySelector('.cbox').hidden=true;});</script>`,
   );
 }
+
+/** A 1×1 PNG, standing in for a profile photo. */
+export const TINY_PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 
 /** Your event: "Invite" opens a dialog that searches your connections (carol is one; dave is already invited). */
 function eventHtml(id: string, state: FakeState): string {
@@ -378,6 +382,10 @@ export function startFakeLinkedIn(): { server: Server; state: FakeState } {
       return send(200, salesHtml(query));
     }
     if (path.startsWith("/premium/")) return send(200, page("Premium", "<main><h1>Start your free trial of Sales Navigator</h1></main>"));
+    if (path === "/media/profile-displayphoto-tess.png") {
+      res.writeHead(200, { "content-type": "image/png" });
+      return res.end(TINY_PNG);
+    }
     const ev = /^\/events\/([^/]+)\/?$/.exec(path);
     if (ev) {
       if (ev[1] !== "demo123") return send(404, page("Page not found | LinkedIn", "<main><p>This page doesn’t exist</p></main>"));

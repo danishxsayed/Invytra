@@ -28,6 +28,7 @@ export async function accountsOverview(prisma: PrismaClient, workspaceId: string
       proxyUrl: true,
       premium: true,
       premiumCheckedAt: true,
+      avatarUpdatedAt: true,
     },
   });
   const now = new Date();
@@ -54,6 +55,7 @@ export async function accountsOverview(prisma: PrismaClient, workspaceId: string
         profileUrl: a.profileUrl,
         connectedAt: a.connectedAt,
         hasSession: !!a.sessionUpdatedAt,
+        photo: avatarUrl(a),
         /** LinkedIn plan as detected from the account's own profile; null = not known yet. */
         premium: a.premium,
         premiumCheckedAt: a.premiumCheckedAt,
@@ -160,12 +162,16 @@ export async function weeklyStats(prisma: PrismaClient, workspaceId: string, now
 }
 
 /** Lightweight list for the sidebar account switcher. */
+/** URL of an account's LinkedIn photo (changes when the photo does), or null. */
+export const avatarUrl = (a: { id: string; avatarUpdatedAt: Date | null }) => (a.avatarUpdatedAt ? `/app/accounts/${a.id}/avatar?v=${a.avatarUpdatedAt.getTime()}` : null);
+
 export async function sidebarAccounts(prisma: PrismaClient, workspaceId: string) {
-  return prisma.linkedinAccount.findMany({
+  const rows = await prisma.linkedinAccount.findMany({
     where: { workspaceId },
     orderBy: { label: "asc" },
-    select: { id: true, label: true, status: true, profileName: true },
+    select: { id: true, label: true, status: true, profileName: true, avatarUpdatedAt: true },
   });
+  return rows.map(({ avatarUpdatedAt, ...a }) => ({ ...a, photo: avatarUrl({ id: a.id, avatarUpdatedAt }) }));
 }
 
 export interface WeekTable {

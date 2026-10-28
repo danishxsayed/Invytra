@@ -29,7 +29,7 @@ import { Avatar, cx } from "./ui";
 interface Props {
   workspace: string;
   user: { name: string; email: string };
-  accounts: { id: string; label: string; status: string; profileName: string | null }[];
+  accounts: { id: string; label: string; status: string; profileName: string | null; photo: string | null }[];
   /** Replies waiting for an answer, shown as a badge on Inbox. */
   needsReply?: number;
   /** Desktop sidebar starts narrow (icons only); remembered in a cookie. */
@@ -55,18 +55,43 @@ function Logo() {
   );
 }
 
+type Account = Props["accounts"][number];
+
+const STATUS: Record<string, { text: string; pill: string }> = {
+  ACTIVE: { text: "Connected", pill: "bg-emerald-50 text-emerald-700 ring-emerald-600/20" },
+  NEEDS_ATTENTION: { text: "Needs attention", pill: "bg-amber-50 text-amber-800 ring-amber-600/25" },
+  PAUSED: { text: "Paused", pill: "bg-stone-100 text-stone-600 ring-stone-500/15" },
+  DISCONNECTED: { text: "Not connected", pill: "bg-stone-100 text-stone-600 ring-stone-500/15" },
+};
+const statusOf = (s: string) => STATUS[s] ?? STATUS.DISCONNECTED!;
+// Accounts that need a look come first.
+const rank = (st: string) => (st === "NEEDS_ATTENTION" ? 0 : st === "DISCONNECTED" ? 1 : st === "PAUSED" ? 2 : 3);
+
+/** Photo (or initials) with a status dot. */
+function AccountFace({ a, size = "md" }: { a: Account; size?: "md" | "lg" }) {
+  return (
+    <span className="relative shrink-0">
+      <Avatar name={a.profileName ?? a.label} src={a.photo} size={size} />
+      <span className={cx("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white", accountDot(a.status))} aria-hidden />
+    </span>
+  );
+}
+
 function AccountSwitcher({ accounts, onNavigate }: { accounts: Props["accounts"]; onNavigate?: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const close = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+    };
   }, []);
-  // Show the account that most needs a look first.
-  const rank = (st: string) => (st === "NEEDS_ATTENTION" ? 0 : st === "DISCONNECTED" ? 1 : st === "PAUSED" ? 2 : 3);
-  const current = [...accounts].sort((a, b) => rank(a.status) - rank(b.status))[0];
-  if (!current) {
+  const sorted = [...accounts].sort((a, b) => rank(a.status) - rank(b.status) || a.label.localeCompare(b.label));
+  if (sorted.length === 0) {
     return (
       <Link
         href="/app/accounts?add=1"
@@ -77,55 +102,90 @@ function AccountSwitcher({ accounts, onNavigate }: { accounts: Props["accounts"]
       </Link>
     );
   }
-  const statusText = (s: string) => (s === "ACTIVE" ? "Connected" : s === "NEEDS_ATTENTION" ? "Needs attention" : s === "PAUSED" ? "Paused" : "Not connected");
+  const connected = accounts.filter((a) => a.status === "ACTIVE").length;
+  const needs = accounts.length - connected;
+  const single = sorted.length === 1 ? sorted[0]! : null;
+  const go = () => {
+    setOpen(false);
+    onNavigate?.();
+  };
+
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2.5 rounded-xl border border-stone-200 bg-white px-2.5 py-2 text-left shadow-card hover:border-stone-300"
+        aria-haspopup="true"
+        className={cx(
+          "flex w-full items-center gap-3 rounded-xl border bg-white px-3 py-2.5 text-left shadow-card transition hover:border-stone-300",
+          open ? "border-stone-300 ring-4 ring-stone-100" : "border-stone-200",
+        )}
       >
-        <span className="relative">
-          <Avatar name={current.label} />
-          <span className={cx("absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white", accountDot(current.status))} />
-        </span>
+        {single ? (
+          <AccountFace a={single} />
+        ) : (
+          <span className="flex shrink-0 -space-x-2.5">
+            {sorted
+              .slice()
+              .sort((a, b) => rank(b.status) - rank(a.status))
+              .slice(0, 3)
+              .map((a) => (
+                <span key={a.id} className="rounded-full ring-2 ring-white">
+                  <Avatar name={a.profileName ?? a.label} src={a.photo} size="sm" />
+                </span>
+              ))}
+          </span>
+        )}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[15px] font-medium text-stone-900">{current.label}</span>
-          <span className="block truncate text-[14px] text-stone-500">
-            {statusText(current.status)}
+          <span className="block truncate text-[15px] font-semibold text-stone-900">{single ? single.label : `${accounts.length} accounts`}</span>
+          <span className={cx("flex items-center gap-1.5 truncate text-[13px]", needs ? "text-amber-700" : "text-emerald-700")}>
+            {single ? statusOf(single.status).text : needs ? `${connected} of ${accounts.length} connected` : "All connected"}
           </span>
         </span>
-        <ChevronsUpDown className="h-4 w-4 text-stone-400" aria-hidden />
+        <ChevronsUpDown className="h-4 w-4 shrink-0 text-stone-400" aria-hidden />
       </button>
+
       {open && (
-        <div className="absolute left-0 right-0 z-30 mt-1.5 animate-fade-up rounded-xl border border-stone-200 bg-white p-1 shadow-pop">
-          <p className="px-2.5 pb-1 pt-1.5 text-[14px] text-stone-400">LinkedIn accounts</p>
-          {accounts.map((a) => (
-            <Link
-              key={a.id}
-              href={`/app/accounts/${a.id}`}
-              onClick={() => {
-                setOpen(false);
-                onNavigate?.();
-              }}
-              className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[15px] hover:bg-stone-50"
-            >
-              <span className={cx("h-2 w-2 shrink-0 rounded-full", accountDot(a.status))} aria-hidden />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-stone-900">{a.label}</span>
-                {a.profileName && <span className="block truncate text-[13px] text-stone-400">{a.profileName}</span>}
-              </span>
-              <span className="shrink-0 text-[14px] text-stone-400">{statusText(a.status)}</span>
+        <div className="absolute left-0 z-30 mt-2 w-[min(320px,calc(100vw-24px))] animate-fade-up overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-pop">
+          <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
+            <p className="text-[14px] font-semibold text-stone-900">LinkedIn accounts</p>
+            <Link href="/app/accounts" onClick={go} className="text-[13px] font-medium text-brand-800 hover:text-stone-900">
+              Manage
             </Link>
-          ))}
+          </div>
+          <ul className="max-h-[50vh] overflow-y-auto p-1.5">
+            {sorted.map((a) => {
+              const st = statusOf(a.status);
+              const needsConnect = a.status === "DISCONNECTED" || a.status === "NEEDS_ATTENTION";
+              return (
+                <li key={a.id} className="group flex items-center gap-3 rounded-xl px-2.5 py-2 hover:bg-stone-50">
+                  <Link href={`/app/accounts/${a.id}`} onClick={go} className="flex min-w-0 flex-1 items-center gap-3">
+                    <AccountFace a={a} size="lg" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-medium text-stone-900">{a.label}</span>
+                      <span className="block truncate text-[13px] text-stone-500">{a.profileName ?? "Not connected yet"}</span>
+                    </span>
+                  </Link>
+                  {needsConnect ? (
+                    <Link
+                      href={`/app/accounts/${a.id}?connect=${a.id}`}
+                      onClick={go}
+                      className="shrink-0 rounded-lg bg-stone-900 px-2.5 py-1 text-[13px] font-semibold text-white hover:bg-stone-700"
+                    >
+                      {a.status === "NEEDS_ATTENTION" ? "Check" : "Connect"}
+                    </Link>
+                  ) : (
+                    <span className={cx("shrink-0 rounded-full px-2 py-0.5 text-[12px] font-medium ring-1", st.pill)}>{st.text}</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
           <Link
             href="/app/accounts?add=1"
-            onClick={() => {
-              setOpen(false);
-              onNavigate?.();
-            }}
-            className="mt-1 flex items-center gap-2 border-t border-stone-100 px-2.5 py-2.5 text-[15px] font-medium text-brand-800 hover:text-stone-900"
+            onClick={go}
+            className="flex items-center gap-2 border-t border-stone-100 px-4 py-3 text-[15px] font-medium text-brand-800 hover:bg-stone-50 hover:text-stone-900"
           >
             <Plus className="h-4 w-4" aria-hidden /> Add account
           </Link>

@@ -120,6 +120,7 @@ export function createConnectServer(deps: ConnectServerDeps): { server: Server; 
             ...(profile.url && { profileUrl: profile.url }),
             premiumCheckedAt: new Date(),
             ...(profile.premium != null && { premium: profile.premium }),
+            ...(profile.photo && { avatar: Buffer.from(profile.photo.base64, "base64"), avatarType: profile.photo.type, avatarUpdatedAt: new Date() }),
           },
         });
         log(`Connect: "${account.label}" logged in and saved`);

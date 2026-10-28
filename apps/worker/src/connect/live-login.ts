@@ -2,7 +2,7 @@ import type { Browser, BrowserContext, CDPSession, Page } from "playwright";
 import { contextOptionsFor, launchBrowser, realUserAgent, type LaunchOptions } from "../browser/launch.js";
 import { inspectPage } from "../browser/page-state.js";
 import type { BrowserAccount, StorageState } from "../browser/types.js";
-import { readOwnPremium } from "../linkedin/account.js";
+import { readOwnAccount, type OwnPhoto } from "../linkedin/account.js";
 import { readProfile } from "../linkedin/profile.js";
 import { SHORTCUT_KEYS, SPECIAL_KEYS, displayUrl, type ClientMessage, type Phase, type ServerMessage } from "./protocol.js";
 
@@ -18,7 +18,7 @@ export interface LiveLoginOptions {
   /** Bytes queued on the socket — frames are dropped while the viewer is behind. */
   backlog(): number;
   /** Called once with the logged-in browser state; must encrypt and store it. */
-  onLoggedIn(state: StorageState, profile: { name: string | null; url: string | null; premium?: boolean | null }): Promise<void>;
+  onLoggedIn(state: StorageState, profile: { name: string | null; url: string | null; premium?: boolean | null; photo?: OwnPhoto | null }): Promise<void>;
   maxDurationMs?: number;
   idleMs?: number;
 }
@@ -148,14 +148,14 @@ export class LiveLogin {
   }
 
   /** Best effort: the account's own name and profile link, for the dashboard. */
-  private async readOwnProfile(page: Page): Promise<{ name: string | null; url: string | null; premium: boolean | null }> {
+  private async readOwnProfile(page: Page): Promise<{ name: string | null; url: string | null; premium: boolean | null; photo: OwnPhoto | null }> {
     try {
-      const premium = await readOwnPremium(page, this.opts.baseUrl);
+      const own = await readOwnAccount(page, this.opts.baseUrl);
       const p = await readProfile(page);
       const url = /\/in\/[^/]+/.test(new URL(p.url).pathname) ? p.url.split("?")[0]! : null;
-      return { name: p.name || null, url, premium };
+      return { name: p.name || null, url, premium: own.premium, photo: own.photo };
     } catch {
-      return { name: null, url: null, premium: null };
+      return { name: null, url: null, premium: null, photo: null };
     }
   }
 
