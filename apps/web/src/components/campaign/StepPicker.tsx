@@ -21,14 +21,14 @@ const CARD: Record<Kind, CardDef> = {
   VISIT: { kind: "VISIT", title: "View profile", body: "Viewing their profile notifies them and keeps you on their mind.", icon: Eye, tone: "bg-stone-900 text-white" },
   FOLLOW: { kind: "FOLLOW", title: "Follow profile", body: "Follow them to show interest and see what they post.", icon: Plus, tone: "bg-orange-500 text-white" },
   LIKE_POST: { kind: "LIKE_POST", title: "Like post", body: "Like their latest post to get noticed before you pitch.", icon: ThumbsUp, tone: "bg-violet-600 text-white" },
-  COMMENT: { kind: "COMMENT", title: "Like and comment on post", body: "Comment on their latest post to start a conversation.", icon: MessageCircle, tone: "bg-amber-700 text-white" },
+  COMMENT: { kind: "COMMENT", title: "Like and comment on post", body: "Like their latest post and leave a short comment to start a conversation.", icon: MessageCircle, tone: "bg-amber-700 text-white" },
   INMAIL: { kind: "INMAIL", title: "Send InMail", body: "Message people you aren't connected with (needs Premium or Sales Navigator).", icon: Mail, tone: "bg-emerald-700 text-white" },
   VOICE: { kind: "VOICE", title: "Send voice message", body: "A short voice note to a connection.", icon: Mic, tone: "bg-stone-500 text-white" },
   VIDEO: { kind: "VIDEO", title: "Send video message", body: "A short video to a connection.", icon: Video, tone: "bg-stone-500 text-white" },
-  EVENT: { kind: "EVENT", title: "Invite to event", body: "Invite a connection to one of your LinkedIn events.", icon: CalendarPlus, tone: "bg-stone-500 text-white" },
+  EVENT: { kind: "EVENT", title: "Invite to event", body: "Invite a connection to one of your LinkedIn events.", icon: CalendarPlus, tone: "bg-indigo-600 text-white" },
 };
 
-const SOON = new Set<Kind>(["COMMENT", "INMAIL", "VOICE", "VIDEO", "EVENT"]);
+const SOON = new Set<Kind>(["INMAIL", "VOICE", "VIDEO"]);
 
 const SECTIONS: { key: string; title: string; groups: { title: string; kinds: Kind[] }[] }[] = [
   {
@@ -59,6 +59,8 @@ function newStep(kind: Kind, steps: CampaignStep[]): CampaignStep {
   if (kind === "MESSAGE") return { type: "MESSAGE", delayDays: days, text: "" };
   if (kind === "FOLLOW") return { type: "FOLLOW", delayDays: days };
   if (kind === "LIKE_POST") return { type: "LIKE_POST", delayDays: days };
+  if (kind === "COMMENT") return { type: "COMMENT", delayDays: days, text: "" };
+  if (kind === "EVENT") return { type: "EVENT", delayDays: days, eventUrl: "" };
   return { type: "VISIT", delayDays: days };
 }
 
@@ -72,7 +74,9 @@ export function StepPicker({ steps, settings, onAdd }: { steps: CampaignStep[]; 
     if (SOON.has(kind)) return null;
     if (steps.length >= MAX_STEPS) return `A sequence can have up to ${MAX_STEPS} steps.`;
     if (kind === "INVITE" && count("INVITE") >= MAX_OF.INVITE) return "Already in your sequence.";
-    if (kind === "MESSAGE" && !canAddMessage(steps, settings)) return "Add a connection request first, or include 1st-degree connections in Configure.";
+    if ((kind === "MESSAGE" || kind === "EVENT") && !canAddMessage(steps, settings)) return "Add a connection request first, or include 1st-degree connections in Configure.";
+    if (kind === "COMMENT" && count("COMMENT") >= MAX_OF.COMMENT) return `Up to ${MAX_OF.COMMENT} per sequence.`;
+    if (kind === "EVENT" && count("EVENT") >= MAX_OF.EVENT) return `Up to ${MAX_OF.EVENT} per sequence.`;
     if (kind === "VISIT" && count("VISIT") >= MAX_OF.VISIT) return `Up to ${MAX_OF.VISIT} per sequence.`;
     if (kind === "LIKE_POST" && count("LIKE_POST") >= MAX_OF.LIKE_POST) return `Up to ${MAX_OF.LIKE_POST} per sequence.`;
     if (kind === "FOLLOW" && count("FOLLOW") >= MAX_OF.FOLLOW) return "Already in your sequence.";

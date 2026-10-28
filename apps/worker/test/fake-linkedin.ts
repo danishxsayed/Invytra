@@ -64,6 +64,10 @@ export interface FakeState {
   inboxReplies: { name: string; text: string }[];
   /** Profiles followed. */
   follows: string[];
+  /** Comments left on posts ("slug#post"). */
+  comments: { post: string; text: string }[];
+  /** Event invites sent: event id → names. */
+  eventInvites: { event: string; name: string }[];
   /** The logged-in member's plan as their own profile shows it (unset = no badge, no upsell). */
   mePlan?: "premium" | "free";
 }
@@ -177,7 +181,9 @@ function activityHtml(slug: string, p: Person, state: FakeState): string {
         .map((id, i) => {
           const liked = state.likes.includes(`${slug}#${id}`) || (slug === "carol" && i === 0);
           return `<div data-urn="urn:li:activity:${slug}${id}" class="post"><p>${p.name} posted: thoughts number ${i + 1}</p>
-            <button aria-label="React Like" aria-pressed="${liked}" data-post="${id}">Like</button><button>Comment</button><button>Repost</button></div>`;
+            <button aria-label="React Like" aria-pressed="${liked}" data-post="${id}">Like</button><button class="open-c" data-c="${id}">Comment</button><button>Repost</button>
+            <div class="cbox" hidden><div role="textbox" contenteditable="true" aria-label="Add a comment…"></div><button class="send-c" data-c="${id}">Comment</button></div>
+            ${state.comments.filter((c) => c.post === `${slug}#${id}`).map((c) => `<p class="c">${c.text}</p>`).join("")}</div>`;
         })
         .join("")
     : `<p>${p.name.split(" ")[0]} hasn’t posted yet</p>`;
@@ -185,7 +191,30 @@ function activityHtml(slug: string, p: Person, state: FakeState): string {
     `Activity | ${p.name} | LinkedIn`,
     `${HIDDEN_CAPTCHA}<main><h1>All activity</h1>${body}</main>
     <script>document.querySelectorAll('[data-post]').forEach(b=>b.onclick=async()=>{
-      await fetch('/api/like/${slug}',{method:'POST',body:JSON.stringify({post:b.dataset.post})});b.setAttribute('aria-pressed','true');});</script>`,
+      await fetch('/api/like/${slug}',{method:'POST',body:JSON.stringify({post:b.dataset.post})});b.setAttribute('aria-pressed','true');});
+    document.querySelectorAll('.open-c').forEach(b=>b.onclick=()=>{b.parentElement.querySelector('.cbox').hidden=false;});
+    document.querySelectorAll('.send-c').forEach(b=>b.onclick=async()=>{const post=b.closest('.post');const t=post.querySelector('[role=textbox]').innerText.trim();
+      await fetch('/api/comment/${slug}',{method:'POST',body:JSON.stringify({post:b.dataset.c,text:t})});
+      const p=document.createElement('p');p.className='c';p.textContent=t;post.appendChild(p);post.querySelector('.cbox').hidden=true;});</script>`,
+  );
+}
+
+/** Your event: "Invite" opens a dialog that searches your connections (carol is one; dave is already invited). */
+function eventHtml(id: string, state: FakeState): string {
+  const connections = ["Carol White", "Dave Brown", "Carla Whitney"];
+  const invited = new Set(["Dave Brown", ...state.eventInvites.filter((e) => e.event === id).map((e) => e.name)]);
+  return page(
+    "Growth Breakfast | LinkedIn",
+    `${HIDDEN_CAPTCHA}<main><h1>Growth Breakfast</h1><p>Online event</p><button id="inv">Invite</button><button>Share</button></main><div id="root"></div>
+    <script>const people=${JSON.stringify(connections)}, invited=new Set(${JSON.stringify([...invited])});
+    document.getElementById('inv').onclick=()=>{const root=document.getElementById('root');
+      root.innerHTML='<div role="dialog"><h2>Invite connections</h2><input placeholder="Search by name"><ul id="list"></ul><button id="go" disabled>Invite</button></div>';
+      const list=root.querySelector('#list'), go=root.querySelector('#go'), picked=new Set();
+      root.querySelector('input').oninput=(e)=>{const q=e.target.value.toLowerCase();list.innerHTML='';
+        people.filter(n=>q&&n.toLowerCase().includes(q)).forEach(n=>{const li=document.createElement('li');const done=invited.has(n);
+          li.innerHTML='<label><input type="checkbox" '+(done?'disabled checked':'')+'> '+n+(done?' · Invited':'')+'</label>';
+          li.querySelector('input').onchange=(ev)=>{ev.target.checked?picked.add(n):picked.delete(n);go.disabled=!picked.size;};list.appendChild(li);});};
+      go.onclick=async()=>{await fetch('/api/event/${id}',{method:'POST',body:JSON.stringify({names:[...picked]})});root.innerHTML='';};};</script>`,
   );
 }
 
@@ -287,7 +316,7 @@ const inboxHtml = (state: FakeState) =>
   );
 
 export function startFakeLinkedIn(): { server: Server; state: FakeState } {
-  const state: FakeState = { invites: [], messages: [], logins: [], accepted: [], replies: [], likes: [], withdrawn: [], inboxReplies: [], follows: [] };
+  const state: FakeState = { invites: [], messages: [], logins: [], accepted: [], replies: [], likes: [], withdrawn: [], inboxReplies: [], follows: [], comments: [], eventInvites: [] };
   const server = createServer((req, res) => {
     const cookie = req.headers.cookie ?? "";
     const loggedIn = /li_at=valid/.test(cookie);
@@ -319,6 +348,8 @@ export function startFakeLinkedIn(): { server: Server; state: FakeState } {
         if (kind === "like") state.likes.push(`${slug}#${data.post}`);
         if (kind === "withdraw") state.withdrawn.push(slug!);
         if (kind === "follow") state.follows.push(slug!);
+        if (kind === "comment") state.comments.push({ post: `${slug}#${data.post}`, text: data.text });
+        if (kind === "event") for (const n of data.names ?? []) state.eventInvites.push({ event: slug!, name: n });
         if (kind === "reply") state.inboxReplies.push({ name: data.name, text: data.text });
         send(200, "{}", { "content-type": "application/json" });
       });
@@ -347,6 +378,11 @@ export function startFakeLinkedIn(): { server: Server; state: FakeState } {
       return send(200, salesHtml(query));
     }
     if (path.startsWith("/premium/")) return send(200, page("Premium", "<main><h1>Start your free trial of Sales Navigator</h1></main>"));
+    const ev = /^\/events\/([^/]+)\/?$/.exec(path);
+    if (ev) {
+      if (ev[1] !== "demo123") return send(404, page("Page not found | LinkedIn", "<main><p>This page doesn’t exist</p></main>"));
+      return send(200, eventHtml(ev[1]!, state));
+    }
     const act = /^\/in\/([^/]+)\/recent-activity\//.exec(path);
     if (act) {
       const person = PEOPLE[act[1]!];

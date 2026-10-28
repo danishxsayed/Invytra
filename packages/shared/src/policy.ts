@@ -1,10 +1,10 @@
 import { limitBucket, type ActionType } from "./actions.js";
-import { ACTION_DELAY_SECONDS, SEARCH_PAGES_PER_DAY, type Limits } from "./limits.js";
+import { ACTION_DELAY_SECONDS, COMMENTS_PER_DAY, EVENT_INVITES_PER_DAY, SEARCH_PAGES_PER_DAY, type Limits } from "./limits.js";
 import { isWithinWorkingHours, type WorkingHours } from "./working-hours.js";
 
 /** Counts of actions already executed for one account. */
 export interface UsageCounts {
-  today: { PROFILE_VISIT: number; CONNECTION_REQUEST: number; MESSAGE: number; SEARCH_PAGE?: number };
+  today: { PROFILE_VISIT: number; CONNECTION_REQUEST: number; MESSAGE: number; SEARCH_PAGE?: number; COMMENT_POST?: number; EVENT_INVITE?: number };
   /** Connection requests in the last 7 days. */
   connectionRequestsThisWeek: number;
 }
@@ -42,6 +42,8 @@ export function canExecute(
   if (type === "SEARCH_PAGE" && (usage.today.SEARCH_PAGE ?? 0) >= searchPagesPerDay) {
     return { allowed: false, reason: "DAILY_LIMIT_REACHED" };
   }
+  if (type === "COMMENT_POST" && (usage.today.COMMENT_POST ?? 0) >= COMMENTS_PER_DAY) return { allowed: false, reason: "DAILY_LIMIT_REACHED" };
+  if (type === "EVENT_INVITE" && (usage.today.EVENT_INVITE ?? 0) >= EVENT_INVITES_PER_DAY) return { allowed: false, reason: "DAILY_LIMIT_REACHED" };
   const bucket = limitBucket(type);
   if (!bucket) return { allowed: true };
 

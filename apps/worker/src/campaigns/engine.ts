@@ -144,7 +144,7 @@ async function stopRepliedLeads(prisma: PrismaClient, c: Campaign, now: Date): P
 
 type Planned = NonNullable<ReturnType<typeof plannedAction>>;
 
-const TYPES = ["PROFILE_VISIT", "CONNECTION_REQUEST", "MESSAGE", "CHECK_CONNECTION", "LIKE_POST", "WITHDRAW_INVITE", "FOLLOW_PROFILE"] as const;
+const TYPES = ["PROFILE_VISIT", "CONNECTION_REQUEST", "MESSAGE", "CHECK_CONNECTION", "LIKE_POST", "WITHDRAW_INVITE", "FOLLOW_PROFILE", "COMMENT_POST", "EVENT_INVITE"] as const;
 
 /**
  * Queues the next step for due leads. New leads are shared out between the
@@ -270,7 +270,7 @@ async function skipReason(prisma: PrismaClient, c: Campaign, lead: CampaignLead,
   if (contacted) return "ALREADY_CONTACTED";
   const vars = { company: lead.company, title: lead.title };
   for (const s of steps) {
-    const text = s.type === "MESSAGE" ? s.text : s.type === "INVITE" ? s.note : "";
+    const text = s.type === "MESSAGE" || s.type === "COMMENT" ? s.text : s.type === "INVITE" ? s.note : "";
     const missing = missingVariables(text, vars);
     if (missing.length) return `MISSING_DETAIL:${missing[0]}`;
   }
@@ -290,7 +290,12 @@ async function enqueueStep(
   const vars = { firstName: lead.firstName, lastName: lead.lastName, company: lead.company, title: lead.title };
   const payload: Record<string, unknown> = { campaignId: c.id, vars, ...(audience && { audience }) };
   if (plan.type === "CONNECTION_REQUEST" && plan.note) payload.note = plan.note;
-  if (plan.type === "MESSAGE") payload.text = plan.text;
+  if (plan.type === "MESSAGE" || plan.type === "COMMENT_POST") payload.text = plan.text;
+  if (plan.type === "EVENT_INVITE") {
+    payload.eventUrl = plan.eventUrl;
+    // The invite dialog searches your connections by name: LinkedIn's spelling first.
+    payload.name = lead.linkedinName ?? [lead.firstName, lead.lastName].filter(Boolean).join(" ");
+  }
   try {
     const action = await prisma.$transaction(async (tx) => {
       // Claim the lead first, so two engines can never queue the same step twice.

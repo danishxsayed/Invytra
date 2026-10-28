@@ -12,6 +12,20 @@ export const NOTE_MAX = 300;
 /** Free accounts are often held to 200 characters for notes. */
 export const NOTE_FREE_MAX = 200;
 export const MESSAGE_MAX = 2000;
+/** Keep comments short: they're public, under someone else's post. */
+export const COMMENT_MAX = 500;
+
+/** A LinkedIn event link → canonical "https://www.linkedin.com/events/<id>/", or null. */
+export function eventUrl(input: string): string | null {
+  try {
+    const u = new URL(input.trim());
+    if (!/(^|\.)linkedin\.com$/i.test(u.hostname)) return null;
+    const m = /^\/events\/([A-Za-z0-9_-]+)\/?/.exec(u.pathname);
+    return m ? `https://www.linkedin.com/events/${m[1]}/` : null;
+  } catch {
+    return null;
+  }
+}
 
 const delay = z.number().int().min(0, "Days can't be negative").max(60, "Wait at most 60 days");
 
@@ -21,13 +35,17 @@ export const stepSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("LIKE_POST"), delayDays: delay }),
   /** Follow their profile — they get a notification, and you see their posts. */
   z.object({ type: z.literal("FOLLOW"), delayDays: delay }),
+  /** Like their latest post and leave a comment on it. */
+  z.object({ type: z.literal("COMMENT"), delayDays: delay, text: z.string().max(COMMENT_MAX, `Comments can be at most ${COMMENT_MAX} characters`) }),
+  /** Invite a connection to one of your LinkedIn events. */
+  z.object({ type: z.literal("EVENT"), delayDays: delay, eventUrl: z.string().max(300) }),
   z.object({ type: z.literal("INVITE"), delayDays: delay, note: z.string().max(NOTE_MAX, `Notes can be at most ${NOTE_MAX} characters`) }),
   z.object({ type: z.literal("MESSAGE"), delayDays: delay, text: z.string().max(MESSAGE_MAX, `Messages can be at most ${MESSAGE_MAX} characters`) }),
 ]);
 export type CampaignStep = z.infer<typeof stepSchema>;
 
 /** How many of each step a sequence may have. */
-export const MAX_OF = { VISIT: 3, LIKE_POST: 2, FOLLOW: 1, INVITE: 1 } as const;
+export const MAX_OF = { VISIT: 3, LIKE_POST: 2, FOLLOW: 1, INVITE: 1, COMMENT: 2, EVENT: 2 } as const;
 export const MAX_STEPS = 10;
 
 /** Problems that make a sequence unusable, in plain words (empty = fine). */
@@ -39,6 +57,8 @@ export function sequenceProblems(steps: CampaignStep[]): string[] {
   if (count("VISIT") > MAX_OF.VISIT) out.push(`Use at most ${MAX_OF.VISIT} profile visit steps.`);
   if (count("LIKE_POST") > MAX_OF.LIKE_POST) out.push(`Use at most ${MAX_OF.LIKE_POST} “like their latest post” steps.`);
   if (count("FOLLOW") > MAX_OF.FOLLOW) out.push("Use only one follow step.");
+  if (count("COMMENT") > MAX_OF.COMMENT) out.push(`Use at most ${MAX_OF.COMMENT} comment steps.`);
+  if (count("EVENT") > MAX_OF.EVENT) out.push(`Use at most ${MAX_OF.EVENT} event invite steps.`);
   if (steps.length && !steps.some((s) => s.type === "INVITE" || s.type === "MESSAGE")) out.push("Add an invite or a message.");
   steps.forEach((s, i) => {
     const n = i + 1;
@@ -49,6 +69,14 @@ export function sequenceProblems(steps: CampaignStep[]): string[] {
         if (p) out.push(`Step ${n}: the message ${p}.`);
       }
     }
+    if (s.type === "COMMENT") {
+      if (!s.text.trim()) out.push(`Step ${n}: write the comment.`);
+      else {
+        const p = outreachTextProblem(s.text);
+        if (p) out.push(`Step ${n}: the comment ${p}.`);
+      }
+    }
+    if (s.type === "EVENT" && !eventUrl(s.eventUrl)) out.push(`Step ${n}: paste the link to your LinkedIn event (linkedin.com/events/…).`);
     if (s.type === "INVITE" && s.note.trim()) {
       const p = outreachTextProblem(s.note);
       if (p) out.push(`Step ${n}: the note ${p}.`);

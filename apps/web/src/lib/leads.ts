@@ -181,7 +181,7 @@ function stageOf(type: string, status: string, error: string | null): LeadStage 
   if (status !== "SUCCEEDED") return null;
   if (type === "MESSAGE") return "MESSAGED";
   if (type === "CONNECTION_REQUEST") return "INVITED";
-  if (type === "PROFILE_VISIT" || type === "CHECK_CONNECTION" || type === "LIKE_POST" || type === "FOLLOW_PROFILE") return "VISITED";
+  if (type === "PROFILE_VISIT" || type === "CHECK_CONNECTION" || type === "LIKE_POST" || type === "FOLLOW_PROFILE" || type === "COMMENT_POST") return "VISITED";
   return null;
 }
 

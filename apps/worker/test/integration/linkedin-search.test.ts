@@ -10,7 +10,7 @@ import { withAccountSession, type SessionManagerDeps } from "../../src/browser/s
 import type { BrowserAccount, SessionTaskContext, StorageState } from "../../src/browser/types.js";
 import { sendConnectionRequest } from "../../src/linkedin/actions.js";
 import { readOwnPremium } from "../../src/linkedin/account.js";
-import { followProfile, likeLatestPost, withdrawInvite } from "../../src/linkedin/engage.js";
+import { commentOnLatestPost, followProfile, inviteToEvent, likeLatestPost, withdrawInvite } from "../../src/linkedin/engage.js";
 import { fetchInbox } from "../../src/linkedin/inbox.js";
 import { sendReply } from "../../src/linkedin/reply.js";
 import { companyFromHeadline, readSearchPage } from "../../src/linkedin/search.js";
@@ -117,6 +117,29 @@ describe("liking and withdrawing (fake site)", { timeout: 60_000 }, () => {
     expect(state.withdrawn).toEqual(["alice"]);
     expect(await run((ctx) => withdrawInvite(ctx, url("carol")))).toMatchObject({ outcome: "SKIPPED", reason: "CONNECTED" });
     expect(await run((ctx) => withdrawInvite(ctx, url("bob")))).toMatchObject({ outcome: "SKIPPED", reason: "NOT_PENDING" });
+  });
+});
+
+describe("comments and event invites (fake site)", { timeout: 90_000 }, () => {
+  it("likes the latest post and comments on it, filling in the first name", async () => {
+    const r = await run((ctx) => commentOnLatestPost(ctx, url("dave"), "Great point, {firstName}!", { firstName: "Dave" }));
+    expect(r).toMatchObject({ outcome: "DONE", data: { commented: true, liked: true } });
+    expect(state.comments).toEqual([{ post: "dave#d1", text: "Great point, Dave!" }]);
+    expect(state.likes).toContain("dave#d1");
+  });
+  it("never posts a comment it can't fill in, and skips people without posts", async () => {
+    expect(await run((ctx) => commentOnLatestPost(ctx, url("dave"), "Love this, {company}", {}))).toMatchObject({ outcome: "SKIPPED", reason: "MISSING_DETAIL" });
+    expect(await run((ctx) => commentOnLatestPost(ctx, url("bob"), "Nice!", {}))).toMatchObject({ outcome: "SKIPPED", reason: "NO_POSTS" });
+    expect(state.comments).toHaveLength(1);
+  });
+  it("invites a connection to your event by name, once", async () => {
+    const ev = "https://www.linkedin.com/events/demo123/";
+    expect(await run((ctx) => inviteToEvent(ctx, ev, "Carol White"))).toMatchObject({ outcome: "DONE" });
+    expect(state.eventInvites).toEqual([{ event: "demo123", name: "Carol White" }]);
+    expect(await run((ctx) => inviteToEvent(ctx, ev, "Carol White"))).toMatchObject({ outcome: "SKIPPED", reason: "ALREADY_INVITED" });
+    expect(await run((ctx) => inviteToEvent(ctx, ev, "Dave Brown"))).toMatchObject({ outcome: "SKIPPED", reason: "ALREADY_INVITED" });
+    expect(await run((ctx) => inviteToEvent(ctx, ev, "Zed Stranger"))).toMatchObject({ outcome: "SKIPPED", reason: "NOT_IN_CONNECTIONS" });
+    expect(await run((ctx) => inviteToEvent(ctx, "https://www.linkedin.com/events/nope/", "Carol White"))).toMatchObject({ outcome: "SKIPPED", reason: "EVENT_NOT_FOUND" });
   });
 });
 

@@ -58,13 +58,15 @@ export function audienceProblems(steps: CampaignStep[], a: Audience): string[] {
   if (a.degrees.length === 0) p.push("Pick at least one connection level.");
   const invites = steps.some((s) => s.type === "INVITE");
   const messages = steps.some((s) => s.type === "MESSAGE");
-  if (!invites && messages && a.degrees.length > 0 && !a.degrees.includes(1)) {
-    p.push("Without an invite step you can only message 1st-degree connections. Include 1st, or add an invite.");
+  const events = steps.some((s) => s.type === "EVENT");
+  if (!invites && (messages || events) && a.degrees.length > 0 && !a.degrees.includes(1)) {
+    p.push("Without a connection request you can only message (or invite to events) 1st-degree connections. Include 1st, or add a connection request.");
   }
   const invite = steps.findIndex((s) => s.type === "INVITE");
-  const early = steps.findIndex((s) => s.type === "MESSAGE");
+  const early = steps.findIndex((s) => s.type === "MESSAGE" || s.type === "EVENT");
   if (invites && early !== -1 && early < invite && !a.degrees.includes(1)) {
-    p.push(`Step ${early + 1}: a message before the invite only reaches 1st-degree connections. Move it after the invite.`);
+    const what = steps[early]!.type === "EVENT" ? "an event invite" : "a message";
+    p.push(`Step ${early + 1}: ${what} before the connection request only reaches 1st-degree connections. Move it after the request.`);
   }
   return p;
 }

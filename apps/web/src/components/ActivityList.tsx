@@ -1,4 +1,4 @@
-import { CornerUpLeft, Eye, Inbox, ListPlus, MessageSquare, Plus, Search, ThumbsUp, UserMinus, UserPlus, type LucideIcon } from "lucide-react";
+import { CalendarPlus, CornerUpLeft, Eye, Inbox, ListPlus, MessageCircle, MessageSquare, Plus, Search, ThumbsUp, UserMinus, UserPlus, type LucideIcon } from "lucide-react";
 import type { ActivityRow } from "@/lib/data";
 import { ACTION_LABEL, outcomeText, profilePath, slugName, timeAgo } from "@/lib/format";
 import Link from "next/link";
@@ -15,6 +15,8 @@ const ICON: Record<string, { icon: LucideIcon; cls: string }> = {
   SEARCH_PAGE: { icon: ListPlus, cls: "bg-violet-50 text-violet-600" },
   LIKE_POST: { icon: ThumbsUp, cls: "bg-rose-50 text-rose-600" },
   FOLLOW_PROFILE: { icon: Plus, cls: "bg-orange-50 text-orange-600" },
+  COMMENT_POST: { icon: MessageCircle, cls: "bg-amber-50 text-amber-700" },
+  EVENT_INVITE: { icon: CalendarPlus, cls: "bg-indigo-50 text-indigo-700" },
   WITHDRAW_INVITE: { icon: UserMinus, cls: "bg-stone-100 text-stone-500" },
   REPLY: { icon: CornerUpLeft, cls: "bg-sky-50 text-sky-600" },
 };

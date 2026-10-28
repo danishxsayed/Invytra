@@ -86,6 +86,10 @@ enum ActionType {
   REPLY
   /// Follows the person's profile
   FOLLOW_PROFILE
+  /// Likes and comments on the person's most recent post
+  COMMENT_POST
+  /// Invites a connection to one of your LinkedIn events
+  EVENT_INVITE
 }
 
 enum ImportKind {

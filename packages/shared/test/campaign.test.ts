@@ -13,6 +13,11 @@ import {
   audienceIsFiltered,
   accountIsPremium,
   canAddMessage,
+  eventUrl,
+  canExecute,
+  DEFAULT_LIMITS,
+  COMMENTS_PER_DAY,
+  EVENT_INVITES_PER_DAY,
   audienceProblems,
   audienceSkip,
   parseDegree,
@@ -236,7 +241,7 @@ describe("campaign audience", () => {
 
   it("a message-only campaign must include 1st-degree connections", () => {
     const steps: CampaignStep[] = [{ type: "MESSAGE", text: "Hi", delayDays: 0 }];
-    expect(audienceProblems(steps, settings({ degrees: [2, 3] }))[0]).toMatch(/only message 1st-degree/);
+    expect(audienceProblems(steps, settings({ degrees: [2, 3] }))[0]).toMatch(/only message \(or invite to events\) 1st-degree/);
     expect(audienceProblems(steps, settings({ degrees: [1] }))).toEqual([]);
   });
 
@@ -268,12 +273,44 @@ describe("step picker rules", () => {
     expect(canAddMessage([], settings({ degrees: [2, 3] }))).toBe(false);
     expect(canAddMessage([inv], settings({ degrees: [2, 3] }))).toBe(true);
     expect(canAddMessage([], settings({ degrees: [1] }))).toBe(true);
-    expect(audienceProblems([msg, inv], settings({ degrees: [2, 3] }))[0]).toMatch(/before the invite only reaches 1st-degree/);
+    expect(audienceProblems([msg, inv], settings({ degrees: [2, 3] }))[0]).toMatch(/before the connection request only reaches 1st-degree/);
     expect(audienceProblems([inv, msg], settings({ degrees: [2, 3] }))).toEqual([]);
   });
   it("an account's plan: what the user set wins over what was detected", () => {
     expect(accountIsPremium({ premium: null })).toBeNull();
     expect(accountIsPremium({ premium: false, premiumOverride: true })).toBe(true);
     expect(accountIsPremium({ premium: true })).toBe(true);
+  });
+});
+
+describe("comment and event steps", () => {
+  const settings = (o: Partial<CampaignSettings> = {}) => campaignSettingsSchema.parse(o);
+  const inv: CampaignStep = { type: "INVITE", delayDays: 0, note: "" };
+  it("checks the comment text and the event link", () => {
+    expect(sequenceProblems([inv, { type: "COMMENT", delayDays: 0, text: " " }])[0]).toMatch(/write the comment/);
+    expect(sequenceProblems([inv, { type: "EVENT", delayDays: 0, eventUrl: "https://example.com/x" }])[0]).toMatch(/link to your LinkedIn event/);
+    expect(sequenceProblems([inv, { type: "EVENT", delayDays: 0, eventUrl: "https://www.linkedin.com/events/7250123/" }])).toEqual([]);
+    expect(eventUrl("linkedin.com/events/abc")).toBeNull(); // needs https://
+    expect(eventUrl("https://in.linkedin.com/events/growth-7250/?x=1")).toBe("https://www.linkedin.com/events/growth-7250/");
+  });
+  it("plans the actions, and neither one ever stops the lead", () => {
+    const steps: CampaignStep[] = [{ type: "COMMENT", delayDays: 0, text: "Nice, {firstName}" }, { type: "EVENT", delayDays: 1, eventUrl: "https://www.linkedin.com/events/1/" }];
+    const lead: FlowLead = { state: "IN_PROGRESS", step: 0, invitedAt: null, connectedAt: null };
+    expect(plannedAction(steps, lead)).toEqual({ type: "COMMENT_POST", text: "Nice, {firstName}" });
+    expect(plannedAction(steps, { ...lead, step: 1 })).toEqual({ type: "EVENT_INVITE", eventUrl: "https://www.linkedin.com/events/1/" });
+    expect(applyResult(steps, settings(), { ...lead, step: 1 }, { type: "EVENT_INVITE", status: "SKIPPED", error: "NOT_IN_CONNECTIONS" }, new Date())).toMatchObject({ state: "DONE" });
+  });
+  it("event invites need connections, like messages", () => {
+    const ev: CampaignStep = { type: "EVENT", delayDays: 0, eventUrl: "https://www.linkedin.com/events/1/" };
+    expect(audienceProblems([ev], settings({ degrees: [2, 3] }))[0]).toMatch(/1st-degree/);
+    expect(audienceProblems([ev, inv], settings({ degrees: [2, 3] }))[0]).toMatch(/an event invite before the connection request/);
+    expect(audienceProblems([inv, ev], settings({ degrees: [2, 3] }))).toEqual([]);
+  });
+  it("comments and event invites have their own daily caps", () => {
+    const account = { status: "ACTIVE" as const, timeZone: "UTC", workingHours: { days: [1, 2, 3, 4, 5, 6, 7], startHour: 0, endHour: 24 }, limits: DEFAULT_LIMITS };
+    const usage = (o: object) => ({ today: { PROFILE_VISIT: 0, CONNECTION_REQUEST: 0, MESSAGE: 0, ...o }, connectionRequestsThisWeek: 0 });
+    expect(canExecute("COMMENT_POST", account, usage({ COMMENT_POST: COMMENTS_PER_DAY }))).toMatchObject({ allowed: false });
+    expect(canExecute("COMMENT_POST", account, usage({ COMMENT_POST: 1 }))).toEqual({ allowed: true });
+    expect(canExecute("EVENT_INVITE", account, usage({ EVENT_INVITE: EVENT_INVITES_PER_DAY }))).toMatchObject({ allowed: false });
   });
 });

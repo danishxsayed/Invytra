@@ -1,5 +1,5 @@
 import { prisma } from "@invytra/db";
-import { AlertTriangle, ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, Eye, Hourglass, MessageSquare, Plus, ThumbsUp, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CalendarPlus, ChevronLeft, ChevronRight, ExternalLink, Eye, Hourglass, MessageCircle, MessageSquare, Plus, ThumbsUp, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CampaignControls } from "@/components/campaign/CampaignControls";
@@ -24,7 +24,7 @@ const FILTER_LABEL: Record<LeadFilter, string> = {
   not_accepted: "Didn't accept",
   skipped: "Skipped / failed",
 };
-const STEP_ICON = { VISIT: Eye, INVITE: UserPlus, MESSAGE: MessageSquare, LIKE_POST: ThumbsUp, FOLLOW: Plus } as const;
+const STEP_ICON = { VISIT: Eye, INVITE: UserPlus, MESSAGE: MessageSquare, LIKE_POST: ThumbsUp, FOLLOW: Plus, COMMENT: MessageCircle, EVENT: CalendarPlus } as const;
 
 export default async function CampaignPage({
   params,

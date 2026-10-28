@@ -38,6 +38,10 @@ export const MAX_LIMITS = {
 export const SEARCH_PAGES_PER_DAY = 50;
 /** "Fetch all prospects at once": enough for a whole search (LinkedIn shows at most 100 pages). */
 export const FETCH_ALL_SEARCH_PAGES_PER_DAY = 100;
+/** Comments on people's posts per account per day (on top of the profile-visit limit). Comments are public. */
+export const COMMENTS_PER_DAY = 15;
+/** Event invitations per account per day (LinkedIn also caps them weekly). */
+export const EVENT_INVITES_PER_DAY = 50;
 
 /** Connection-request note limit enforced by LinkedIn. */
 export const CONNECTION_NOTE_MAX_CHARS = 300;

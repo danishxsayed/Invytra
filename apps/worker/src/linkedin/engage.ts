@@ -1,9 +1,9 @@
-import type { Audience } from "@invytra/shared";
+import { fillTemplate, type Audience, type TemplateVars } from "@invytra/shared";
 import type { SessionTaskContext } from "../browser/types.js";
 import type { ActionOutcome, ProfileFacts } from "./actions.js";
 import { openProfile, outsideAudience } from "./actions.js";
-import { humanBrowse, humanClick, humanPause } from "./human.js";
-import { control, normalizeProfileUrl, readProfile, topCard } from "./profile.js";
+import { humanBrowse, humanClick, humanPause, humanType } from "./human.js";
+import { control, escapeRegex, normalizeProfileUrl, readProfile, topCard } from "./profile.js";
 import { SELECTORS } from "./selectors.js";
 
 /** Like the person's most recent post (their activity page, newest first). */
@@ -118,3 +118,114 @@ export async function followProfile(ctx: SessionTaskContext, profileUrl: string,
   }
   return { outcome: "DONE", data: { ...data, followed: true } };
 }
+
+/**
+ * Like their latest post (if not liked yet) and leave a comment on it. Placeholders like
+ * {firstName} are filled in; a comment that can't be filled is never posted.
+ */
+export async function commentOnLatestPost(
+  ctx: SessionTaskContext,
+  profileUrl: string,
+  text: string,
+  vars: TemplateVars = {},
+  audience?: Audience,
+): Promise<ActionOutcome<{ commented: boolean; liked: boolean } & ProfileFacts>> {
+  const { page } = ctx;
+  let facts: ProfileFacts = {};
+  if (audience) {
+    const info = await openProfile(ctx, profileUrl, false);
+    if (info.status === "UNAVAILABLE") return { outcome: "SKIPPED", reason: "PROFILE_UNAVAILABLE" };
+    facts = { degree: info.degree, premium: info.premium };
+    const outside = outsideAudience(audience, info);
+    if (outside) return { outcome: "SKIPPED", reason: outside, data: { commented: false, liked: false, ...facts } };
+  }
+  const filled = fillTemplate(text.trim(), vars, [vars.firstName, vars.lastName].filter(Boolean).join(" "));
+  if (!filled) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data: { commented: false, liked: false, ...facts } };
+
+  const url = new URL(SELECTORS.activity.path, normalizeProfileUrl(profileUrl, ctx.baseUrl)).toString();
+  const res = await page.goto(url, { waitUntil: "domcontentloaded" });
+  await humanPause(page, 2000, 4000);
+  await ctx.assertHealthy();
+  if (res && res.status() === 404) return { outcome: "SKIPPED", reason: "PROFILE_UNAVAILABLE" };
+  await humanBrowse(page);
+
+  const posts = page.locator(SELECTORS.activity.post).filter({ visible: true }).filter({ has: page.getByRole("button", { name: SELECTORS.activity.likeButton }) });
+  if ((await posts.count()) === 0) return { outcome: "SKIPPED", reason: "NO_POSTS", data: { commented: false, liked: false, ...facts } };
+  const post = posts.first();
+
+  // Like it first (a comment without a like looks odd).
+  let liked = false;
+  const like = post.getByRole("button", { name: SELECTORS.activity.likeButton }).filter({ visible: true }).first();
+  if ((await like.getAttribute("aria-pressed")) !== "true") {
+    await humanPause(page, 800, 1800);
+    await humanClick(page, like);
+    await humanPause(page, 1000, 2000);
+    liked = (await like.getAttribute("aria-pressed")) === "true";
+  }
+
+  const open = post.getByRole("button", { name: SELECTORS.comment.openButton }).filter({ visible: true }).first();
+  if ((await open.count()) === 0) return { outcome: "SKIPPED", reason: "COMMENT_NOT_AVAILABLE", data: { commented: false, liked, ...facts } };
+  await humanClick(page, open);
+  await humanPause(page, 1000, 2000);
+  const box = post.locator(SELECTORS.comment.box).filter({ visible: true }).first();
+  await box.waitFor({ state: "visible", timeout: 10_000 });
+  await humanType(page, box, filled);
+  await humanPause(page, 800, 1800);
+  const submit = post.getByRole("button", { name: SELECTORS.comment.submit }).filter({ visible: true }).last();
+  await humanClick(page, submit);
+  await humanPause(page, 1500, 3000);
+  await ctx.assertHealthy();
+  const probe = filled.slice(0, 40);
+  if ((await post.getByText(probe, { exact: false }).filter({ visible: true }).count()) === 0) throw new Error("The comment wasn't confirmed under the post");
+  return { outcome: "DONE", data: { commented: true, liked, ...facts } };
+}
+
+/**
+ * Invite a connection to one of your LinkedIn events: open the event, "Invite", search the
+ * person's name among your connections, tick them and send. Only connections can be invited.
+ */
+export async function inviteToEvent(ctx: SessionTaskContext, eventUrl: string, name: string): Promise<ActionOutcome<{ invited: boolean }>> {
+  const { page } = ctx;
+  const who = name.trim();
+  if (!who) return { outcome: "SKIPPED", reason: "NO_NAME" };
+  const target = new URL(eventUrl);
+  const res = await page.goto(new URL(target.pathname, ctx.baseUrl).toString(), { waitUntil: "domcontentloaded" });
+  await humanPause(page, 1500, 3000);
+  await ctx.assertHealthy();
+  const text = (await page.evaluate(() => document.body?.innerText ?? "")).toLowerCase();
+  if ((res && res.status() === 404) || SELECTORS.event.missingMarkers.some((m) => text.includes(m))) return { outcome: "SKIPPED", reason: "EVENT_NOT_FOUND" };
+
+  const invite = page.getByRole("button", { name: SELECTORS.event.inviteButton }).filter({ visible: true }).first();
+  if ((await invite.count()) === 0) return { outcome: "SKIPPED", reason: "EVENT_NO_INVITE" };
+  await humanClick(page, invite);
+  await humanPause(page, 1000, 2000);
+  const dialog = page.locator('[role="dialog"], dialog[open]').filter({ visible: true }).last();
+  await dialog.waitFor({ state: "visible", timeout: 10_000 });
+
+  const search = dialog.getByRole("textbox").or(dialog.getByRole("searchbox")).or(dialog.getByPlaceholder(SELECTORS.event.search)).first();
+  await humanType(page, search, who);
+  await humanPause(page, 1500, 3000);
+
+  // One result row per connection; checkbox (or the row itself) picks them.
+  const row = dialog.locator("li, [role='option']").filter({ hasText: new RegExp(escapeRegex(who), "i") });
+  if ((await row.count()) === 0) {
+    await page.keyboard.press("Escape");
+    return { outcome: "SKIPPED", reason: "NOT_IN_CONNECTIONS" };
+  }
+  const pick = row.first();
+  const box = pick.getByRole("checkbox").first();
+  if (((await box.count()) > 0 && (await box.isDisabled())) || SELECTORS.event.alreadyInvited.test((await pick.innerText()).replace(who, ""))) {
+    await page.keyboard.press("Escape");
+    return { outcome: "SKIPPED", reason: "ALREADY_INVITED" };
+  }
+  await humanClick(page, (await box.count()) > 0 ? box : pick);
+  await humanPause(page, 800, 1600);
+  const send = dialog.getByRole("button", { name: SELECTORS.event.send }).filter({ visible: true }).last();
+  if (await send.isDisabled()) throw new Error("The event invite button stayed disabled after picking the person");
+  await humanClick(page, send);
+  await humanPause(page, 1500, 3000);
+  await ctx.assertHealthy();
+  if (await dialog.isVisible().catch(() => false)) throw new Error("The event invite wasn't confirmed (dialog still open)");
+  return { outcome: "DONE", data: { invited: true } };
+}
+

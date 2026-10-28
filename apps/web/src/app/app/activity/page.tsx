@@ -25,6 +25,8 @@ const TYPES: { value: NonNullable<ActivityFilter["type"]>; label: string }[] = [
   { value: "MESSAGE", label: "Messages" },
   { value: "LIKE_POST", label: "Post likes" },
   { value: "FOLLOW_PROFILE", label: "Follows" },
+  { value: "COMMENT_POST", label: "Comments" },
+  { value: "EVENT_INVITE", label: "Event invites" },
   { value: "WITHDRAW_INVITE", label: "Withdrawn invites" },
   { value: "REPLY", label: "Replies from inbox" },
   { value: "SEARCH_PAGE", label: "Search imports" },

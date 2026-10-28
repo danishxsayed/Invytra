@@ -136,6 +136,26 @@ export const SELECTORS = {
     /** "React Like" in the 2026 feed, "Like" before; aria-pressed=true once liked. */
     likeButton: /^(React )?Like\b/i,
   },
+  comment: {
+    /** The Comment control on a post (opens the comment box). UNVERIFIED on the real 2026 layout. */
+    openButton: /^Comment\b/i,
+    /** The comment editor that appears under the post. */
+    box: '[role="textbox"][contenteditable="true"], .comments-comment-box [contenteditable="true"], div.ql-editor[contenteditable="true"]',
+    /** Sends the comment ("Comment" in 2026, "Post" before). */
+    submit: /^(Comment|Post)$/i,
+  },
+  event: {
+    /** On your event's page: opens the invite dialog. UNVERIFIED on the real 2026 layout. */
+    inviteButton: /^Invite\b/i,
+    /** Shown when the event doesn't exist or you can't see it. */
+    missingMarkers: ["this event is unavailable", "page not found", "this page doesn’t exist", "this page doesn't exist"],
+    /** Search box in the invite dialog. */
+    search: /search|name/i,
+    /** The dialog's send button. */
+    send: /^(Invite|Send)\b/i,
+    /** Next to someone already invited or attending. */
+    alreadyInvited: /\b(Invited|Attending)\b/i,
+  },
   account: {
     /** Upsells LinkedIn shows free members (lower-case). */
     freeMarkers: ["try premium", "reactivate premium", "try for ₹0", "try for $0", "get premium"],

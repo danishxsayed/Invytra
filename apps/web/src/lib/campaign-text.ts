@@ -37,6 +37,11 @@ const REASONS: Record<string, string> = {
   NO_POSTS: "Hasn't posted anything to like",
   FOLLOW_NOT_AVAILABLE: "No Follow option on their profile",
   ALREADY_FOLLOWING: "Already followed",
+  COMMENT_NOT_AVAILABLE: "Their latest post doesn't allow comments",
+  EVENT_NOT_FOUND: "The event link doesn't open an event",
+  EVENT_NO_INVITE: "No Invite button on the event (only the organiser can invite)",
+  NOT_IN_CONNECTIONS: "Not found among your connections for the event invite",
+  ALREADY_INVITED: "Already invited to the event",
   SENDER_REMOVED: "Its sending account was removed from the campaign after contacting them",
 };
 
@@ -55,6 +60,8 @@ export function stepLabel(s: CampaignStep | undefined): string {
   if (!s) return "";
   if (s.type === "LIKE_POST") return "Like latest post";
   if (s.type === "FOLLOW") return "Follow profile";
+  if (s.type === "COMMENT") return "Like and comment";
+  if (s.type === "EVENT") return "Invite to event";
   return s.type === "VISIT" ? "Visit profile" : s.type === "INVITE" ? (s.note.trim() ? "Invite with note" : "Invite") : "Message";
 }
 

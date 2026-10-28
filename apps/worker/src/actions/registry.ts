@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@invytra/db";
-import { campaignSettingsSchema, outreachTextProblem, type ActionType, type Audience, type SearchKind, type TemplateVars } from "@invytra/shared";
+import { campaignSettingsSchema, eventUrl, outreachTextProblem, type ActionType, type Audience, type SearchKind, type TemplateVars } from "@invytra/shared";
 import type { SessionTaskContext } from "../browser/types.js";
 import {
   checkConnectionStatus,
@@ -11,7 +11,7 @@ import {
   type InboxThread,
 } from "../linkedin/actions.js";
 import { readOwnPremium } from "../linkedin/account.js";
-import { followProfile, likeLatestPost, withdrawInvite } from "../linkedin/engage.js";
+import { commentOnLatestPost, followProfile, inviteToEvent, likeLatestPost, withdrawInvite } from "../linkedin/engage.js";
 import { sendReply } from "../linkedin/reply.js";
 import { readSearchPage } from "../linkedin/search.js";
 import { recordReply, storeConversations } from "./conversation-store.js";
@@ -29,7 +29,8 @@ const SEARCH_KINDS: SearchKind[] = ["LINKEDIN_SEARCH", "SALES_NAV_SEARCH", "SALE
 export function validateSpec(spec: ActionSpec): void {
   const needsUrl = spec.type !== "INBOX_SYNC" && spec.type !== "REPLY";
   if (needsUrl && !spec.targetUrl) throw new Error(`${spec.type} needs a profile URL`);
-  if (spec.type === "MESSAGE" && !String(spec.payload?.text ?? "").trim()) throw new Error("MESSAGE needs text");
+  if ((spec.type === "MESSAGE" || spec.type === "COMMENT_POST") && !String(spec.payload?.text ?? "").trim()) throw new Error(`${spec.type} needs text`);
+  if (spec.type === "EVENT_INVITE" && !eventUrl(String(spec.payload?.eventUrl ?? ""))) throw new Error("EVENT_INVITE needs a LinkedIn event link");
   if (spec.type === "REPLY" && (!String(spec.payload?.text ?? "").trim() || !String(spec.payload?.name ?? "").trim())) {
     throw new Error("REPLY needs text and the person's name");
   }
@@ -92,6 +93,10 @@ export function workFor(spec: ActionSpec): (ctx: SessionTaskContext) => Promise<
       return (ctx) => readSearchPage(ctx, url, p.kind as SearchKind);
     case "LIKE_POST":
       return (ctx) => likeLatestPost(ctx, url, audience);
+    case "COMMENT_POST":
+      return (ctx) => commentOnLatestPost(ctx, url, String(p.text), varsOf(p), audience);
+    case "EVENT_INVITE":
+      return (ctx) => inviteToEvent(ctx, String(p.eventUrl), String(p.name ?? ""));
     case "FOLLOW_PROFILE":
       return (ctx) => followProfile(ctx, url, audience);
     case "WITHDRAW_INVITE":
@@ -142,5 +147,5 @@ export async function afterSuccess(
  * Invites are safe to retry — a retry sees "Pending" and skips.
  */
 export function isRetryable(type: ActionType): boolean {
-  return type !== "MESSAGE" && type !== "REPLY";
+  return type !== "MESSAGE" && type !== "REPLY" && type !== "COMMENT_POST";
 }

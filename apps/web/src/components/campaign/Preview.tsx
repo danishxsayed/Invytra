@@ -20,7 +20,13 @@ export function Preview({ steps, sample }: { steps: CampaignStep[]; sample: Samp
   const [i, setI] = useState(0);
   const lead = sample[Math.min(i, sample.length - 1)];
   const texts = steps.flatMap((s, idx) =>
-    s.type === "INVITE" && s.note.trim() ? [{ idx, label: "Invite note", text: s.note }] : s.type === "MESSAGE" && s.text.trim() ? [{ idx, label: "Message", text: s.text }] : [],
+    s.type === "INVITE" && s.note.trim()
+      ? [{ idx, label: "Invite note", text: s.note }]
+      : s.type === "MESSAGE" && s.text.trim()
+        ? [{ idx, label: "Message", text: s.text }]
+        : s.type === "COMMENT" && s.text.trim()
+          ? [{ idx, label: "Comment on their post", text: s.text }]
+          : [],
   );
   if (!lead) return <p className="text-[15px] text-stone-500">Choose a lead list to preview your messages with a real person's details.</p>;
   if (texts.length === 0) return <p className="text-[15px] text-stone-500">Write a note or message to see a preview.</p>;

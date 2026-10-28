@@ -7,6 +7,8 @@ export const ACTION_LABEL: Record<string, string> = {
   SEARCH_PAGE: "Search import",
   LIKE_POST: "Like latest post",
   FOLLOW_PROFILE: "Follow profile",
+  COMMENT_POST: "Like and comment",
+  EVENT_INVITE: "Event invite",
   WITHDRAW_INVITE: "Withdraw invite",
   REPLY: "Reply from inbox",
 };
@@ -57,6 +59,8 @@ export function outcomeText(row: { status: string; error: string | null; payload
       }
       if (row.type === "LIKE_POST") return "Liked";
       if (row.type === "FOLLOW_PROFILE") return "Followed";
+      if (row.type === "COMMENT_POST") return "Commented";
+      if (row.type === "EVENT_INVITE") return "Invited to the event";
       if (row.type === "WITHDRAW_INVITE") return "Withdrawn";
       if (row.type === "REPLY") return "Sent";
       if (row.type === "INBOX_SYNC") return p.result?.newReplies ? `${p.result.newReplies} new repl${p.result.newReplies === 1 ? "y" : "ies"}` : "No new replies";

@@ -1,17 +1,19 @@
 "use client";
 
-import { MESSAGE_MAX, NOTE_FREE_MAX, NOTE_MAX, type CampaignSettings, type CampaignStep } from "@invytra/shared";
-import { ArrowDown, ArrowUp, Eye, Hourglass, Lock, MessageSquare, Plus, ThumbsUp, Trash2, UserPlus } from "lucide-react";
+import { COMMENT_MAX, MESSAGE_MAX, NOTE_FREE_MAX, NOTE_MAX, eventUrl, type CampaignSettings, type CampaignStep } from "@invytra/shared";
+import { ArrowDown, ArrowUp, CalendarPlus, Eye, MessageCircle, Hourglass, Lock, MessageSquare, Plus, ThumbsUp, Trash2, UserPlus } from "lucide-react";
 import { cx } from "../ui";
 import { TextTemplate } from "./TextTemplate";
 
-const ICON = { VISIT: Eye, INVITE: UserPlus, MESSAGE: MessageSquare, LIKE_POST: ThumbsUp, FOLLOW: Plus } as const;
+const ICON = { VISIT: Eye, INVITE: UserPlus, MESSAGE: MessageSquare, LIKE_POST: ThumbsUp, FOLLOW: Plus, COMMENT: MessageCircle, EVENT: CalendarPlus } as const;
 const TONE = {
   VISIT: "bg-teal-50 text-teal-700",
   INVITE: "bg-brand-100 text-brand-800",
   MESSAGE: "bg-sky-50 text-sky-700",
   LIKE_POST: "bg-rose-50 text-rose-600",
   FOLLOW: "bg-orange-50 text-orange-600",
+  COMMENT: "bg-amber-50 text-amber-700",
+  EVENT: "bg-indigo-50 text-indigo-700",
 } as const;
 
 const iconBtn = "rounded-lg p-1.5 text-stone-400 transition hover:bg-stone-100 hover:text-stone-900 disabled:opacity-30 disabled:hover:bg-transparent";
@@ -85,6 +87,10 @@ export function SequenceEditor({
                   ? "Like their latest post"
                   : s.type === "FOLLOW"
                     ? "Follow profile"
+                    : s.type === "COMMENT"
+                      ? "Like and comment on their latest post"
+                      : s.type === "EVENT"
+                        ? "Invite to event"
                     : n === 1
                       ? "Message"
                       : `Follow-up ${n - 1}`;
@@ -158,6 +164,35 @@ export function SequenceEditor({
                           </p>
                         </>
                       )}
+                    </div>
+                  )}
+                  {s.type === "COMMENT" && (
+                    <div className="mt-3">
+                      <TextTemplate label={`Comment, step ${i + 1}`} value={s.text} onChange={(v) => set(i, { text: v })} max={COMMENT_MAX} rows={3} placeholder="Great point, {firstName}! …" />
+                      <p className="mt-1.5 text-[13px] text-stone-500">
+                        Likes their newest post, then posts this comment under it. Comments are public, so keep it short and general enough to fit any post. Skipped if they
+                        haven&apos;t posted. At most 15 comments a day per account.
+                      </p>
+                    </div>
+                  )}
+                  {s.type === "EVENT" && (
+                    <div className="mt-3">
+                      <label className="block text-[14px] font-medium text-stone-700" htmlFor={`event-${i}`}>
+                        Your LinkedIn event link
+                      </label>
+                      <input
+                        id={`event-${i}`}
+                        type="url"
+                        value={s.eventUrl}
+                        onChange={(e) => set(i, { eventUrl: e.target.value })}
+                        placeholder="https://www.linkedin.com/events/…"
+                        className="mt-1.5 block w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-[15px] text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-4 focus:ring-brand-200"
+                      />
+                      <p className={cx("mt-1.5 text-[13px]", s.eventUrl.trim() && !eventUrl(s.eventUrl) ? "text-rose-700" : "text-stone-500")}>
+                        {s.eventUrl.trim() && !eventUrl(s.eventUrl)
+                          ? "That isn't a LinkedIn event link. Open your event on LinkedIn and copy the address (linkedin.com/events/…)."
+                          : "An event you organise. Only your connections can be invited, so this goes after they accept. Skipped if they're already invited."}
+                      </p>
                     </div>
                   )}
                   {s.type === "FOLLOW" && (
