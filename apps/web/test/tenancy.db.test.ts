@@ -103,6 +103,37 @@ d("account management stays inside its workspace", () => {
     expect((await createAccount(prisma, theirs, { label: "Sales 1", timezone: "UTC", proxyUrl: "http://p.example:1", warmup: false })).ok).toBe(true);
   });
 
+  it("never lets two LinkedIn accounts share a proxy (password and host case don't matter)", async () => {
+    const lib = await import("../src/lib/accounts");
+    const first = await lib.createAccount(prisma, mine, { label: "Proxy A", timezone: "UTC", proxyUrl: "http://alice:pw1@Gate.Proxy.test:9001", warmup: false });
+    expect(first.ok).toBe(true);
+    expect(await lib.createAccount(prisma, mine, { label: "Proxy B", timezone: "UTC", proxyUrl: "http://alice:other@gate.proxy.test:9001", warmup: false })).toEqual({
+      ok: false,
+      error: "This proxy is already used by “Proxy A”. Each LinkedIn account needs its own proxy, so buy another one for this account.",
+    });
+    // Another customer's account is never named.
+    const r = await lib.createAccount(prisma, theirs, { label: "Theirs", timezone: "UTC", proxyUrl: "http://alice:pw1@gate.proxy.test:9001", warmup: false });
+    expect(r).toEqual({ ok: false, error: "This proxy is already used by another LinkedIn account on Invytra. Each LinkedIn account needs its own proxy." });
+    // A different username on the same gateway is a different proxy.
+    expect((await lib.createAccount(prisma, mine, { label: "Proxy C", timezone: "UTC", proxyUrl: "http://bob:pw@gate.proxy.test:9001", warmup: false })).ok).toBe(true);
+    // Changing an account to another account's proxy is refused; keeping its own is fine.
+    const c = await prisma.linkedinAccount.findFirstOrThrow({ where: { workspaceId: mine, label: "Proxy C" } });
+    const settings = {
+      label: "Proxy C",
+      timezone: "UTC",
+      limits: { connectionRequestsPerDay: 20, connectionRequestsPerWeek: 150, messagesPerDay: 50, profileVisitsPerDay: 80, randomizeDaily: true },
+      workingHours: { days: [1], startHour: 9, endHour: 18 },
+      warmup: false,
+      removeProxy: false,
+    };
+    expect((await lib.updateSettings(prisma, mine, c.id, { ...settings, proxyUrl: "http://alice:x@gate.proxy.test:9001" })).ok).toBe(false);
+    expect((await lib.updateSettings(prisma, mine, c.id, { ...settings, proxyUrl: "http://bob:newpw@gate.proxy.test:9001" })).ok).toBe(true);
+    // Older duplicates are reported on the Accounts page.
+    await prisma.linkedinAccount.update({ where: { id: c.id }, data: { proxyUrl: (await prisma.linkedinAccount.findFirstOrThrow({ where: { label: "Proxy A" } })).proxyUrl } });
+    expect(await lib.sharedProxyGroups(prisma, mine)).toEqual([expect.arrayContaining(["Proxy A", "Proxy C"])]);
+    await prisma.linkedinAccount.deleteMany({ where: { label: { in: ["Proxy A", "Proxy C"] } } });
+  });
+
   it("refuses to read, change, pause or remove another workspace's account", async () => {
     const lib = await import("../src/lib/accounts");
     const { accountsOverview } = await import("../src/lib/data");

@@ -83,6 +83,67 @@ function key(): string {
   return k;
 }
 
+/**
+ * What makes two proxies "the same": host, port and username (providers often give
+ * every IP the same gateway host with a different username). The password is ignored.
+ */
+export function proxyKey(plain: string): string | null {
+  try {
+    const u = new URL(plain.trim());
+    if (!u.hostname || !u.port) return null;
+    return `${u.hostname.toLowerCase()}:${u.port}:${decodeURIComponent(u.username)}`;
+  } catch {
+    return null;
+  }
+}
+
+function storedProxyKey(stored: string): string | null {
+  if (!stored) return null;
+  try {
+    return proxyKey(isSealed(stored) ? openSecret(stored, key()) : stored);
+  } catch {
+    return null; // saved under another key: can't compare
+  }
+}
+
+/**
+ * Another LinkedIn account already using this proxy, or null. Checked across all of
+ * Invytra (two customers on one IP look linked to LinkedIn too); another workspace's
+ * account is never named.
+ */
+export async function proxyInUse(
+  prisma: PrismaClient,
+  workspaceId: string,
+  proxyUrl: string,
+  exceptAccountId?: string,
+): Promise<{ label: string | null } | null> {
+  const want = proxyKey(proxyUrl);
+  if (!want) return null;
+  const others = await prisma.linkedinAccount.findMany({
+    where: { proxyUrl: { not: "" }, ...(exceptAccountId && { id: { not: exceptAccountId } }) },
+    select: { label: true, workspaceId: true, proxyUrl: true },
+  });
+  const hit = others.find((o) => storedProxyKey(o.proxyUrl) === want);
+  if (!hit) return null;
+  return { label: hit.workspaceId === workspaceId ? hit.label : null };
+}
+
+const proxyTaken = (hit: { label: string | null }) =>
+  hit.label
+    ? `This proxy is already used by “${hit.label}”. Each LinkedIn account needs its own proxy, so buy another one for this account.`
+    : "This proxy is already used by another LinkedIn account on Invytra. Each LinkedIn account needs its own proxy.";
+
+/** Groups of this workspace's accounts that share one proxy (for a warning on the Accounts page). */
+export async function sharedProxyGroups(prisma: PrismaClient, workspaceId: string): Promise<string[][]> {
+  const rows = await prisma.linkedinAccount.findMany({ where: { workspaceId, proxyUrl: { not: "" } }, select: { label: true, proxyUrl: true } });
+  const groups = new Map<string, string[]>();
+  for (const r of rows) {
+    const k = storedProxyKey(r.proxyUrl);
+    if (k) groups.set(k, [...(groups.get(k) ?? []), r.label]);
+  }
+  return [...groups.values()].filter((g) => g.length > 1);
+}
+
 /** "proxy.example.com:8000" — never the username or password. */
 export function proxyHost(stored: string): string | null {
   if (!stored) return null;
@@ -115,6 +176,10 @@ export async function createAccount(prisma: PrismaClient, workspaceId: string, i
     return { ok: false, error: "Add the proxy for this account. Each LinkedIn account needs its own proxy." };
   }
   if (await labelTaken(prisma, workspaceId, input.label)) return { ok: false, error: "You already have an account with that name." };
+  if (input.proxyUrl) {
+    const hit = await proxyInUse(prisma, workspaceId, input.proxyUrl);
+    if (hit) return { ok: false, error: proxyTaken(hit) };
+  }
   const a = await prisma.linkedinAccount.create({
     data: {
       workspaceId,
@@ -148,6 +213,8 @@ export async function updateSettings(
     if (proxyRequired()) return { ok: false, error: "Each LinkedIn account needs its own proxy." };
     proxyUrl = "";
   } else if (input.proxyUrl) {
+    const hit = await proxyInUse(prisma, workspaceId, input.proxyUrl, current.id);
+    if (hit) return { ok: false, error: proxyTaken(hit) };
     proxyUrl = sealSecret(input.proxyUrl, key());
   }
   // Warm-up: switching it on starts a fresh ramp; leaving it on keeps the current end date.

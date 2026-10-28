@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { AccountPanel } from "@/components/AccountPanel";
 import { AddAccountButton } from "@/components/AddAccountButton";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
-import { proxyRequired } from "@/lib/accounts";
+import { proxyRequired, sharedProxyGroups } from "@/lib/accounts";
 import { requireUser } from "@/lib/auth";
 import { accountsOverview } from "@/lib/data";
 import { allTimeZones } from "@/lib/timezones";
@@ -16,6 +16,7 @@ export default async function AccountsPage() {
   const me = await requireUser();
   const accounts = await accountsOverview(prisma, me.workspace.id);
   const twins = sameProfileGroups(accounts);
+  const sharedProxies = await sharedProxyGroups(prisma, me.workspace.id);
   const add = (
     <Suspense>
       <AddAccountButton zones={allTimeZones()} proxyRequired={proxyRequired()} />
@@ -38,6 +39,19 @@ export default async function AccountsPage() {
             <p className="text-amber-800/90">
               Each one reads the same LinkedIn inbox, so every chat shows up twice in Inbox, and both count against one
               person&apos;s LinkedIn limits. Remove the extra account (or reconnect it with a different LinkedIn profile).
+            </p>
+          </div>
+        </div>
+      ))}
+
+      {sharedProxies.map((g) => (
+        <div key={g.join("|")} role="alert" className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-[15px] text-amber-900">
+          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" aria-hidden />
+          <div>
+            <p className="font-semibold">{g.map((l) => `“${l}”`).join(" and ")} use the same proxy</p>
+            <p className="text-amber-800/90">
+              LinkedIn sees them coming from one internet address, which makes the accounts look linked. Give each account its own proxy in its
+              settings.
             </p>
           </div>
         </div>
