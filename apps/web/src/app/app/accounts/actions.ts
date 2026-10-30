@@ -11,6 +11,7 @@ import {
   removeAccount,
   resumeAfterCheck,
   setPaused,
+  linkedinEmailProblem,
   linkedinEmailSchema,
   setLinkedinEmail,
   settingsSchema,
@@ -114,6 +115,15 @@ export async function startUnipileConnectAction(
       return { ok: false, error: "Couldn't open the LinkedIn login right now. Try again in a minute." };
     }
   });
+}
+
+/** Step 1 of adding an account: is this LinkedIn login email free on Invytra? */
+export async function verifyLinkedinEmailAction(email: unknown): Promise<Result<string>> {
+  const me = await requireUser();
+  const parsed = linkedinEmailSchema.safeParse(email);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
+  const problem = await linkedinEmailProblem(prisma, me.workspace.id, parsed.data);
+  return problem ? { ok: false, error: problem } : { ok: true, value: parsed.data };
 }
 
 /** The LinkedIn login email for an account, checked against every account on Invytra. */
