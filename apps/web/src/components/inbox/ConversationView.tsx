@@ -10,7 +10,7 @@ import { Avatar, cx } from "../ui";
 export interface ConversationViewData {
   id: string;
   name: string;
-  account: { label: string; active: boolean };
+  account: { label: string; active: boolean; instant: boolean };
   lead: {
     profileUrl: string;
     headline: string;
@@ -136,7 +136,7 @@ export function ConversationView({ c, suggestions, backHref }: { c: Conversation
                     onClick={() => run(() => cancelReplyAction(p.id))}
                     className="px-1 text-[12px] font-medium text-stone-500 underline underline-offset-2 hover:text-stone-900"
                   >
-                    Cancel
+                    {p.failed ? "Remove" : "Cancel"}
                   </button>
                 </p>
               )}
@@ -145,7 +145,7 @@ export function ConversationView({ c, suggestions, backHref }: { c: Conversation
         </ol>
       </div>
 
-      <ReplyBox id={c.id} name={c.name} active={c.account.active} accountLabel={c.account.label} />
+      <ReplyBox id={c.id} name={c.name} active={c.account.active} accountLabel={c.account.label} instant={c.account.instant} />
     </div>
   );
 }
@@ -224,7 +224,7 @@ function Tags({ id, tags, suggestions }: { id: string; tags: string[]; suggestio
   );
 }
 
-function ReplyBox({ id, name, active, accountLabel }: { id: string; name: string; active: boolean; accountLabel: string }) {
+function ReplyBox({ id, name, active, accountLabel, instant }: { id: string; name: string; active: boolean; accountLabel: string; instant: boolean }) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -263,7 +263,7 @@ function ReplyBox({ id, name, active, accountLabel }: { id: string; name: string
       />
       {error && <p role="alert" className="mt-1 text-[14px] text-rose-700">{error}</p>}
       <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-[13px] text-stone-500">Sent from {accountLabel} within a minute · Enter to send, Shift + Enter for a new line</p>
+        <p className="text-[13px] text-stone-500">Sent from {accountLabel} {instant ? "instantly" : "in 1–2 minutes (Invytra's own browser)"} · Enter to send, Shift + Enter for a new line</p>
         <button
           onClick={send}
           disabled={pending || !text.trim()}

@@ -104,12 +104,12 @@ export async function getConversation(prisma: PrismaClient, workspaceId: string,
       unread: true,
       doneAt: true,
       tags: true,
-      account: { select: { id: true, label: true, status: true, timezone: true } },
+      account: { select: { id: true, label: true, status: true, timezone: true, engine: true } },
       campaignLead: { select: LEAD_SELECT },
       messages: { orderBy: { sentAt: "asc" }, take: 300, select: { id: true, fromMe: true, text: true, sentAt: true } },
       replies: {
         // (error is empty while it waits; "NOT error = CANCELLED" alone would drop those too)
-        where: { type: "REPLY", status: { not: "SUCCEEDED" }, OR: [{ error: null }, { error: { not: "CANCELLED" } }] },
+        where: { type: "REPLY", status: { not: "SUCCEEDED" }, OR: [{ error: null }, { NOT: { error: { startsWith: "CANCELLED" } } }] },
         orderBy: { createdAt: "asc" },
         select: { id: true, status: true, error: true, payload: true, createdAt: true, scheduledAt: true },
       },
@@ -288,7 +288,12 @@ export async function cancelReply(prisma: PrismaClient, workspaceId: string, act
     where: { id: actionId, type: "REPLY", status: "QUEUED", account: { workspaceId } },
     data: { status: "SKIPPED", error: "CANCELLED", executedAt: new Date() },
   });
-  if (r.count === 0) return { ok: false, error: "It's already being sent, or was sent." };
+  if (r.count === 0) {
+    // A reply that wasn't sent: hide it from the conversation (Activity keeps why it failed).
+    const failed = await prisma.action.findFirst({ where: { id: actionId, type: "REPLY", status: "FAILED", account: { workspaceId } }, select: { error: true } });
+    if (!failed) return { ok: false, error: "It's already being sent, or was sent." };
+    await prisma.action.update({ where: { id: actionId }, data: { error: `CANCELLED (dismissed): ${failed.error ?? ""}`.slice(0, 2000) } });
+  }
   return { ok: true, value: undefined };
 }
 

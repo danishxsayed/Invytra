@@ -180,7 +180,7 @@ function toView(c: ConversationFull, now: Date): ConversationViewData {
   return {
     id: c.id,
     name: c.participantName,
-    account: { label: c.account.label, active: c.account.status === "ACTIVE" },
+    account: { label: c.account.label, active: c.account.status === "ACTIVE", instant: c.account.engine === "UNIPILE" },
     lead: lead
       ? {
           profileUrl: lead.profileUrl,
@@ -205,7 +205,7 @@ function toView(c: ConversationFull, now: Date): ConversationViewData {
       const at = r.scheduledAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz });
       const waiting = r.error?.startsWith("waiting: ") ? r.error.slice(9) : null;
       let status: string;
-      if (failed) status = `Not sent: ${r.error?.split("\n")[0] ?? "something went wrong"}`;
+      if (failed) status = notSent(r.error, c.account);
       else if (r.status === "RUNNING") status = "Sending now…";
       else if (waiting === "ACCOUNT_NOT_ACTIVE") status = `Waiting: ${c.account.label} isn't connected and active`;
       else if (waiting) status = `Waiting for ${c.account.label} to finish another action · next try ${at}`;
@@ -216,8 +216,19 @@ function toView(c: ConversationFull, now: Date): ConversationViewData {
         text: String((r.payload as { text?: unknown } | null)?.text ?? ""),
         failed,
         status,
-        cancellable: r.status === "QUEUED",
+        cancellable: r.status === "QUEUED" || r.status === "FAILED",
       };
     }),
   };
 }
+
+/** Why a reply wasn't sent, in plain words (the worker stores technical errors). */
+function notSent(error: string | null, account: { label: string; engine: string }): string {
+  const first = error?.split("\n")[0] ?? "";
+  if (account.engine !== "UNIPILE" && /timeout|net::|ERR_|Target page|browser has been closed/i.test(first)) {
+    return `Not sent: LinkedIn didn't load for “${account.label}” in Invytra's own browser. Reconnect “${account.label}” with Secure login (Unipile) on the Accounts page for instant replies.`;
+  }
+  if (/LOGGED_OUT|NEEDS_ATTENTION|isn't connected/i.test(first)) return `Not sent: “${account.label}” needs to be reconnected on the Accounts page.`;
+  return `Not sent: ${first || "something went wrong"}`;
+}
+
