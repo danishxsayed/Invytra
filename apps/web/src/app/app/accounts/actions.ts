@@ -15,7 +15,7 @@ import {
   updateSettings,
   type Result,
 } from "@/lib/accounts";
-import { connectMode, unipileConnectLink } from "@/lib/unipile";
+import { connectMode, syncUnipileAccount, unipileConnectLink } from "@/lib/unipile";
 
 /*
  * Every action re-reads the signed-in user and passes THEIR workspace id;
@@ -80,7 +80,7 @@ export async function removeAccountAction(accountId: string): Promise<Result> {
  * has its own proxy (the person picks), or null for Invytra's own login window.
  * `how` is the person's pick from that choice.
  */
-type ConnectStart = { url: string } | { choose: true } | null;
+type ConnectStart = { url: string } | { choose: true } | { connected: true } | null;
 
 export async function startUnipileConnectAction(
   accountId: string,
@@ -93,12 +93,38 @@ export async function startUnipileConnectAction(
     if (mode === "browser" || (mode === "choose" && how === "browser")) return { ok: true, value: null };
     if (mode === "choose" && how !== "unipile") return { ok: true, value: { choose: true } };
     try {
+      // A login that already finished at Unipile (e.g. its window was closed before Invytra
+      // noticed): just finish connecting, don't log in again.
+      if (a.status !== "ACTIVE" && !a.unipileAccountId) {
+        const done = await syncUnipileAccount(prisma, me.workspace.id, a.id, undefined, { tries: 1 });
+        if (done.ok) {
+          refresh(a.id);
+          return { ok: true, value: { connected: true } };
+        }
+      }
       const r = await unipileConnectLink(prisma, me.workspace.id, a.id);
       return r.ok ? { ok: true, value: { url: r.value } } : r;
     } catch (e) {
       console.error("Unipile connect link failed:", e instanceof Error ? e.message : e);
       return { ok: false, error: "Couldn't open the LinkedIn login right now. Try again in a minute." };
     }
+  });
+}
+
+/**
+ * Asked every few seconds while the secure login window is open: has the login finished?
+ * "done" once the account is connected; "duplicate" if it's a LinkedIn profile already
+ * connected here; otherwise "waiting".
+ */
+export async function pollUnipileLoginAction(accountId: string): Promise<Result<"done" | "waiting" | "duplicate">> {
+  const me = await requireUser();
+  return guarded(async () => {
+    const r = await syncUnipileAccount(prisma, me.workspace.id, String(accountId), undefined, { tries: 1 });
+    if (r.ok) {
+      refresh(String(accountId));
+      return { ok: true, value: "done" };
+    }
+    return { ok: true, value: r.code === "duplicate" ? "duplicate" : "waiting" };
   });
 }
 

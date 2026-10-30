@@ -1,7 +1,7 @@
 /** Connecting accounts through Unipile (only with TEST_DATABASE_URL). */
 import { PrismaClient, UnipileClient } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { syncUnipileAccount, unipileConnectLink } from "../src/lib/unipile";
+import { isLocalOrigin, syncUnipileAccount, unipileConnectLink } from "../src/lib/unipile";
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -68,6 +68,17 @@ d("Unipile connect", () => {
       success_redirect_url: "https://app.example.com/app/accounts/u-1/unipile-return",
     });
     await expect(unipileConnectLink(prisma, "other-ws", "u-1", f.client)).rejects.toThrow();
+  });
+
+  it("on this computer, leaves the return to the dashboard (browsers block a public page sending it to localhost)", async () => {
+    process.env.WEB_ORIGIN = "http://localhost:3000";
+    const f = fakeUnipile([]);
+    await unipileConnectLink(prisma, WS, "u-1", f.client);
+    const call = f.seen.find((c) => c.path.endsWith("/hosted/accounts/link"))!.body as Record<string, unknown>;
+    expect(call.success_redirect_url).toBeUndefined();
+    expect(call.name).toBe("invytra:u-1");
+    expect([isLocalOrigin("http://192.168.1.5:3000"), isLocalOrigin("http://127.0.0.1:3000"), isLocalOrigin("https://app.invytra.com")]).toEqual([true, true, false]);
+    process.env.WEB_ORIGIN = "https://app.example.com";
   });
 
   it("marks the account connected with whose LinkedIn it is", async () => {

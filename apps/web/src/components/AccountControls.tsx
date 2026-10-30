@@ -51,6 +51,7 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
       const r = await startUnipileConnectAction(id, how);
       if (!r.ok) setError(r.error);
       else if (r.value && "url" in r.value) setLoginUrl(r.value.url);
+      else if (r.value && "connected" in r.value) router.push(`/app/accounts/${id}?connected=1`);
       else if (r.value) setChoosing(true);
       else setConnecting(true);
     });
@@ -159,7 +160,7 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
           </div>
         </Portal>
       )}
-      {loginUrl && <UnipileWindow url={loginUrl} label={label} onClose={() => setLoginUrl(null)} />}
+      {loginUrl && <UnipileWindow accountId={id} url={loginUrl} label={label} onClose={() => setLoginUrl(null)} />}
       {connecting && <ConnectWindow accountId={id} label={label} onClose={() => setConnecting(false)} />}
     </div>
   );

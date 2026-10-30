@@ -21,7 +21,7 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
   const [warmup, setWarmup] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connect, setConnect] = useState<{ id: string; label: string } | null>(null);
-  const [secure, setSecure] = useState<{ url: string; label: string } | null>(null);
+  const [secure, setSecure] = useState<{ id: string; url: string; label: string } | null>(null);
   const [pending, start] = useTransition();
 
   useEffect(() => {
@@ -44,7 +44,8 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
         router.push(`/app/accounts/${r.value}`);
         return;
       }
-      if (how.value && "url" in how.value) setSecure({ url: how.value.url, label: label.trim() });
+      if (how.value && "url" in how.value) setSecure({ id: r.value, url: how.value.url, label: label.trim() });
+      else if (how.value && "connected" in how.value) router.push(`/app/accounts/${r.value}?connected=1`);
       else setConnect({ id: r.value, label: label.trim() });
       setLabel("");
       setProxyUrl("");
@@ -123,7 +124,7 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
         </div>
         </Portal>
       )}
-      {secure && <UnipileWindow url={secure.url} label={secure.label} onClose={() => setSecure(null)} />}
+      {secure && <UnipileWindow accountId={secure.id} url={secure.url} label={secure.label} onClose={() => setSecure(null)} />}
       {connect && <ConnectWindow accountId={connect.id} label={connect.label} onClose={() => setConnect(null)} />}
     </>
   );

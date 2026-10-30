@@ -32,6 +32,21 @@ export function connectMode(a: { engine: string; proxyUrl: string }): ConnectMod
 
 const origin = () => (process.env.WEB_ORIGIN ?? "http://localhost:3000").replace(/\/$/, "");
 
+/**
+ * Whether Invytra runs on this computer or a private network (local development). Browsers
+ * block a public page (Unipile's login) from sending the window to such an address, so the
+ * dashboard watches for the login to finish instead.
+ */
+export function isLocalOrigin(o = origin()): boolean {
+  try {
+    const h = new URL(o).hostname;
+    return h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h === "::1" || h === "[::1]" ||
+      /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h);
+  } catch {
+    return true;
+  }
+}
+
 /** A link to Unipile's login page for one account of this workspace (valid for an hour). */
 export async function unipileConnectLink(
   prisma: PrismaClient,
@@ -49,10 +64,9 @@ export async function unipileConnectLink(
     providers: ["LINKEDIN"],
     expiresOn: new Date(Date.now() + 3600_000).toISOString(),
     name: unipileName(a.id),
-    success_redirect_url: back,
-    failure_redirect_url: `${back}?failed=1`,
-    // Straight back to Invytra (the login runs inside the dashboard's window).
-    bypass_success_screen: true,
+    // Straight back to Invytra when it's on the internet. Locally, Unipile shows its own
+    // "connected" screen and the dashboard notices the login by itself (pollUnipileLogin).
+    ...(!isLocalOrigin() && { success_redirect_url: back, failure_redirect_url: `${back}?failed=1`, bypass_success_screen: true }),
     ...(known && { reconnect_account: known.id }),
   });
   return { ok: true, value: url };
