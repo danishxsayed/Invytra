@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { pauseAction, removeAccountAction, resumeAfterCheckAction, startUnipileConnectAction } from "@/app/app/accounts/actions";
+import { pauseAction, removeAccountAction, resumeAfterCheckAction, saveLinkedinEmailAction, startUnipileConnectAction } from "@/app/app/accounts/actions";
 import { ConnectWindow } from "./ConnectWindow";
 import { Portal } from "./Portal";
 import { UnipileWindow } from "./UnipileWindow";
@@ -44,6 +44,9 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
   // Unipile's login page when it's set up for this account; otherwise Invytra's own login window.
   const [choosing, setChoosing] = useState(false);
   const [loginUrl, setLoginUrl] = useState<string | null>(null);
+  const [askEmail, setAskEmail] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
   const connect = (how?: "unipile" | "browser") =>
     start(async () => {
       setError(null);
@@ -52,6 +55,7 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
       if (!r.ok) setError(r.error);
       else if (r.value && "url" in r.value) setLoginUrl(r.value.url);
       else if (r.value && "connected" in r.value) router.push(`/app/accounts/${id}?connected=1`);
+      else if (r.value && "needEmail" in r.value) setAskEmail(true);
       else if (r.value) setChoosing(true);
       else setConnecting(true);
     });
@@ -127,6 +131,62 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
         <p role="alert" className="text-[15px] text-rose-700">
           {error}
         </p>
+      )}
+      {askEmail && (
+        <Portal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby={`email-${id}`}>
+            <form
+              className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+              onSubmit={(e) => {
+                e.preventDefault();
+                start(async () => {
+                  setEmailError(null);
+                  const r = await saveLinkedinEmailAction(id, email);
+                  if (!r.ok) return setEmailError(r.error);
+                  setAskEmail(false);
+                  connect();
+                });
+              }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h2 id={`email-${id}`} className="text-[18px] font-semibold text-stone-900">
+                  Which LinkedIn account is {label}?
+                </h2>
+                <button type="button" onClick={() => setAskEmail(false)} aria-label="Close" className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <label className="mt-3 block text-[15px] font-medium text-stone-800" htmlFor={`email-input-${id}`}>
+                LinkedIn login email
+              </label>
+              <input
+                id={`email-input-${id}`}
+                type="email"
+                required
+                autoFocus
+                maxLength={254}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                className="mt-1.5 block w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-[16px] text-stone-900 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-200"
+              />
+              <p className="mt-1.5 text-[14px] text-stone-500">We check it isn&apos;t already on Invytra before you log in.</p>
+              {emailError && (
+                <p role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[15px] text-rose-700">
+                  {emailError}
+                </p>
+              )}
+              <div className="mt-5 flex justify-end gap-2">
+                <button type="button" className={btn.secondary} onClick={() => setAskEmail(false)}>
+                  Cancel
+                </button>
+                <button className={btn.primary} disabled={pending}>
+                  {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} {pending ? "Verifying this email…" : "Continue to LinkedIn login"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </Portal>
       )}
       {choosing && (
         <Portal>

@@ -16,6 +16,7 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
   const params = useSearchParams();
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState("");
+  const [email, setEmail] = useState("");
   const [timezone, setTimezone] = useState("Asia/Kolkata");
   const [proxyUrl, setProxyUrl] = useState("");
   const [warmup, setWarmup] = useState(true);
@@ -34,7 +35,7 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
     e.preventDefault();
     start(async () => {
       setError(null);
-      const r = await addAccountAction({ label, timezone, proxyUrl, warmup });
+      const r = await addAccountAction({ label, timezone, proxyUrl, warmup, email });
       if (!r.ok) return setError(r.error);
       // Next: the LinkedIn login. Through Unipile when it's set up, otherwise Invytra's own window.
       const how = await startUnipileConnectAction(r.value, "unipile");
@@ -48,6 +49,7 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
       else if (how.value && "connected" in how.value) router.push(`/app/accounts/${r.value}?connected=1`);
       else setConnect({ id: r.value, label: label.trim() });
       setLabel("");
+      setEmail("");
       setProxyUrl("");
       router.replace("/app/accounts");
       router.refresh();
@@ -76,6 +78,19 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
             <div className="mt-5 space-y-4">
               <Field label="Name" hint="Only you see this, e.g. “Tahur – sales”.">
                 <input className={inputCls} value={label} onChange={(e) => setLabel(e.target.value)} maxLength={40} autoFocus required />
+              </Field>
+              <Field label="LinkedIn login email" hint="The email you log in to LinkedIn with. We check it isn't already on Invytra.">
+                <input
+                  type="email"
+                  className={inputCls}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  autoComplete="off"
+                  spellCheck={false}
+                  maxLength={254}
+                  required
+                />
               </Field>
               <Field label="Time zone" hint="Actions run during working hours in this time zone.">
                 <TimeZoneSelect zones={zones} value={timezone} onChange={setTimezone} />
@@ -117,7 +132,7 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
                 Cancel
               </button>
               <button className={btn.primary} disabled={pending}>
-                {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Continue to LinkedIn login
+                {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} {pending ? "Verifying this email…" : "Continue to LinkedIn login"}
               </button>
             </div>
           </form>

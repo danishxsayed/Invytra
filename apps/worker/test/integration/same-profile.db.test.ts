@@ -1,4 +1,4 @@
-/** One LinkedIn profile can only be connected once per workspace (only with TEST_DATABASE_URL). */
+/** One LinkedIn profile can only be connected once on Invytra (only with TEST_DATABASE_URL). */
 import { PrismaClient } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sameProfileElsewhere } from "../../src/connect/same-profile.js";
@@ -31,14 +31,17 @@ d("same LinkedIn profile on two accounts", () => {
   const check = (profile: { name: string | null; url: string | null }) => sameProfileElsewhere(prisma, { id: "sp-new", workspaceId: WS }, profile, BASE);
 
   it("matches by profile link, on either host and in any case", async () => {
-    expect(await check({ name: "M T Sayed", url: `${BASE}/in/tahur-sayed/` })).toBe("test-1");
+    expect(await check({ name: "M T Sayed", url: `${BASE}/in/tahur-sayed/` })).toEqual({ label: "test-1" });
   });
   it("falls back to the name when a link is missing", async () => {
-    expect(await check({ name: "jane doe", url: `${BASE}/in/jane-d/` })).toBe("Spare");
+    expect(await check({ name: "jane doe", url: `${BASE}/in/jane-d/` })).toEqual({ label: "Spare" });
   });
-  it("allows a different profile, and ignores other workspaces", async () => {
+  it("allows a different profile", async () => {
     expect(await check({ name: "Someone Else", url: `${BASE}/in/someone/` })).toBeNull();
-    expect(await check({ name: "Bob Lee", url: `${BASE}/in/bob-lee/` })).toBeNull();
+  });
+  it("refuses a profile another user already connected, without saying whose", async () => {
+    expect(await check({ name: "Bob Lee", url: `${BASE}/in/bob-lee/` })).toEqual({ otherUser: true });
+    expect(await check({ name: "Bob Lee", url: `${BASE}/in/bob-lee-2/` })).toBeNull(); // names alone don't count across users
   });
   it("never matches the account against itself", async () => {
     expect(await sameProfileElsewhere(prisma, { id: "sp-main", workspaceId: WS }, { name: "Mohammed Tahur Sayed", url: `${BASE}/in/tahur-sayed/` }, BASE)).toBeNull();

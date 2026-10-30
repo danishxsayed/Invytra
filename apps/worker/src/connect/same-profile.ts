@@ -3,6 +3,9 @@ import { parseProfileUrl } from "@invytra/shared";
 
 type Profile = { name: string | null; url: string | null };
 
+/** Where else this LinkedIn profile is already connected: an account in this workspace, or another user's. */
+export type ProfileTwin = { label: string } | { otherUser: true };
+
 const slugOf = (url: string | null, baseUrl: string) => {
   if (!url) return null;
   const r = parseProfileUrl(url, baseUrl);
@@ -10,29 +13,34 @@ const slugOf = (url: string | null, baseUrl: string) => {
 };
 
 /**
- * The label of another account in the same workspace that is this same LinkedIn profile,
- * or null. Compared by profile link; by name only when a link is missing on either side.
- * Two accounts on one profile would read the same inbox twice and act twice from one person.
+ * Whether this LinkedIn profile is already connected on Invytra: in this workspace (with
+ * that account's name), or by another user (no details shared). Compared by profile link
+ * everywhere; by name only inside the workspace, and only when a link is missing on either side.
+ * One profile on two accounts would act twice from one person and read one inbox twice.
  */
 export async function sameProfileElsewhere(
   prisma: PrismaClient,
   account: { id: string; workspaceId: string },
   profile: Profile,
   baseUrl: string,
-): Promise<string | null> {
+): Promise<ProfileTwin | null> {
   if (!profile.url && !profile.name) return null;
-  const others = await prisma.linkedinAccount.findMany({
-    where: { workspaceId: account.workspaceId, id: { not: account.id } },
-    select: { label: true, profileName: true, profileUrl: true },
-  });
   const slug = slugOf(profile.url, baseUrl);
   const name = profile.name?.trim().toLowerCase() || null;
+  const others = await prisma.linkedinAccount.findMany({
+    where: {
+      id: { not: account.id },
+      OR: [{ workspaceId: account.workspaceId }, ...(slug ? [{ profileUrl: { contains: `/in/${slug}`, mode: "insensitive" as const } }] : [])],
+    },
+    select: { label: true, workspaceId: true, profileName: true, profileUrl: true },
+  });
   for (const o of others) {
     const otherSlug = slugOf(o.profileUrl, baseUrl);
+    const mine = o.workspaceId === account.workspaceId;
     if (slug && otherSlug) {
-      if (slug === otherSlug) return o.label;
-    } else if (name && o.profileName?.trim().toLowerCase() === name) {
-      return o.label;
+      if (slug === otherSlug) return mine ? { label: o.label } : { otherUser: true };
+    } else if (mine && name && o.profileName?.trim().toLowerCase() === name) {
+      return { label: o.label };
     }
   }
   return null;

@@ -52,11 +52,15 @@ export const proxySchema = z
     }
   }, "Proxy must look like http://user:password@host:port");
 
+/** The email the person logs in to LinkedIn with (checked so one LinkedIn is on Invytra once). */
+export const linkedinEmailSchema = z.string().trim().toLowerCase().max(254).email("Enter the email you log in to LinkedIn with.");
+
 export const newAccountSchema = z.object({
   label,
   timezone,
   proxyUrl: proxySchema,
   warmup: z.boolean(),
+  email: linkedinEmailSchema.optional(),
 });
 export type NewAccount = z.infer<typeof newAccountSchema>;
 
@@ -174,6 +178,35 @@ async function labelTaken(prisma: PrismaClient, workspaceId: string, name: strin
   return !!other;
 }
 
+/**
+ * Whether a LinkedIn login email is already on Invytra: on another account in this workspace
+ * (named), or on another user's (not named). One LinkedIn account can be connected once.
+ */
+export async function linkedinEmailProblem(
+  prisma: PrismaClient,
+  workspaceId: string,
+  email: string,
+  exceptAccountId?: string,
+): Promise<string | null> {
+  const other = await prisma.linkedinAccount.findFirst({
+    where: { email: { equals: email.trim(), mode: "insensitive" }, ...(exceptAccountId && { id: { not: exceptAccountId } }) },
+    select: { label: true, workspaceId: true },
+  });
+  if (!other) return null;
+  return other.workspaceId === workspaceId
+    ? `This LinkedIn account is already added here as “${other.label}”.`
+    : "This LinkedIn account is already on Invytra under a different user. Use a different LinkedIn account.";
+}
+
+/** Saves the LinkedIn login email on an account, after checking it isn't on Invytra already. */
+export async function setLinkedinEmail(prisma: PrismaClient, workspaceId: string, accountId: string, email: string): Promise<Result> {
+  const a = await getAccount(prisma, workspaceId, accountId);
+  const problem = await linkedinEmailProblem(prisma, workspaceId, email, a.id);
+  if (problem) return { ok: false, error: problem };
+  await prisma.linkedinAccount.update({ where: { id: a.id }, data: { email: email.trim().toLowerCase() } });
+  return { ok: true, value: undefined };
+}
+
 export type Result<T = undefined> = { ok: true; value: T } | { ok: false; error: string };
 
 export async function createAccount(prisma: PrismaClient, workspaceId: string, input: NewAccount): Promise<Result<string>> {
@@ -181,6 +214,10 @@ export async function createAccount(prisma: PrismaClient, workspaceId: string, i
     return { ok: false, error: "Add the proxy for this account. Each LinkedIn account needs its own proxy." };
   }
   if (await labelTaken(prisma, workspaceId, input.label)) return { ok: false, error: "You already have an account with that name." };
+  if (input.email) {
+    const problem = await linkedinEmailProblem(prisma, workspaceId, input.email);
+    if (problem) return { ok: false, error: problem };
+  }
   if (input.proxyUrl) {
     const hit = await proxyInUse(prisma, workspaceId, input.proxyUrl);
     if (hit) return { ok: false, error: proxyTaken(hit) };
@@ -190,6 +227,7 @@ export async function createAccount(prisma: PrismaClient, workspaceId: string, i
       workspaceId,
       label: input.label,
       timezone: input.timezone,
+      email: input.email ?? null,
       proxyUrl: sealSecret(input.proxyUrl, key()),
       status: "DISCONNECTED",
       statusReason: null,

@@ -104,9 +104,11 @@ export function createConnectServer(deps: ConnectServerDeps): { server: Server; 
       onLoggedIn: async (state, profile) => {
         const twin = await sameProfileElsewhere(deps.prisma, account, profile, deps.baseUrl);
         if (twin) {
-          log(`Connect: "${account.label}" is the same LinkedIn profile as "${twin}"; not saved`);
+          log(`Connect: "${account.label}" is a LinkedIn profile already on Invytra; not saved`);
           throw new ConnectRefused(
-            `This LinkedIn profile is already connected here as “${twin}”. Each LinkedIn profile can be added once, so this session wasn't saved. Remove this account, or log in with a different LinkedIn profile.`,
+            "label" in twin
+              ? `This LinkedIn profile is already connected here as “${twin.label}”. Each LinkedIn profile can be added once, so this session wasn't saved. Remove this account, or log in with a different LinkedIn profile.`
+              : "This LinkedIn account is already on Invytra under a different user, so it can't be connected here. Log in with a different LinkedIn account.",
           );
         }
         await deps.sessions.save(account.id, state);

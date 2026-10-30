@@ -11,6 +11,8 @@ import {
   removeAccount,
   resumeAfterCheck,
   setPaused,
+  linkedinEmailSchema,
+  setLinkedinEmail,
   settingsSchema,
   updateSettings,
   type Result,
@@ -40,6 +42,7 @@ export async function addAccountAction(input: unknown): Promise<Result<string>> 
   const me = await requireUser();
   const parsed = newAccountSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
+  if (!parsed.data.email) return { ok: false, error: "Enter the email you log in to LinkedIn with." };
   const r = await createAccount(prisma, me.workspace.id, parsed.data);
   if (r.ok) refresh(r.value);
   return r;
@@ -80,7 +83,7 @@ export async function removeAccountAction(accountId: string): Promise<Result> {
  * has its own proxy (the person picks), or null for Invytra's own login window.
  * `how` is the person's pick from that choice.
  */
-type ConnectStart = { url: string } | { choose: true } | { connected: true } | null;
+type ConnectStart = { url: string } | { choose: true } | { connected: true } | { needEmail: true } | null;
 
 export async function startUnipileConnectAction(
   accountId: string,
@@ -89,6 +92,8 @@ export async function startUnipileConnectAction(
   const me = await requireUser();
   return guarded<ConnectStart>(async () => {
     const a = await getAccount(prisma, me.workspace.id, String(accountId));
+    // First the LinkedIn login email, checked so one LinkedIn account is on Invytra only once.
+    if (!a.email) return { ok: true, value: { needEmail: true } };
     const mode = connectMode(a);
     if (mode === "browser" || (mode === "choose" && how === "browser")) return { ok: true, value: null };
     if (mode === "choose" && how !== "unipile") return { ok: true, value: { choose: true } };
@@ -111,12 +116,22 @@ export async function startUnipileConnectAction(
   });
 }
 
+/** The LinkedIn login email for an account, checked against every account on Invytra. */
+export async function saveLinkedinEmailAction(accountId: string, email: unknown): Promise<Result> {
+  const me = await requireUser();
+  const parsed = linkedinEmailSchema.safeParse(email);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
+  const r = await guarded(() => setLinkedinEmail(prisma, me.workspace.id, String(accountId), parsed.data));
+  if (r.ok) refresh(String(accountId));
+  return r;
+}
+
 /**
  * Asked every few seconds while the secure login window is open: has the login finished?
  * "done" once the account is connected; "duplicate" if it's a LinkedIn profile already
  * connected here; otherwise "waiting".
  */
-export async function pollUnipileLoginAction(accountId: string): Promise<Result<"done" | "waiting" | "duplicate">> {
+export async function pollUnipileLoginAction(accountId: string): Promise<Result<"done" | "waiting" | "duplicate" | "elsewhere">> {
   const me = await requireUser();
   return guarded(async () => {
     const r = await syncUnipileAccount(prisma, me.workspace.id, String(accountId), undefined, { tries: 1 });
@@ -124,7 +139,7 @@ export async function pollUnipileLoginAction(accountId: string): Promise<Result<
       refresh(String(accountId));
       return { ok: true, value: "done" };
     }
-    return { ok: true, value: r.code === "duplicate" ? "duplicate" : "waiting" };
+    return { ok: true, value: r.code === "duplicate" || r.code === "elsewhere" ? r.code : "waiting" };
   });
 }
 

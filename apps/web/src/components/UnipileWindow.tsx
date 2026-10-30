@@ -33,8 +33,12 @@ export function UnipileWindow({ accountId, url, label, onClose }: { accountId: s
         router.refresh();
         return;
       }
-      if (r?.ok && r.value === "duplicate") {
-        setProblem("That LinkedIn profile is already connected as another account here. Close this and use a different LinkedIn account.");
+      if (r?.ok && (r.value === "duplicate" || r.value === "elsewhere")) {
+        setProblem(
+          r.value === "duplicate"
+            ? "That LinkedIn profile is already connected as another account here. Close this and use a different LinkedIn account."
+            : "This LinkedIn account is already on Invytra under a different user, so it wasn't connected. Close this and use a different LinkedIn account.",
+        );
         return;
       }
       timer = setTimeout(check, POLL_MS);

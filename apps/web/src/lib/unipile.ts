@@ -125,13 +125,14 @@ export function notifyToken(accountId: string): string {
 }
 
 /** Why connecting through Unipile didn't work (shown on the account page after the login). */
-export type ConnectProblem = "unfinished" | "checking" | "rejected" | "duplicate" | "unavailable";
+export type ConnectProblem = "unfinished" | "checking" | "rejected" | "duplicate" | "elsewhere" | "unavailable";
 
 export const CONNECT_PROBLEM: Record<ConnectProblem, string> = {
   unfinished: "The LinkedIn login didn't finish. Try connecting again.",
   checking: "LinkedIn is still checking the login. Refresh this page in a minute.",
   rejected: "LinkedIn didn't accept the login. Try connecting again.",
   duplicate: "That LinkedIn profile is already connected as another account here. Use a different LinkedIn account.",
+  elsewhere: "This LinkedIn account is already on Invytra under a different user, so it wasn't connected. Use a different LinkedIn account.",
   unavailable: "Couldn't check the LinkedIn login right now. Refresh this page in a minute.",
 };
 
@@ -168,14 +169,18 @@ export async function syncUnipileAccount(
   const publicId = me?.public_identifier ?? found.connection_params?.im?.publicIdentifier ?? null;
   const profileUrl = publicId ? `https://www.linkedin.com/in/${publicId}/` : null;
 
-  // The same LinkedIn profile on two accounts would act twice from one person and read one inbox twice.
+  // One LinkedIn profile is on Invytra once: not on two accounts here, and not under another user.
   const mine = slug(profileUrl);
   if (mine) {
-    const others = await prisma.linkedinAccount.findMany({ where: { workspaceId, id: { not: a.id } }, select: { label: true, profileUrl: true } });
+    const others = await prisma.linkedinAccount.findMany({
+      where: { id: { not: a.id }, profileUrl: { contains: `/in/${mine}`, mode: "insensitive" } },
+      select: { workspaceId: true, profileUrl: true },
+    });
     const twin = others.find((o) => slug(o.profileUrl) === mine);
     if (twin) {
+      // This login's connection at Unipile isn't kept (Unipile bills each one).
       if (found.id !== a.unipileAccountId) await client.deleteAccount(found.id).catch(() => undefined);
-      return { ok: false, code: "duplicate" };
+      return { ok: false, code: twin.workspaceId === workspaceId ? "duplicate" : "elsewhere" };
     }
   }
 

@@ -1,6 +1,7 @@
 /** Connecting accounts through Unipile (only with TEST_DATABASE_URL). */
 import { PrismaClient, UnipileClient } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createAccount, linkedinEmailProblem, setLinkedinEmail } from "../src/lib/accounts";
 import { isLocalOrigin, syncUnipileAccount, unipileConnectLink } from "../src/lib/unipile";
 
 const url = process.env.TEST_DATABASE_URL;
@@ -40,8 +41,8 @@ d("Unipile connect", () => {
 
   beforeAll(async () => {
     prisma = new PrismaClient({ datasources: { db: { url } } });
-    await prisma.workspace.deleteMany({ where: { id: WS } });
-    await prisma.workspace.create({ data: { id: WS, name: "U" } });
+    await prisma.workspace.deleteMany({ where: { id: { in: [WS, "ws-unic-2"] } } });
+    await prisma.workspace.createMany({ data: [{ id: WS, name: "U" }, { id: "ws-unic-2", name: "Another user" }] });
     await prisma.linkedinAccount.createMany({
       data: [
         { id: "u-1", workspaceId: WS, label: "one", proxyUrl: "", workingHours: {}, limits: {}, status: "DISCONNECTED" },
@@ -51,7 +52,7 @@ d("Unipile connect", () => {
     });
   });
   afterAll(async () => {
-    await prisma.workspace.deleteMany({ where: { id: WS } });
+    await prisma.workspace.deleteMany({ where: { id: { in: [WS, "ws-unic-2"] } } });
     await prisma.$disconnect();
   });
 
@@ -125,5 +126,31 @@ d("Unipile connect", () => {
     expect(await syncUnipileAccount(prisma, WS, "u-3", fakeUnipile([]).client, { tries: 1 })).toEqual({ ok: false, code: "unfinished" });
     const checking = fakeUnipile([{ id: "UNI-C", name: "invytra:u-3", status: "CONNECTING", slug: "x" }]);
     expect(await syncUnipileAccount(prisma, WS, "u-3", checking.client, { tries: 2, delayMs: 1 })).toEqual({ ok: false, code: "checking" });
+  });
+
+  it("one LinkedIn login email is on Invytra once (named only inside your own workspace)", async () => {
+    process.env.SESSION_ENCRYPTION_KEY ??= Buffer.alloc(32, 7).toString("base64");
+    const allow = process.env.ALLOW_NO_PROXY;
+    process.env.ALLOW_NO_PROXY = "true";
+    const theirs = await createAccount(prisma, "ws-unic-2", { label: "theirs", timezone: "UTC", proxyUrl: "", warmup: false, email: "jane@acme.com" });
+    expect(theirs.ok).toBe(true);
+    expect(await linkedinEmailProblem(prisma, WS, " JANE@acme.com ")).toMatch(/already on Invytra under a different user/);
+    expect(await createAccount(prisma, WS, { label: "mine", timezone: "UTC", proxyUrl: "", warmup: false, email: "jane@acme.com" })).toMatchObject({ ok: false });
+    expect(await setLinkedinEmail(prisma, WS, "u-3", "u3@acme.com")).toEqual({ ok: true, value: undefined });
+    expect(await linkedinEmailProblem(prisma, WS, "u3@acme.com")).toBe("This LinkedIn account is already added here as “three”.");
+    expect(await setLinkedinEmail(prisma, WS, "u-3", "u3@acme.com")).toEqual({ ok: true, value: undefined }); // its own email is fine
+    process.env.ALLOW_NO_PROXY = allow;
+  });
+
+  it("refuses a LinkedIn profile another user already connected, and removes this login at Unipile", async () => {
+    await prisma.linkedinAccount.create({
+      data: { id: "u-x", workspaceId: "ws-unic-2", label: "x", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE", profileUrl: "https://www.linkedin.com/in/someone-elses/" },
+    });
+    await prisma.linkedinAccount.create({ data: { id: "u-5", workspaceId: WS, label: "five", proxyUrl: "", workingHours: {}, limits: {}, status: "DISCONNECTED", unipileLinkAt: new Date() } });
+    const f = fakeUnipile([{ id: "UNI-E", name: "Someone", status: "OK", slug: "someone-elses" }]);
+    // The fake /me answers with the account's slug.
+    const r = await syncUnipileAccount(prisma, WS, "u-5", f.client, { tries: 1 });
+    expect(r).toEqual({ ok: false, code: "elsewhere" });
+    expect(f.deleted).toEqual(["UNI-E"]);
   });
 });
