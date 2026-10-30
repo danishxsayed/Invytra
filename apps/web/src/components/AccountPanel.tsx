@@ -4,6 +4,7 @@ import { explainStatus, problemOf } from "@/lib/accounts";
 import type { AccountOverview } from "@/lib/data";
 import { timeAgo } from "@/lib/format";
 import { AccountControls } from "./AccountControls";
+import { LinkedinEmailPrompt } from "./LinkedinEmailPrompt";
 import { StatusBadge } from "./StatusBadge";
 import { Avatar, Card, UsageBar, cx } from "./ui";
 
@@ -73,6 +74,7 @@ export function AccountPanel({ a, full = true }: { a: AccountOverview; full?: bo
               ) : (
                 <span className="font-medium text-stone-700">{a.profileName}</span>
               ))}
+            {a.email && <span>{a.email}</span>}
             <span>
               {a.queued > 0 ? `${a.queued} action${a.queued === 1 ? "" : "s"} queued` : "Nothing queued"}
               {a.lastActiveAt && ` · last active ${timeAgo(a.lastActiveAt)}`}
@@ -90,6 +92,8 @@ export function AccountPanel({ a, full = true }: { a: AccountOverview; full?: bo
           </div>
         </div>
       )}
+
+      {!a.email && a.hasSession && <LinkedinEmailPrompt id={a.id} />}
 
       {a.hasSession && (
         <div className="mt-5 grid gap-x-6 gap-y-4 sm:grid-cols-3">

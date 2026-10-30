@@ -27,6 +27,7 @@ export async function accountsOverview(prisma: PrismaClient, workspaceId: string
       sessionUpdatedAt: true,
       proxyUrl: true,
       engine: true,
+      email: true,
       premium: true,
       premiumCheckedAt: true,
       avatarUpdatedAt: true,
@@ -63,6 +64,8 @@ export async function accountsOverview(prisma: PrismaClient, workspaceId: string
         proxy: proxyHost(a.proxyUrl),
         /** Connected through Unipile: its IP and session, not a proxy of ours. */
         viaUnipile: a.engine === "UNIPILE",
+        /** The LinkedIn login email (checked so one LinkedIn is on Invytra once); null = not given yet. */
+        email: a.email,
         warmupUntil: a.warmupUntil,
         warmupDay: warmupDay(a.warmupUntil, now),
         /** What the account is set to. */
