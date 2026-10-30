@@ -228,6 +228,7 @@ function notSent(error: string | null, account: { label: string; engine: string 
   if (account.engine !== "UNIPILE" && /timeout|net::|ERR_|Target page|browser has been closed/i.test(first)) {
     return `Not sent: LinkedIn didn't load for “${account.label}” in Invytra's own browser. Reconnect “${account.label}” with Secure login (Unipile) on the Accounts page for instant replies.`;
   }
+  if (/Unipile 422/.test(first)) return "Not sent: LinkedIn doesn't allow replies in this conversation (for example a sponsored message, or someone who isn't a connection).";
   if (/LOGGED_OUT|NEEDS_ATTENTION|isn't connected/i.test(first)) return `Not sent: “${account.label}” needs to be reconnected on the Accounts page.`;
   return `Not sent: ${first || "something went wrong"}`;
 }

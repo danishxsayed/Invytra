@@ -15,6 +15,8 @@ export class FakeUnipile {
   invites: { id: string; providerId: string; message?: string }[] = [];
   chats: { id: string; providerId: string; name: string; messages: { id: string; text: string; ts: string; mine: boolean }[] }[] = [];
   reactions: string[] = [];
+  /** Sponsored messages (ads) in the inbox: nobody can reply to them. */
+  ads: { id: string; subject: string }[] = [];
   comments: { post: string; text: string }[] = [];
   visits: string[] = [];
   /** Requests seen, "METHOD /path". */
@@ -103,7 +105,16 @@ export class FakeUnipile {
       return json(201, {});
     }
     if (method === "GET" && path === "/api/v1/chats") {
-      return json(200, { items: this.chats.map((c) => ({ id: c.id, name: c.name, timestamp: c.messages.at(-1)?.ts, unread_count: c.messages.at(-1)?.mine ? 0 : 1 })) });
+      return json(200, {
+        items: [
+          ...this.chats.map((c) => ({ id: c.id, name: null, type: 0, timestamp: c.messages.at(-1)?.ts, unread_count: c.messages.at(-1)?.mine ? 0 : 1 })),
+          ...this.ads.map((a) => ({ id: a.id, name: a.subject, type: 0, read_only: 1, content_type: "sponsored", disabledFeatures: ["reply"], timestamp: new Date().toISOString() })),
+        ],
+      });
+    }
+    if (method === "GET" && (m = /^\/api\/v1\/chats\/([^/]+)\/attendees$/.exec(path))) {
+      const chat = this.chats.find((c) => c.id === m![1]);
+      return json(200, { items: chat ? [{ id: "me", name: "Me", is_self: 1 }, { id: chat.providerId, provider_id: chat.providerId, name: chat.name, is_self: 0 }] : [] });
     }
     if (method === "GET" && (m = /^\/api\/v1\/chats\/([^/]+)\/messages$/.exec(path))) {
       const chat = this.chats.find((c) => c.id === m![1]);

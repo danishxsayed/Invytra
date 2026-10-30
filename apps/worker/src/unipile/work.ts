@@ -1,4 +1,4 @@
-import { UnipileError, type LinkedinAccount, type PrismaClient, type UnipileClient, type UnipileUser } from "@invytra/db";
+import { UnipileError, isPersonChat, type LinkedinAccount, type PrismaClient, type UnipileClient, type UnipileUser } from "@invytra/db";
 import {
   RESULTS_PER_PAGE,
   audienceSkip,
@@ -288,7 +288,8 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
         }
         // Find the chat by the person's name among recent chats.
         for (const c of await ctx.client.chats(ctx.accountId, 50)) {
-          const other = await otherName(ctx, c.id, c.name);
+          if (!isPersonChat(c)) continue;
+          const other = await otherName(ctx, c.id, c.type === 1 ? c.name : null);
           if (other && other.toLowerCase() === name.toLowerCase()) {
             await ctx.client.sendInChat(c.id, text, ctx.accountId);
             return { outcome: "DONE", data: { via: "inbox" } };
@@ -304,6 +305,7 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
   }
 }
 
+/** The other person's name (a group chat's own name when given). */
 async function otherName(ctx: UnipileCtx, chatId: string, chatName?: string | null): Promise<string> {
   if (chatName) return chatName;
   const people = await ctx.client.chatAttendees(chatId);
@@ -327,8 +329,12 @@ async function readInbox(ctx: UnipileCtx, opts: { known: Record<string, string>;
       (c) => [c.externalId!, c.participantName],
     ),
   );
-  for (const chat of await ctx.client.chats(ctx.accountId, 25)) {
-    const name = knownChats.get(chat.id) ?? (await otherName(ctx, chat.id, chat.name));
+  const chats = await ctx.client.chats(ctx.accountId, 30);
+  // Ads and other chats nobody can answer don't belong in the inbox (and earlier checks may have stored some).
+  const notPeople = chats.filter((c) => !isPersonChat(c)).map((c) => c.id);
+  if (notPeople.length) await ctx.prisma.conversation.deleteMany({ where: { accountId: ctx.account.id, externalId: { in: notPeople }, campaignLeadId: null } });
+  for (const chat of chats.filter(isPersonChat).slice(0, 25)) {
+    const name = knownChats.get(chat.id) ?? (await otherName(ctx, chat.id, chat.type === 1 ? chat.name : null));
     if (!name) continue;
     // A chat's last-activity time says whether anything changed: only changed chats are read.
     const listKey = chat.timestamp ? `t:${chat.timestamp}` : null;

@@ -120,7 +120,11 @@ d("Unipile accounts", () => {
 
   it("stores replies from the inbox with the chat id, and answers in that chat", async () => {
     fake.receive("raj-k", "Sounds good, let's talk");
+    fake.ads.push({ id: "AD-1", subject: "What have you built lately?" });
+    // An ad stored by an earlier version is removed.
+    await prisma.conversation.create({ data: { accountId: ACC, participantName: "What have you built lately?", externalId: "AD-1" } });
     const sync = await run("INBOX_SYNC", null);
+    expect(await prisma.conversation.count({ where: { accountId: ACC, externalId: "AD-1" } })).toBe(0);
     expect(sync.row.status).toBe("SUCCEEDED");
     const conv = await prisma.conversation.findFirstOrThrow({ where: { accountId: ACC, participantName: "Raj Kumar" }, include: { messages: true } });
     expect(conv.externalId).toBe(fake.chats[0]!.id);

@@ -250,6 +250,9 @@ async function sendViaUnipile(
       await prisma.linkedinAccount.update({ where: { id: c.accountId }, data: { status: "NEEDS_ATTENTION", statusReason: "LOGGED_OUT" } });
       return { ok: false, error: "LinkedIn logged this account out. Reconnect it on the Accounts page, then send again." };
     }
+    if (e instanceof UnipileError && e.status === 422) {
+      return { ok: false, error: "Not sent: LinkedIn doesn't allow replies in this conversation (for example a sponsored message, or someone who isn't a connection)." };
+    }
     return { ok: false, error: `Not sent: ${error}` };
   }
 }

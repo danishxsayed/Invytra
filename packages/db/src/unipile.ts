@@ -56,10 +56,32 @@ export interface UnipileMe {
 
 export interface UnipileChat {
   id: string;
+  /** A group's name, or the subject of a sponsored message / InMail; null for a normal 1-to-1 chat. */
   name?: string | null;
   attendee_provider_id?: string;
   unread_count?: number;
   timestamp?: string;
+  /** 1 = nobody can reply (sponsored messages, LinkedIn offers). */
+  read_only?: 0 | 1 | boolean;
+  /** "sponsored", "linkedin_offer", "inmail", … (absent for normal chats). */
+  content_type?: string;
+  /** e.g. ["INBOX", "INBOX_LINKEDIN_CLASSIC"]; a company page's inbox is "INBOX_LINKEDIN_ORGANIZATION". */
+  folder?: string[];
+  disabledFeatures?: string[];
+  /** 0 = 1-to-1, 1 = group. */
+  type?: number;
+}
+
+/**
+ * A chat with a person you can write back to. Sponsored messages (ads), LinkedIn's own
+ * offers, read-only chats and a company page's inbox aren't conversations for outreach.
+ */
+export function isPersonChat(c: UnipileChat): boolean {
+  if (Number(c.read_only) === 1) return false;
+  if (c.content_type && ["sponsored", "linkedin_offer"].includes(c.content_type)) return false;
+  if (c.disabledFeatures?.includes("reply")) return false;
+  if (c.folder?.some((f) => f.includes("ORGANIZATION"))) return false;
+  return true;
 }
 
 export interface UnipileMessage {
