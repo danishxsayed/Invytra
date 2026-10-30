@@ -1,12 +1,13 @@
 "use client";
 
-import { Loader2, Pause, Play, Plug, RefreshCw, Settings2, Trash2 } from "lucide-react";
+import { Loader2, Pause, Play, Plug, RefreshCw, Router, Settings2, ShieldCheck, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { pauseAction, removeAccountAction, resumeAfterCheckAction, startUnipileConnectAction } from "@/app/app/accounts/actions";
 import { ConnectWindow } from "./ConnectWindow";
+import { Portal } from "./Portal";
 import { cx } from "./ui";
 
 interface Props {
@@ -40,12 +41,15 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
   const [pending, start] = useTransition();
 
   // Unipile's login page when it's set up for this account; otherwise Invytra's own login window.
-  const connect = () =>
+  const [choosing, setChoosing] = useState(false);
+  const connect = (how?: "unipile" | "browser") =>
     start(async () => {
       setError(null);
-      const r = await startUnipileConnectAction(id);
+      setChoosing(false);
+      const r = await startUnipileConnectAction(id, how);
       if (!r.ok) setError(r.error);
-      else if (r.value) window.location.assign(r.value.url);
+      else if (r.value && "url" in r.value) window.location.assign(r.value.url);
+      else if (r.value) setChoosing(true);
       else setConnecting(true);
     });
   useEffect(() => {
@@ -68,7 +72,7 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
     <div className="flex flex-col items-start gap-2">
       <div className="flex flex-wrap items-center gap-2">
         {(next === "connect" || next === "reconnect") && (
-          <button className={btn.primary} disabled={pending} onClick={connect}>
+          <button className={btn.primary} disabled={pending} onClick={() => connect()}>
             {next === "connect" ? <Plug className="h-4 w-4" aria-hidden /> : <RefreshCw className="h-4 w-4" aria-hidden />}
             {next === "connect" ? "Connect LinkedIn" : "Reconnect"}
           </button>
@@ -120,6 +124,38 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
         <p role="alert" className="text-[15px] text-rose-700">
           {error}
         </p>
+      )}
+      {choosing && (
+        <Portal>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 p-4" role="dialog" aria-modal="true" aria-labelledby={`how-${id}`}>
+            <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+              <div className="flex items-start justify-between gap-3">
+                <h2 id={`how-${id}`} className="text-[18px] font-semibold text-stone-900">
+                  How should {label} connect?
+                </h2>
+                <button type="button" onClick={() => setChoosing(false)} aria-label="Close" className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="mt-1 text-[14px] text-stone-500">This account has its own proxy saved.</p>
+              <div className="mt-4 grid gap-2.5">
+                <button type="button" disabled={pending} onClick={() => connect("unipile")} className="rounded-xl border border-stone-900 p-3.5 text-left ring-1 ring-stone-900 transition hover:bg-stone-50">
+                  <span className="flex items-center gap-2 text-[15px] font-semibold text-stone-900">
+                    <ShieldCheck className="h-4 w-4" aria-hidden /> Secure login with a dedicated IP
+                    <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[12px] font-semibold text-brand-900">Recommended</span>
+                  </span>
+                  <span className="mt-0.5 block text-[13px] text-stone-500">Log in on Unipile's page. The account gets its own IP; your proxy isn't used.</span>
+                </button>
+                <button type="button" disabled={pending} onClick={() => connect("browser")} className="rounded-xl border border-stone-200 p-3.5 text-left transition hover:border-stone-300 hover:bg-stone-50">
+                  <span className="flex items-center gap-2 text-[15px] font-semibold text-stone-900">
+                    <Router className="h-4 w-4" aria-hidden /> Use my own proxy
+                  </span>
+                  <span className="mt-0.5 block text-[13px] text-stone-500">Log in inside Invytra's window, through the proxy saved on this account.</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </Portal>
       )}
       {connecting && <ConnectWindow accountId={id} label={label} onClose={() => setConnecting(false)} />}
     </div>

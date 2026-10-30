@@ -18,12 +18,16 @@ export function unipileClient(): UnipileClient | null {
 }
 
 /**
- * How this account logs in: through Unipile when it's set up and the account has no proxy
- * of its own; an account with its own proxy uses Invytra's login window (its own IP).
+ * How "Connect LinkedIn" works for this account: Unipile's login page; a choice, for an
+ * account that has its own proxy (Unipile's IP, or the login window through that proxy);
+ * or Invytra's own login window when Unipile isn't set up.
  */
-export function connectsViaUnipile(a: { engine: string; proxyUrl: string }): boolean {
-  if (!unipileEnabled()) return false;
-  return a.engine === "UNIPILE" || !a.proxyUrl;
+export type ConnectMode = "unipile" | "choose" | "browser";
+
+export function connectMode(a: { engine: string; proxyUrl: string }): ConnectMode {
+  if (!unipileEnabled()) return "browser";
+  if (a.engine === "UNIPILE" || !a.proxyUrl) return "unipile";
+  return "choose";
 }
 
 const origin = () => (process.env.WEB_ORIGIN ?? "http://localhost:3000").replace(/\/$/, "");

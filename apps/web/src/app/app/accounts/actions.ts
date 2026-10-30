@@ -15,7 +15,7 @@ import {
   updateSettings,
   type Result,
 } from "@/lib/accounts";
-import { connectsViaUnipile, unipileConnectLink } from "@/lib/unipile";
+import { connectMode, unipileConnectLink } from "@/lib/unipile";
 
 /*
  * Every action re-reads the signed-in user and passes THEIR workspace id;
@@ -76,14 +76,22 @@ export async function removeAccountAction(accountId: string): Promise<Result> {
 }
 
 /**
- * Where "Connect LinkedIn" goes: Unipile's login page (no proxy needed), or null to use
- * Invytra's own login window (accounts with their own proxy, or when Unipile isn't set up).
+ * Where "Connect LinkedIn" goes: { url } for Unipile's login page, { choose } when the account
+ * has its own proxy (the person picks), or null for Invytra's own login window.
+ * `how` is the person's pick from that choice.
  */
-export async function startUnipileConnectAction(accountId: string): Promise<Result<{ url: string } | null>> {
+type ConnectStart = { url: string } | { choose: true } | null;
+
+export async function startUnipileConnectAction(
+  accountId: string,
+  how?: "unipile" | "browser",
+): Promise<Result<ConnectStart>> {
   const me = await requireUser();
-  return guarded(async () => {
+  return guarded<ConnectStart>(async () => {
     const a = await getAccount(prisma, me.workspace.id, String(accountId));
-    if (!connectsViaUnipile(a)) return { ok: true, value: null };
+    const mode = connectMode(a);
+    if (mode === "browser" || (mode === "choose" && how === "browser")) return { ok: true, value: null };
+    if (mode === "choose" && how !== "unipile") return { ok: true, value: { choose: true } };
     try {
       const r = await unipileConnectLink(prisma, me.workspace.id, a.id);
       return r.ok ? { ok: true, value: { url: r.value } } : r;
