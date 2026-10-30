@@ -51,6 +51,8 @@ export async function unipileConnectLink(
     name: unipileName(a.id),
     success_redirect_url: back,
     failure_redirect_url: `${back}?failed=1`,
+    // Straight back to Invytra (the login runs inside the dashboard's window).
+    bypass_success_screen: true,
     ...(known && { reconnect_account: known.id }),
   });
   return { ok: true, value: url };

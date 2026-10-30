@@ -4,9 +4,10 @@ import { Loader2, Plus, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { Portal } from "./Portal";
-import { addAccountAction } from "@/app/app/accounts/actions";
+import { addAccountAction, startUnipileConnectAction } from "@/app/app/accounts/actions";
 import { btn } from "./AccountControls";
 import { ConnectWindow } from "./ConnectWindow";
+import { UnipileWindow } from "./UnipileWindow";
 import { Field, Toggle, TimeZoneSelect, inputCls } from "./fields";
 
 /** "Add account" → name, time zone, proxy → straight into the live login window. */
@@ -20,6 +21,7 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
   const [warmup, setWarmup] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connect, setConnect] = useState<{ id: string; label: string } | null>(null);
+  const [secure, setSecure] = useState<{ url: string; label: string } | null>(null);
   const [pending, start] = useTransition();
 
   useEffect(() => {
@@ -34,8 +36,16 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
       setError(null);
       const r = await addAccountAction({ label, timezone, proxyUrl, warmup });
       if (!r.ok) return setError(r.error);
+      // Next: the LinkedIn login. Through Unipile when it's set up, otherwise Invytra's own window.
+      const how = await startUnipileConnectAction(r.value, "unipile");
       setOpen(false);
-      setConnect({ id: r.value, label: label.trim() });
+      if (!how.ok) {
+        // The account exists; its page has the Connect button and shows what went wrong.
+        router.push(`/app/accounts/${r.value}`);
+        return;
+      }
+      if (how.value && "url" in how.value) setSecure({ url: how.value.url, label: label.trim() });
+      else setConnect({ id: r.value, label: label.trim() });
       setLabel("");
       setProxyUrl("");
       router.replace("/app/accounts");
@@ -69,14 +79,14 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
               <Field label="Time zone" hint="Actions run during working hours in this time zone.">
                 <TimeZoneSelect zones={zones} value={timezone} onChange={setTimezone} />
               </Field>
+              {/* With Unipile, accounts get their IP when they connect: no proxy to enter. */}
+              {!unipile && (
               <Field
-                label={proxyRequired ? "Proxy" : unipile ? "Your own proxy (optional)" : "Proxy (optional on this computer)"}
+                label={proxyRequired ? "Proxy" : "Proxy (optional on this computer)"}
                 hint={
                   proxyRequired
                     ? "Each account needs its own proxy, ideally in the account's country: http://user:password@host:port"
-                    : unipile
-                      ? "Leave empty and the account gets its own IP when it connects. Add one only to use your own IP."
-                      : "Development mode: without a proxy, LinkedIn sees this computer's internet connection."
+                    : "Development mode: without a proxy, LinkedIn sees this computer's internet connection."
                 }
               >
                 <input
@@ -88,6 +98,7 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
                   spellCheck={false}
                 />
               </Field>
+              )}
               <Toggle
                 checked={warmup}
                 onChange={setWarmup}
@@ -112,6 +123,7 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
         </div>
         </Portal>
       )}
+      {secure && <UnipileWindow url={secure.url} label={secure.label} onClose={() => setSecure(null)} />}
       {connect && <ConnectWindow accountId={connect.id} label={connect.label} onClose={() => setConnect(null)} />}
     </>
   );

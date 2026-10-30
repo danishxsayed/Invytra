@@ -16,7 +16,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const back = new URL(`/app/accounts/${encodeURIComponent(String(id))}`, process.env.WEB_ORIGIN ?? req.url);
   if (new URL(req.url).searchParams.get("failed")) {
     back.searchParams.set("connect_error", "unfinished");
-    return Response.redirect(back, 303);
+    return goTo(back);
   }
   try {
     const r = await syncUnipileAccount(prisma, me.workspace.id, String(id));
@@ -28,5 +28,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     back.searchParams.set("connect_error", "unavailable");
   }
   revalidatePath("/app", "layout");
-  return Response.redirect(back, 303);
+  return goTo(back);
+}
+
+/**
+ * The login runs in a window inside the dashboard, so this page loads inside it: send the
+ * whole dashboard (not just that window) to the account page.
+ */
+function goTo(url: URL): Response {
+  const target = JSON.stringify(url.pathname + url.search).replace(/</g, "\\u003c");
+  const html = `<!doctype html><meta charset="utf-8"><title>Connecting…</title><script>(window.top||window).location.replace(${target});</script><noscript><a href="${url.pathname + url.search}">Continue</a></noscript>`;
+  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }

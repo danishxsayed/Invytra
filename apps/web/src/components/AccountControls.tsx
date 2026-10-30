@@ -8,6 +8,7 @@ import { useEffect, useState, useTransition } from "react";
 import { pauseAction, removeAccountAction, resumeAfterCheckAction, startUnipileConnectAction } from "@/app/app/accounts/actions";
 import { ConnectWindow } from "./ConnectWindow";
 import { Portal } from "./Portal";
+import { UnipileWindow } from "./UnipileWindow";
 import { cx } from "./ui";
 
 interface Props {
@@ -42,13 +43,14 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
 
   // Unipile's login page when it's set up for this account; otherwise Invytra's own login window.
   const [choosing, setChoosing] = useState(false);
+  const [loginUrl, setLoginUrl] = useState<string | null>(null);
   const connect = (how?: "unipile" | "browser") =>
     start(async () => {
       setError(null);
       setChoosing(false);
       const r = await startUnipileConnectAction(id, how);
       if (!r.ok) setError(r.error);
-      else if (r.value && "url" in r.value) window.location.assign(r.value.url);
+      else if (r.value && "url" in r.value) setLoginUrl(r.value.url);
       else if (r.value) setChoosing(true);
       else setConnecting(true);
     });
@@ -157,6 +159,7 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
           </div>
         </Portal>
       )}
+      {loginUrl && <UnipileWindow url={loginUrl} label={label} onClose={() => setLoginUrl(null)} />}
       {connecting && <ConnectWindow accountId={id} label={label} onClose={() => setConnecting(false)} />}
     </div>
   );
