@@ -127,6 +127,12 @@ d("Unipile accounts", () => {
     expect(conv.lastFromMe).toBe(false);
     expect(conv.messages.map((m) => m.text)).toEqual(["Hello Raj", "Sounds good, let's talk"]);
 
+    // Nothing changed: the next check doesn't read the chat again.
+    const reads = () => fake.calls.filter((c) => /\/chats\/[^/]+\/messages$/.test(c) && c.startsWith("GET")).length;
+    const before = reads();
+    expect((await run("INBOX_SYNC", null)).row.status).toBe("SUCCEEDED");
+    expect(reads()).toBe(before);
+
     const reply = await run("REPLY", null, { name: "Raj Kumar", text: "Great, Tuesday?" }, { conversationId: conv.id });
     expect(reply.row.status).toBe("SUCCEEDED");
     expect(fake.chats[0]!.messages.at(-1)).toMatchObject({ text: "Great, Tuesday?", mine: true });

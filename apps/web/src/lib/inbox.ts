@@ -1,5 +1,5 @@
-import type { Prisma, PrismaClient } from "@invytra/db";
-import { MESSAGE_MAX, outreachTextProblem } from "@invytra/shared";
+import { UnipileError, recordReply, unipileFromEnv, type Prisma, type PrismaClient, type UnipileClient } from "@invytra/db";
+import { MESSAGE_MAX, outreachTextProblem, parseProfileUrl } from "@invytra/shared";
 import type { Result } from "./accounts";
 
 /*
@@ -166,7 +166,14 @@ export async function inboxFilterOptions(prisma: PrismaClient, workspaceId: stri
  * queued REPLY action; the worker sends it from that account's browser within
  * seconds (CLAUDE.md rule 1).
  */
-export async function sendReply(prisma: PrismaClient, workspaceId: string, conversationId: string, text: string): Promise<Result<string>> {
+export async function sendReply(
+  prisma: PrismaClient,
+  workspaceId: string,
+  conversationId: string,
+  text: string,
+  /** For accounts connected through Unipile: replies go straight out (no queue, no browser). */
+  unipile: UnipileClient | null = unipileFromEnv(),
+): Promise<Result<string>> {
   const body = text.trim();
   if (!body) return { ok: false, error: "Write your reply first." };
   if (body.length > MESSAGE_MAX) return { ok: false, error: `Keep it under ${MESSAGE_MAX.toLocaleString()} characters.` };
@@ -176,12 +183,20 @@ export async function sendReply(prisma: PrismaClient, workspaceId: string, conve
   if (problem) return { ok: false, error: `Your reply ${problem}.` };
   const c = await prisma.conversation.findFirst({
     where: { id: conversationId, account: { workspaceId } },
-    select: { id: true, participantName: true, accountId: true, account: { select: { label: true, status: true } }, campaignLead: { select: { profileUrl: true } } },
+    select: {
+      id: true,
+      participantName: true,
+      accountId: true,
+      externalId: true,
+      account: { select: { label: true, status: true, engine: true, unipileAccountId: true } },
+      campaignLead: { select: { profileUrl: true } },
+    },
   });
   if (!c) return { ok: false, error: "That conversation wasn't found." };
   if (c.account.status !== "ACTIVE") return { ok: false, error: `“${c.account.label}” isn't connected and active, so it can't send right now.` };
   const sending = await prisma.action.count({ where: { conversationId: c.id, type: "REPLY", status: { in: ["QUEUED", "RUNNING"] } } });
   if (sending) return { ok: false, error: "Your last reply in this conversation is still being sent." };
+  const direct = c.account.engine === "UNIPILE" && c.account.unipileAccountId && unipile;
   const a = await prisma.action.create({
     data: {
       accountId: c.accountId,
@@ -189,12 +204,54 @@ export async function sendReply(prisma: PrismaClient, workspaceId: string, conve
       targetUrl: c.campaignLead?.profileUrl ?? null,
       payload: { name: c.participantName, text: body },
       conversationId: c.id,
-      status: "QUEUED",
+      status: direct ? "RUNNING" : "QUEUED",
       scheduledAt: new Date(),
+      ...(direct && { attempts: 1 }),
     },
     select: { id: true },
   });
-  return { ok: true, value: a.id };
+  if (!direct) return { ok: true, value: a.id };
+  return sendViaUnipile(prisma, unipile, { ...c, unipileAccountId: c.account.unipileAccountId! }, body, a.id);
+}
+
+/**
+ * A reply from an account connected through Unipile: sent right away (about a second), the
+ * way LinkedIn itself would. Logged like any action (CLAUDE.md rule 9); never retried.
+ */
+async function sendViaUnipile(
+  prisma: PrismaClient,
+  client: UnipileClient,
+  c: { id: string; accountId: string; externalId: string | null; unipileAccountId: string; campaignLead: { profileUrl: string } | null },
+  body: string,
+  actionId: string,
+): Promise<Result<string>> {
+  const started = Date.now();
+  try {
+    let chatId = c.externalId;
+    if (chatId) {
+      await client.sendInChat(chatId, body, c.unipileAccountId);
+    } else {
+      const slug = c.campaignLead ? parseProfileUrl(c.campaignLead.profileUrl) : null;
+      if (!slug?.ok) throw new Error("This conversation hasn't been read through Unipile yet. Click “Check now”, then send again.");
+      const who = await client.user(c.unipileAccountId, slug.slug);
+      chatId = (await client.startChat(c.unipileAccountId, who.provider_id, body)).chat_id;
+      await prisma.conversation.update({ where: { id: c.id }, data: { externalId: chatId } });
+    }
+    const now = new Date();
+    await prisma.action.update({ where: { id: actionId }, data: { status: "SUCCEEDED", executedAt: now, durationMs: Date.now() - started } });
+    await recordReply(prisma, c.id, body, now);
+    await prisma.linkedinAccount.update({ where: { id: c.accountId }, data: { lastActiveAt: now } });
+    return { ok: true, value: actionId };
+  } catch (e) {
+    const disconnected = e instanceof UnipileError && e.disconnected;
+    const error = disconnected ? "LOGGED_OUT" : e instanceof Error ? e.message : String(e);
+    await prisma.action.update({ where: { id: actionId }, data: { status: "FAILED", error, executedAt: new Date(), durationMs: Date.now() - started } });
+    if (disconnected) {
+      await prisma.linkedinAccount.update({ where: { id: c.accountId }, data: { status: "NEEDS_ATTENTION", statusReason: "LOGGED_OUT" } });
+      return { ok: false, error: "LinkedIn logged this account out. Reconnect it on the Accounts page, then send again." };
+    }
+    return { ok: false, error: `Not sent: ${error}` };
+  }
 }
 
 const ACTIVE = ["QUEUED", "IN_PROGRESS", "WAITING_ACCEPT"];
@@ -237,6 +294,8 @@ export async function cancelReply(prisma: PrismaClient, workspaceId: string, act
 
 /** Ask for a fresh look at LinkedIn for each connected account whose last check is older than this. */
 const CHECK_EVERY_MS = 3 * 60_000;
+/** Accounts connected through Unipile are read through its API (no browser), so much more often. */
+const UNIPILE_CHECK_EVERY_MS = 15_000;
 
 /**
  * The inbox is open: queue an inbox check for each connected account that hasn't
@@ -244,10 +303,11 @@ const CHECK_EVERY_MS = 3 * 60_000;
  * accounts were last checked, oldest first.
  */
 export async function requestInboxCheck(prisma: PrismaClient, workspaceId: string, now = new Date()): Promise<{ lastChecked: Date | null; queued: number }> {
-  const accounts = await prisma.linkedinAccount.findMany({ where: { workspaceId, status: "ACTIVE" }, select: { id: true } });
+  const accounts = await prisma.linkedinAccount.findMany({ where: { workspaceId, status: "ACTIVE" }, select: { id: true, engine: true } });
   let queued = 0;
   let oldest: Date | null = null;
-  for (const { id } of accounts) {
+  for (const { id, engine } of accounts) {
+    const every = engine === "UNIPILE" ? UNIPILE_CHECK_EVERY_MS : CHECK_EVERY_MS;
     // A routine check already waiting at its normal pace: bring it forward instead of adding another.
     const routine = (await prisma.action.findMany({ where: { accountId: id, type: "INBOX_SYNC", status: "QUEUED" }, select: { id: true, payload: true } }))
       .filter((a) => (a.payload as { onDemand?: unknown } | null)?.onDemand !== true)
@@ -261,7 +321,7 @@ export async function requestInboxCheck(prisma: PrismaClient, workspaceId: strin
     ]);
     const at = last?.executedAt ?? null;
     if (!oldest || !at || at < oldest) oldest = at ?? oldest;
-    if (pending > 0 || (at && now.getTime() - at.getTime() < CHECK_EVERY_MS)) continue;
+    if (pending > 0 || (at && now.getTime() - at.getTime() < every)) continue;
     await prisma.action.create({ data: { accountId: id, type: "INBOX_SYNC", status: "QUEUED", payload: { onDemand: true }, scheduledAt: now } });
     queued++;
   }

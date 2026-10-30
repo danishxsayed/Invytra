@@ -12,8 +12,9 @@ function ago(iso: string | null, now: number): string {
 }
 
 /**
- * Keeps the open inbox fresh: while the tab is visible it asks the worker to look
- * at LinkedIn (at most every 3 minutes per account) and reloads the list.
+ * Keeps the open inbox fresh: while the tab is visible it asks the worker to look at
+ * LinkedIn every 15 seconds (accounts through Unipile; others at most every 3 minutes)
+ * and reloads the list.
  */
 export function InboxLive() {
   const router = useRouter();
@@ -37,11 +38,9 @@ export function InboxLive() {
     const tick = setInterval(() => {
       setNow(Date.now());
       if (document.visibilityState === "visible") void check();
-    }, 60_000);
-    const refresh = setInterval(() => document.visibilityState === "visible" && router.refresh(), 20_000);
+    }, 15_000);
     return () => {
       clearInterval(tick);
-      clearInterval(refresh);
     };
   }, [check, router]);
 

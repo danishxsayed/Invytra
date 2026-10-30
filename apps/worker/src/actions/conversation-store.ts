@@ -1,6 +1,5 @@
-import type { PrismaClient } from "@invytra/db";
+import { messageKeys, type PrismaClient } from "@invytra/db";
 import { nameKey } from "@invytra/shared";
-import { createHash } from "node:crypto";
 import { isOwnMessage, snippetBody, type InboxThread, type ThreadMessage } from "../linkedin/inbox.js";
 import { parseThreadTime } from "../linkedin/thread-time.js";
 
@@ -11,18 +10,9 @@ import { parseThreadTime } from "../linkedin/thread-time.js";
  * sent in Invytra.
  */
 
-const norm = (t: string) => t.replace(/\s+/g, " ").trim();
+export { messageKeys, recordReply } from "@invytra/db";
 
-/** The same message read twice gets the same key: side + text + which repeat of that text it is. */
-export function messageKeys(msgs: { fromMe: boolean; text: string }[]): string[] {
-  const seen = new Map<string, number>();
-  return msgs.map((m) => {
-    const base = `${m.fromMe ? 1 : 0}|${norm(m.text)}`;
-    const n = (seen.get(base) ?? 0) + 1;
-    seen.set(base, n);
-    return createHash("md5").update(`${base}|${n}`).digest("hex");
-  });
-}
+const norm = (t: string) => t.replace(/\s+/g, " ").trim();
 
 async function leadsByName(prisma: PrismaClient, accountId: string): Promise<Map<string, string>> {
   const leads = await prisma.campaignLead.findMany({
@@ -116,16 +106,4 @@ export async function storeConversations(
     if (at && isNew) await prisma.conversation.update({ where: { id: conv.id }, data: { lastMessageAt: at } });
   }
   return changed;
-}
-
-/** A reply sent from Invytra: show it in the conversation straight away. */
-export async function recordReply(prisma: PrismaClient, conversationId: string, text: string, now = new Date()): Promise<void> {
-  const mine = await prisma.conversationMessage.findMany({ where: { conversationId, fromMe: true }, select: { text: true }, orderBy: { sentAt: "asc" } });
-  const keys = messageKeys([...mine.map((m) => ({ fromMe: true, text: m.text })), { fromMe: true, text }]);
-  await prisma.conversationMessage.upsert({
-    where: { conversationId_key: { conversationId, key: keys.at(-1)! } },
-    create: { conversationId, fromMe: true, text: text.trim(), sentAt: now, key: keys.at(-1)! },
-    update: {},
-  });
-  await prisma.conversation.update({ where: { id: conversationId }, data: { lastFromMe: true, unread: false, lastMessageText: norm(text), lastMessageAt: now } });
 }

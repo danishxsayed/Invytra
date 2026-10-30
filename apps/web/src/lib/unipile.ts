@@ -176,7 +176,8 @@ export async function syncUnipileAccount(
       where: { id: { not: a.id }, profileUrl: { contains: `/in/${mine}`, mode: "insensitive" } },
       select: { workspaceId: true, profileUrl: true },
     });
-    const twin = others.find((o) => slug(o.profileUrl) === mine);
+    const twins = others.filter((o) => slug(o.profileUrl) === mine);
+    const twin = twins.find((o) => o.workspaceId === workspaceId) ?? twins[0];
     if (twin) {
       // This login's connection at Unipile isn't kept (Unipile bills each one).
       if (found.id !== a.unipileAccountId) await client.deleteAccount(found.id).catch(() => undefined);

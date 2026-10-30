@@ -103,7 +103,7 @@ export class FakeUnipile {
       return json(201, {});
     }
     if (method === "GET" && path === "/api/v1/chats") {
-      return json(200, { items: this.chats.map((c) => ({ id: c.id, name: c.name, unread_count: c.messages.at(-1)?.mine ? 0 : 1 })) });
+      return json(200, { items: this.chats.map((c) => ({ id: c.id, name: c.name, timestamp: c.messages.at(-1)?.ts, unread_count: c.messages.at(-1)?.mine ? 0 : 1 })) });
     }
     if (method === "GET" && (m = /^\/api\/v1\/chats\/([^/]+)\/messages$/.exec(path))) {
       const chat = this.chats.find((c) => c.id === m![1]);

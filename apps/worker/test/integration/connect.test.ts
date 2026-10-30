@@ -36,7 +36,7 @@ const lock = new AccountLock(redis);
 const saved: StorageState[] = [];
 const updates: unknown[] = [];
 /** Other accounts in the workspace (for the "same LinkedIn profile twice" check). */
-let others: { label: string; profileName: string | null; profileUrl: string | null }[] = [];
+let others: { label: string; workspaceId: string; profileName: string | null; profileUrl: string | null }[] = [];
 
 const prisma = {
   linkedinAccount: {
@@ -151,7 +151,7 @@ describe("connect server", () => {
   }, 90_000);
 
   it("doesn't save a LinkedIn profile that another account here is already logged in to", async () => {
-    others = [{ label: "test-1", profileName: "Tess Tester", profileUrl: "https://www.linkedin.com/in/tess/" }];
+    others = [{ label: "test-1", workspaceId: "ws-1", profileName: "Tess Tester", profileUrl: "https://www.linkedin.com/in/tess/" }];
     const savedBefore = saved.length;
     const updatesBefore = updates.length;
     try {

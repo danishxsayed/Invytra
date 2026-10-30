@@ -34,6 +34,8 @@ export async function sameProfileElsewhere(
     },
     select: { label: true, workspaceId: true, profileName: true, profileUrl: true },
   });
+  // A twin in this workspace is named, so look there first.
+  others.sort((a, b) => Number(b.workspaceId === account.workspaceId) - Number(a.workspaceId === account.workspaceId));
   for (const o of others) {
     const otherSlug = slugOf(o.profileUrl, baseUrl);
     const mine = o.workspaceId === account.workspaceId;

@@ -321,28 +321,38 @@ function labels(at: Date, timeZone: string): Pick<ThreadMessage, "dateLabel" | "
 /** The inbox: recent chats, reading the messages of chats that are new or changed. */
 async function readInbox(ctx: UnipileCtx, opts: { known: Record<string, string>; checkPremium: boolean }): Promise<ActionOutcome<{ threads: InboxThread[]; ownPremium?: boolean | null; ownPhoto?: { base64: string; type: string } | null }>> {
   const threads: InboxThread[] = [];
+  // Names of chats already in the inbox, so only new chats need their people looked up.
+  const knownChats = new Map(
+    (await ctx.prisma.conversation.findMany({ where: { accountId: ctx.account.id, externalId: { not: null } }, select: { externalId: true, participantName: true } })).map(
+      (c) => [c.externalId!, c.participantName],
+    ),
+  );
   for (const chat of await ctx.client.chats(ctx.accountId, 25)) {
-    const name = await otherName(ctx, chat.id, chat.name);
+    const name = knownChats.get(chat.id) ?? (await otherName(ctx, chat.id, chat.name));
     if (!name) continue;
+    // A chat's last-activity time says whether anything changed: only changed chats are read.
+    const listKey = chat.timestamp ? `t:${chat.timestamp}` : null;
+    const unread = (chat.unread_count ?? 0) > 0;
+    if (listKey && opts.known[name] === listKey) {
+      threads.push({ threadId: chat.id, externalId: chat.id, name, snippet: "", timeText: chat.timestamp!, unread, messageKey: listKey });
+      continue;
+    }
     const msgs = (await ctx.client.chatMessages(chat.id, 20)).filter((m) => (m.text ?? "").trim());
     msgs.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
     const last = msgs.at(-1);
     if (!last) continue;
     const fromMe = !!Number(last.is_sender);
     const first = name.split(" ")[0];
-    const thread: InboxThread = {
+    threads.push({
       threadId: chat.id,
       externalId: chat.id,
       name,
       snippet: `${fromMe ? "You" : first}: ${(last.text ?? "").trim()}`,
       timeText: last.timestamp,
-      unread: (chat.unread_count ?? 0) > 0,
-      messageKey: last.id,
-    };
-    if (opts.known[name] !== last.id) {
-      thread.messages = msgs.map((m) => ({ fromMe: !!Number(m.is_sender), text: (m.text ?? "").trim(), ...labels(new Date(m.timestamp), ctx.account.timezone) }));
-    }
-    threads.push(thread);
+      unread,
+      messageKey: listKey ?? last.id,
+      messages: msgs.map((m) => ({ fromMe: !!Number(m.is_sender), text: (m.text ?? "").trim(), ...labels(new Date(m.timestamp), ctx.account.timezone) })),
+    });
   }
   const data: { threads: InboxThread[]; ownPremium?: boolean | null; ownPhoto?: { base64: string; type: string } | null } = { threads };
   if (opts.checkPremium) {

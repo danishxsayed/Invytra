@@ -2,6 +2,7 @@
 import { PrismaClient, UnipileClient } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAccount, linkedinEmailProblem, setLinkedinEmail } from "../src/lib/accounts";
+import { sendReply } from "../src/lib/inbox";
 import { isLocalOrigin, syncUnipileAccount, unipileConnectLink } from "../src/lib/unipile";
 
 const url = process.env.TEST_DATABASE_URL;
@@ -26,6 +27,8 @@ function fakeUnipile(accounts: { id: string; name: string; status: string; slug:
       return json(200, {});
     }
     if (one) return accounts.some((a) => a.id === one[1]) ? json(200, { id: one[1], type: "LINKEDIN" }) : json(404, { type: "errors/resource_not_found" });
+    const chat = /^\/api\/v1\/chats\/([^/]+)\/messages$/.exec(u.pathname);
+    if (chat && init?.method === "POST") return chat[1] === "CHAT-OK" ? json(201, { message_id: "m1" }) : json(401, { type: "errors/disconnected_account" });
     if (u.pathname === "/api/v1/users/me") {
       const a = accounts.find((x) => x.id === u.searchParams.get("account_id"))!;
       return json(200, { first_name: "Orian", last_name: "Honey", public_identifier: a.slug, premium: false, profile_picture_url: null });
@@ -152,5 +155,25 @@ d("Unipile connect", () => {
     const r = await syncUnipileAccount(prisma, WS, "u-5", f.client, { tries: 1 });
     expect(r).toEqual({ ok: false, code: "elsewhere" });
     expect(f.deleted).toEqual(["UNI-E"]);
+  });
+
+  it("sends a reply from a Unipile account straight away, and stops the account if LinkedIn logged it out", async () => {
+    await prisma.linkedinAccount.create({
+      data: { id: "u-r", workspaceId: WS, label: "replier", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE", engine: "UNIPILE", unipileAccountId: "UNI-R" },
+    });
+    const conv = await prisma.conversation.create({ data: { accountId: "u-r", participantName: "Raj Kumar", externalId: "CHAT-OK" } });
+    const f = fakeUnipile([]);
+    const r = await sendReply(prisma, WS, conv.id, "Tuesday works", f.client);
+    expect(r.ok).toBe(true);
+    expect(f.seen.some((c) => c.path === "POST /api/v1/chats/CHAT-OK/messages")).toBe(true);
+    const action = await prisma.action.findUniqueOrThrow({ where: { id: (r as { value: string }).value } });
+    expect(action.status).toBe("SUCCEEDED");
+    const msgs = await prisma.conversationMessage.findMany({ where: { conversationId: conv.id } });
+    expect(msgs.map((m) => [m.fromMe, m.text])).toEqual([[true, "Tuesday works"]]);
+
+    await prisma.conversation.update({ where: { id: conv.id }, data: { externalId: "CHAT-GONE" } });
+    const bad = await sendReply(prisma, WS, conv.id, "Hello again", f.client);
+    expect(bad).toMatchObject({ ok: false, error: expect.stringMatching(/logged this account out/) });
+    expect((await prisma.linkedinAccount.findUniqueOrThrow({ where: { id: "u-r" } })).status).toBe("NEEDS_ATTENTION");
   });
 });
