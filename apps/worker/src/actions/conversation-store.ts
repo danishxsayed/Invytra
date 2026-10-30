@@ -94,6 +94,7 @@ export async function storeConversations(
     const fields = {
       unread: t.unread,
       lastSnippetKey: t.messageKey,
+      ...(t.externalId && { externalId: t.externalId }),
       campaignLeadId: ex?.campaignLeadId ?? byName.get(nameKey(t.name)) ?? null,
       ...(isNew && {
         lastMessageText: latest ? norm(latest.text) : body,

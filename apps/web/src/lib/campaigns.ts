@@ -300,7 +300,7 @@ export async function builderOptions(prisma: PrismaClient, workspaceId: string) 
     prisma.linkedinAccount.findMany({
       where: { workspaceId },
       orderBy: { label: "asc" },
-      select: { id: true, label: true, status: true, profileName: true, limits: true, premium: true },
+      select: { id: true, label: true, status: true, profileName: true, limits: true, premium: true, engine: true },
     }),
     prisma.leadList.findMany({
       where: { workspaceId },

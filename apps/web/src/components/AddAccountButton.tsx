@@ -10,7 +10,7 @@ import { ConnectWindow } from "./ConnectWindow";
 import { Field, Toggle, TimeZoneSelect, inputCls } from "./fields";
 
 /** "Add account" → name, time zone, proxy → straight into the live login window. */
-export function AddAccountButton({ zones, proxyRequired }: { zones: string[]; proxyRequired: boolean }) {
+export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zones: string[]; proxyRequired: boolean; unipile?: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -70,11 +70,13 @@ export function AddAccountButton({ zones, proxyRequired }: { zones: string[]; pr
                 <TimeZoneSelect zones={zones} value={timezone} onChange={setTimezone} />
               </Field>
               <Field
-                label={proxyRequired ? "Proxy" : "Proxy (optional on this computer)"}
+                label={proxyRequired ? "Proxy" : unipile ? "Your own proxy (optional)" : "Proxy (optional on this computer)"}
                 hint={
                   proxyRequired
                     ? "Each account needs its own proxy, ideally in the account's country: http://user:password@host:port"
-                    : "Development mode: without a proxy, LinkedIn sees this computer's internet connection."
+                    : unipile
+                      ? "Leave empty and the account gets its own IP when it connects. Add one only to use your own IP."
+                      : "Development mode: without a proxy, LinkedIn sees this computer's internet connection."
                 }
               >
                 <input

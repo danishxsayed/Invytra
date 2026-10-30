@@ -5,6 +5,7 @@ import { AccountPanel } from "@/components/AccountPanel";
 import { AddAccountButton } from "@/components/AddAccountButton";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { proxyRequired, sharedProxyGroups } from "@/lib/accounts";
+import { unipileEnabled } from "@/lib/unipile";
 import { requireUser } from "@/lib/auth";
 import { accountsOverview } from "@/lib/data";
 import { allTimeZones } from "@/lib/timezones";
@@ -19,7 +20,7 @@ export default async function AccountsPage() {
   const sharedProxies = await sharedProxyGroups(prisma, me.workspace.id);
   const add = (
     <Suspense>
-      <AddAccountButton zones={allTimeZones()} proxyRequired={proxyRequired()} />
+      <AddAccountButton zones={allTimeZones()} proxyRequired={proxyRequired()} unipile={unipileEnabled()} />
     </Suspense>
   );
 

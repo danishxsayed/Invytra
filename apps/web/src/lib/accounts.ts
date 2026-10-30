@@ -1,4 +1,4 @@
-import { isSealed, openSecret, sealSecret, type PrismaClient } from "@invytra/db";
+import { isSealed, openSecret, sealSecret, unipileFromEnv, type PrismaClient } from "@invytra/db";
 import {
   DEFAULT_LIMITS,
   DEFAULT_WORKING_HOURS,
@@ -72,9 +72,14 @@ export const settingsSchema = z.object({
 });
 export type AccountSettingsInput = z.infer<typeof settingsSchema>;
 
-/** Dev servers may run without proxies (ALLOW_NO_PROXY); production always needs one. */
+/**
+ * Whether a new account must come with its own proxy. Not when Unipile is set up (accounts
+ * without a proxy connect through Unipile, which gives them an IP), nor on dev servers
+ * (ALLOW_NO_PROXY). Otherwise each account needs one.
+ */
 export function proxyRequired(): boolean {
-  return process.env.ALLOW_NO_PROXY !== "true";
+  const unipile = !!(process.env.UNIPILE_DSN?.trim() && process.env.UNIPILE_API_KEY?.trim());
+  return !unipile && process.env.ALLOW_NO_PROXY !== "true";
 }
 
 function key(): string {
@@ -249,7 +254,7 @@ export async function setPaused(prisma: PrismaClient, workspaceId: string, accou
 export async function resumeAfterCheck(prisma: PrismaClient, workspaceId: string, accountId: string): Promise<Result> {
   const a = await getAccount(prisma, workspaceId, accountId);
   if (a.status !== "NEEDS_ATTENTION") return { ok: false, error: "This account doesn't need attention." };
-  if (!a.encryptedSession) return { ok: false, error: "Reconnect this account. There is no saved login." };
+  if (!a.encryptedSession && !a.unipileAccountId) return { ok: false, error: "Reconnect this account. There is no saved login." };
   if (problemOf(a.statusReason) === "RESTRICTED") return { ok: false, error: "LinkedIn restricted this account. Check LinkedIn directly first." };
   await prisma.linkedinAccount.update({ where: { id: a.id }, data: { status: "ACTIVE", statusReason: null } });
   return { ok: true, value: undefined };
@@ -262,6 +267,8 @@ export async function removeAccount(prisma: PrismaClient, workspaceId: string, a
     return { ok: false, error: "An action is running on this account right now. Try again in a minute." };
   }
   await prisma.linkedinAccount.delete({ where: { id: a.id } });
+  // Its Unipile connection goes too (Unipile bills per connected account).
+  if (a.unipileAccountId) await unipileFromEnv()?.deleteAccount(a.unipileAccountId).catch(() => undefined);
   return { ok: true, value: undefined };
 }
 

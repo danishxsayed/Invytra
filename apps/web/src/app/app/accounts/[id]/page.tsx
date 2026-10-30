@@ -10,13 +10,23 @@ import { proxyRequired } from "@/lib/accounts";
 import { requireUser } from "@/lib/auth";
 import { accountsOverview } from "@/lib/data";
 import { allTimeZones } from "@/lib/timezones";
+import { CONNECT_PROBLEM, type ConnectProblem } from "@/lib/unipile";
 
 export const metadata = { title: "Account settings" };
 export const dynamic = "force-dynamic";
 
-export default async function AccountPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AccountPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ connected?: string; connect_error?: string }>;
+}) {
   const me = await requireUser();
   const { id } = await params;
+  const q = await searchParams;
+  // Back from Unipile's login page: only known codes are shown, never text from the link.
+  const problem = q.connect_error && q.connect_error in CONNECT_PROBLEM ? CONNECT_PROBLEM[q.connect_error as ConnectProblem] : null;
   // Scoped to the signed-in workspace: another workspace's id simply isn't found.
   const [a] = await accountsOverview(prisma, me.workspace.id, id);
   if (!a) notFound();
@@ -31,6 +41,16 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
           <PageHeader title={a.label} description="Health, limits, working hours and proxy for this LinkedIn account." />
         </div>
       </div>
+      {q.connected === "1" && a.status === "ACTIVE" && (
+        <p role="status" className="rounded-xl bg-emerald-50 px-4 py-3 text-[15px] font-medium text-emerald-800">
+          {a.profileName ?? a.label} is connected. Campaigns can use this account now.
+        </p>
+      )}
+      {problem && (
+        <p role="alert" className="rounded-xl bg-rose-50 px-4 py-3 text-[15px] font-medium text-rose-800">
+          {problem}
+        </p>
+      )}
       <AccountPanel a={a} />
       <SettingsForm
         key={`${a.id}-${a.label}`}

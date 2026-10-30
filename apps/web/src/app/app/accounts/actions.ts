@@ -15,6 +15,7 @@ import {
   updateSettings,
   type Result,
 } from "@/lib/accounts";
+import { connectsViaUnipile, unipileConnectLink } from "@/lib/unipile";
 
 /*
  * Every action re-reads the signed-in user and passes THEIR workspace id;
@@ -72,6 +73,25 @@ export async function removeAccountAction(accountId: string): Promise<Result> {
   const r = await guarded(() => removeAccount(prisma, me.workspace.id, String(accountId)));
   if (r.ok) refresh();
   return r;
+}
+
+/**
+ * Where "Connect LinkedIn" goes: Unipile's login page (no proxy needed), or null to use
+ * Invytra's own login window (accounts with their own proxy, or when Unipile isn't set up).
+ */
+export async function startUnipileConnectAction(accountId: string): Promise<Result<{ url: string } | null>> {
+  const me = await requireUser();
+  return guarded(async () => {
+    const a = await getAccount(prisma, me.workspace.id, String(accountId));
+    if (!connectsViaUnipile(a)) return { ok: true, value: null };
+    try {
+      const r = await unipileConnectLink(prisma, me.workspace.id, a.id);
+      return r.ok ? { ok: true, value: { url: r.value } } : r;
+    } catch (e) {
+      console.error("Unipile connect link failed:", e instanceof Error ? e.message : e);
+      return { ok: false, error: "Couldn't open the LinkedIn login right now. Try again in a minute." };
+    }
+  });
 }
 
 /** A one-time, 2-minute ticket for the live login window of ONE account in the user's workspace. */

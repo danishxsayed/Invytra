@@ -4,6 +4,7 @@ export * from "@prisma/client";
 export * from "./usage.js";
 export * from "./secrets.js";
 export * from "./connect-token.js";
+export * from "./unipile.js";
 
 /** One shared Prisma client per process. */
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };

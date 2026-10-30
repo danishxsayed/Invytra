@@ -113,6 +113,14 @@ enum ActionStatus {
   SKIPPED // blocked by limits/hours and not retried
 }
 
+/// How Invytra talks to LinkedIn for an account.
+enum ConnectionEngine {
+  /// Invytra's own browser, through the account's proxy
+  BROWSER
+  /// Unipile's API (Unipile provides the login page and the IP)
+  UNIPILE
+}
+
 model LinkedinAccount {
   id               String        @id @default(cuid())
   /// Accounts from .env (Phase 0 CLI) live in the "default" workspace.
@@ -141,6 +149,9 @@ model LinkedinAccount {
   avatar           Bytes?
   avatarType       String?       @map("avatar_type")
   avatarUpdatedAt  DateTime?     @map("avatar_updated_at")
+  engine           ConnectionEngine @default(BROWSER)
+  /// The account's id at Unipile (engine UNIPILE)
+  unipileAccountId String?       @unique @map("unipile_account_id")
   /// Not used (the plan is always detected); kept so older data still loads
   premiumOverride  Boolean?      @map("premium_override")
   /// First successful connection through the dashboard or CLI
@@ -433,6 +444,8 @@ model Conversation {
   id              String    @id @default(cuid())
   accountId       String    @map("account_id")
   participantName String    @map("participant_name")
+  /// The chat's id at Unipile (accounts connected through Unipile), to reply in the same chat
+  externalId      String?   @map("external_id")
   /// The campaign lead this is with (matched by name)
   campaignLeadId  String?   @map("campaign_lead_id")
   /// Fingerprint of the latest snippet seen in the conversation list (to spot changes)

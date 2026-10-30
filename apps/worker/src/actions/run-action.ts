@@ -91,6 +91,8 @@ export async function executeActionRow<T>(
   deps: SessionManagerDeps,
   action: Action,
   work: (ctx: SessionTaskContext) => Promise<ActionOutcome<T>>,
+  /** Runs the action another way (an account connected through Unipile) instead of in a browser session. */
+  runner?: () => Promise<ActionOutcome<T>>,
 ): Promise<RunActionResult<T>> {
   const input = (action.payload ?? {}) as Record<string, unknown>;
   await prisma.action.update({
@@ -99,7 +101,7 @@ export async function executeActionRow<T>(
   });
   const started = Date.now();
   try {
-    const outcome = await withAccountSession(action.accountId, work, deps);
+    const outcome = runner ? await runner() : await withAccountSession(action.accountId, work, deps);
     const durationMs = Date.now() - started;
     if (outcome.outcome === "SKIPPED") {
       await prisma.action.update({

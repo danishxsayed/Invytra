@@ -116,7 +116,8 @@ export function AccountPanel({ a, full = true }: { a: AccountOverview; full?: bo
         </span>
         {full && (
           <span className="inline-flex items-center gap-1">
-            <Router className="h-3.5 w-3.5" aria-hidden /> {a.proxy ? `Proxy ${a.proxy}` : "No proxy (this computer's connection)"}
+            <Router className="h-3.5 w-3.5" aria-hidden />{" "}
+            {a.viaUnipile ? "Connected through Unipile (IP provided by Unipile)" : a.proxy ? `Proxy ${a.proxy}` : "No proxy yet"}
           </span>
         )}
         {a.warmupDay !== null && (

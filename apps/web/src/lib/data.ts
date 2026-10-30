@@ -26,6 +26,7 @@ export async function accountsOverview(prisma: PrismaClient, workspaceId: string
       warmupUntil: true,
       sessionUpdatedAt: true,
       proxyUrl: true,
+      engine: true,
       premium: true,
       premiumCheckedAt: true,
       avatarUpdatedAt: true,
@@ -60,6 +61,8 @@ export async function accountsOverview(prisma: PrismaClient, workspaceId: string
         premium: a.premium,
         premiumCheckedAt: a.premiumCheckedAt,
         proxy: proxyHost(a.proxyUrl),
+        /** Connected through Unipile: its IP and session, not a proxy of ours. */
+        viaUnipile: a.engine === "UNIPILE",
         warmupUntil: a.warmupUntil,
         warmupDay: warmupDay(a.warmupUntil, now),
         /** What the account is set to. */

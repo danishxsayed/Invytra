@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { pauseAction, removeAccountAction, resumeAfterCheckAction } from "@/app/app/accounts/actions";
+import { pauseAction, removeAccountAction, resumeAfterCheckAction, startUnipileConnectAction } from "@/app/app/accounts/actions";
 import { ConnectWindow } from "./ConnectWindow";
 import { cx } from "./ui";
 
@@ -35,12 +35,23 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
   // "Connect" in the sidebar's account list opens this account's login window straight away.
   const params = useSearchParams();
   const ask = params.get("connect");
-  useEffect(() => {
-    if (ask === id && (next === "connect" || next === "reconnect")) setConnecting(true);
-  }, [ask, id, next]);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+
+  // Unipile's login page when it's set up for this account; otherwise Invytra's own login window.
+  const connect = () =>
+    start(async () => {
+      setError(null);
+      const r = await startUnipileConnectAction(id);
+      if (!r.ok) setError(r.error);
+      else if (r.value) window.location.assign(r.value.url);
+      else setConnecting(true);
+    });
+  useEffect(() => {
+    if (ask === id && (next === "connect" || next === "reconnect")) connect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ask, id, next]);
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) =>
     start(async () => {
@@ -57,7 +68,7 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
     <div className="flex flex-col items-start gap-2">
       <div className="flex flex-wrap items-center gap-2">
         {(next === "connect" || next === "reconnect") && (
-          <button className={btn.primary} onClick={() => setConnecting(true)}>
+          <button className={btn.primary} disabled={pending} onClick={connect}>
             {next === "connect" ? <Plug className="h-4 w-4" aria-hidden /> : <RefreshCw className="h-4 w-4" aria-hidden />}
             {next === "connect" ? "Connect LinkedIn" : "Reconnect"}
           </button>

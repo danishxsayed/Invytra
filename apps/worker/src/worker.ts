@@ -14,6 +14,7 @@ import { createConnectServer } from "./connect/server.js";
 import { campaignTick } from "./campaigns/engine.js";
 import { importTick } from "./imports/importer.js";
 import { createRuntime } from "./runtime.js";
+import { unipileFromEnv } from "@invytra/db";
 
 const INBOX_EVERY_MIN = Number(process.env.INBOX_SYNC_EVERY_MINUTES ?? 20);
 const CONCURRENCY = Number(process.env.WORKER_CONCURRENCY ?? 3);
@@ -29,6 +30,8 @@ async function main() {
   const connection = new Redis(rt.env.REDIS_URL, { maxRetriesPerRequest: null });
   const queue = createQueue(connection);
   const pacing = redisPacingStore(rt.redis);
+  const unipile = unipileFromEnv();
+  if (unipile) log("Unipile is set up: accounts connected through Unipile run through its API");
 
   // Recover from a crash: RUNNING rows go back to QUEUED, and every QUEUED row gets its job (idempotent).
   // A reply cut off mid-send may have gone out: never send it twice, let the person check.
@@ -57,7 +60,7 @@ async function main() {
       const action = await rt.prisma.action.findUnique({ where: { id: job.data.actionId } });
       const what = action ? `${await labelOf(action.accountId)} ${action.type}${action.targetUrl ? ` ${action.targetUrl}` : ""}` : job.data.actionId;
       const result = await processAction(
-        { prisma: rt.prisma, session: rt.deps, pacing, ignoreWorkingHours: rt.env.IGNORE_WORKING_HOURS, gapScale: GAP_SCALE },
+        { prisma: rt.prisma, session: rt.deps, pacing, ignoreWorkingHours: rt.env.IGNORE_WORKING_HOURS, gapScale: GAP_SCALE, unipile },
         job.data.actionId,
       );
       if (result.kind === "reschedule") {

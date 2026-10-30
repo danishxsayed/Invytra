@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@invytra/db";
+import type { PrismaClient, UnipileClient } from "@invytra/db";
 import { ACTION_DELAY_SECONDS, FETCH_ALL_SEARCH_PAGES_PER_DAY, SEARCH_DELAY_SECONDS, randomActionDelayMs } from "@invytra/shared";
 
 /** How often an inbox check also re-reads whether the account has Premium (shown on the Accounts page). */
@@ -8,6 +8,8 @@ import { isRetryable, workFor } from "../actions/registry.js";
 import { accountSettings, checkPolicy, executeActionRow } from "../actions/run-action.js";
 import { hoursForAction, isFetchAllPage, isOnDemandInboxCheck } from "../campaigns/sending-days.js";
 import type { PacingStore } from "./pacing.js";
+import { withUnipileAccount } from "../unipile/session.js";
+import { unipileWorkFor } from "../unipile/work.js";
 import {
   CLAIM_HOLD_MS,
   MAX_ATTEMPTS,
@@ -32,6 +34,8 @@ export interface ProcessorDeps {
   /** Multiplier for the gap between actions. 1 in production; tests use a small value. */
   gapScale?: number;
   now?: () => Date;
+  /** For accounts connected through Unipile (null when UNIPILE_* isn't set). */
+  unipile?: UnipileClient | null;
 }
 
 export type ProcessResult =
@@ -143,7 +147,12 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
     await deps.pacing.set(action.accountId, "nextActionAt", now); // release the claim
     return { kind: "done", status: "FAILED", detail: error };
   }
-  const result = await executeActionRow(prisma, deps.session, action, work);
+  // Accounts connected through Unipile: the same action through Unipile's API, no browser.
+  const viaUnipile = action.account.engine === "UNIPILE";
+  const runner = viaUnipile
+    ? () => withUnipileAccount(prisma, deps.session, deps.unipile, action.accountId, action.conversationId, unipileWorkFor(spec))
+    : undefined;
+  const result = await executeActionRow(prisma, deps.session, action, work, runner);
   const finished = deps.now?.() ?? new Date();
 
   // Another worker held the account lock — nothing was done on LinkedIn; retry shortly.

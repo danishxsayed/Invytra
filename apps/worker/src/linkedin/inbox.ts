@@ -23,6 +23,8 @@ export interface InboxThread {
   messageKey: string;
   /** The conversation's messages, when it was opened this time (it was new or changed). */
   messages?: ThreadMessage[];
+  /** The chat's id where one exists (accounts connected through Unipile), used to reply. */
+  externalId?: string;
 }
 
 export interface InboxOptions {

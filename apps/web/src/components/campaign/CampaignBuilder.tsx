@@ -171,7 +171,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
                 noteHint={noteHint}
               />
               <div className={steps.length ? "mt-6" : ""}>
-                <StepPicker steps={steps} settings={settings} onAdd={(s) => setSteps([...steps, s])} />
+                <StepPicker steps={steps} settings={settings} onAdd={(s) => setSteps([...steps, s])} viaUnipile={senders.length > 0 && senders.every((a) => a.engine === "UNIPILE")} />
               </div>
             </div>
           )}

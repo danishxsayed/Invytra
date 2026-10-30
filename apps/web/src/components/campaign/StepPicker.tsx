@@ -65,13 +65,25 @@ function newStep(kind: Kind, steps: CampaignStep[]): CampaignStep {
 }
 
 /** "Add step to your sequence": cards in a Basic and an Advanced section. */
-export function StepPicker({ steps, settings, onAdd }: { steps: CampaignStep[]; settings: CampaignSettings; onAdd: (s: CampaignStep) => void }) {
+export function StepPicker({
+  steps,
+  settings,
+  onAdd,
+  viaUnipile = false,
+}: {
+  steps: CampaignStep[];
+  settings: CampaignSettings;
+  onAdd: (s: CampaignStep) => void;
+  /** Every sending account is connected through Unipile, which can't follow or invite to events. */
+  viaUnipile?: boolean;
+}) {
   const [open, setOpen] = useState<Record<string, boolean>>({ basic: true, advanced: false });
   const count = (t: CampaignStep["type"]) => steps.filter((s) => s.type === t).length;
 
   /** Why a card can't be used right now, or null. */
   const blocked = (kind: Kind): string | null => {
     if (SOON.has(kind)) return null;
+    if (viaUnipile && (kind === "FOLLOW" || kind === "EVENT")) return "Not available for accounts connected through Unipile.";
     if (steps.length >= MAX_STEPS) return `A sequence can have up to ${MAX_STEPS} steps.`;
     if (kind === "INVITE" && count("INVITE") >= MAX_OF.INVITE) return "Already in your sequence.";
     if ((kind === "MESSAGE" || kind === "EVENT") && !canAddMessage(steps, settings)) return "Add a connection request first, or include 1st-degree connections in Configure.";
