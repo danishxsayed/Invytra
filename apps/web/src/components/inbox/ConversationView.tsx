@@ -251,7 +251,10 @@ function ReplyBox({ id, name, active, accountLabel }: { id: string; name: string
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && text.trim()) send();
+          // Enter sends; Shift + Enter starts a new line (and Enter while typing with an IME just picks the word).
+          if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+          e.preventDefault();
+          if (text.trim() && !pending) send();
         }}
         rows={3}
         maxLength={2000}
@@ -260,7 +263,7 @@ function ReplyBox({ id, name, active, accountLabel }: { id: string; name: string
       />
       {error && <p role="alert" className="mt-1 text-[14px] text-rose-700">{error}</p>}
       <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="text-[13px] text-stone-500">Sent from {accountLabel} within a minute · ⌘/Ctrl + Enter</p>
+        <p className="text-[13px] text-stone-500">Sent from {accountLabel} within a minute · Enter to send, Shift + Enter for a new line</p>
         <button
           onClick={send}
           disabled={pending || !text.trim()}
