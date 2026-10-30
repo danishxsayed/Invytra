@@ -26,6 +26,7 @@ export interface UnipileAccount {
   id: string;
   name?: string;
   type: string;
+  created_at?: string;
   sources?: { id: string; status: string }[];
   connection_params?: { im?: { id?: string; publicIdentifier?: string; username?: string; proxy?: unknown } };
 }

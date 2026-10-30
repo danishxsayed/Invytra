@@ -152,6 +152,8 @@ model LinkedinAccount {
   engine           ConnectionEngine @default(BROWSER)
   /// The account's id at Unipile (engine UNIPILE)
   unipileAccountId String?       @unique @map("unipile_account_id")
+  /// When the latest Unipile login was opened (to recognise the account it creates)
+  unipileLinkAt    DateTime?     @map("unipile_link_at")
   /// Not used (the plan is always detected); kept so older data still loads
   premiumOverride  Boolean?      @map("premium_override")
   /// First successful connection through the dashboard or CLI

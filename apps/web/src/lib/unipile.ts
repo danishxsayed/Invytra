@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { unipileFromEnv, unipileName, unipileStatus, type PrismaClient, type UnipileAccount, type UnipileClient } from "@invytra/db";
 import { parseProfileUrl } from "@invytra/shared";
 import { getAccount, type Result } from "./accounts";
@@ -59,6 +60,9 @@ export async function unipileConnectLink(
   const back = `${origin()}/app/accounts/${a.id}/unipile-return`;
   // An account Unipile still knows is reconnected in place (same id, same IP).
   const known = a.unipileAccountId ? await client.getAccount(a.unipileAccountId).catch(() => null) : null;
+  // Unipile doesn't keep the name we give it, so the account its login creates is recognised
+  // by Unipile telling us (notify_url, when Invytra is online) or by when it appeared.
+  await prisma.linkedinAccount.update({ where: { id: a.id }, data: { unipileLinkAt: new Date() } });
   const url = await client.hostedLink({
     type: known ? "reconnect" : "create",
     providers: ["LINKEDIN"],
@@ -66,7 +70,12 @@ export async function unipileConnectLink(
     name: unipileName(a.id),
     // Straight back to Invytra when it's on the internet. Locally, Unipile shows its own
     // "connected" screen and the dashboard notices the login by itself (pollUnipileLogin).
-    ...(!isLocalOrigin() && { success_redirect_url: back, failure_redirect_url: `${back}?failed=1`, bypass_success_screen: true }),
+    ...(!isLocalOrigin() && {
+      success_redirect_url: back,
+      failure_redirect_url: `${back}?failed=1`,
+      bypass_success_screen: true,
+      notify_url: `${origin()}/api/unipile/notify?t=${notifyToken(a.id)}`,
+    }),
     ...(known && { reconnect_account: known.id }),
   });
   return { ok: true, value: url };
@@ -78,10 +87,41 @@ const slug = (url: string | null | undefined) => {
   return r.ok ? r.slug.toLowerCase() : null;
 };
 
-/** The newest working Unipile account with our name for this account (or its known id). */
-function pick(all: UnipileAccount[], accountId: string, knownId: string | null): UnipileAccount | null {
-  const ours = all.filter((u) => u.type?.toUpperCase() === "LINKEDIN" && (u.name === unipileName(accountId) || u.id === knownId));
-  return ours.find((u) => unipileStatus(u) === "OK") ?? ours[0] ?? null;
+/**
+ * Unipile's account for this Invytra account: the one already linked (a reconnect keeps its
+ * id), else the newest LinkedIn account that appeared since this login was opened and that no
+ * Invytra account has claimed. `extras` are repeats of the same profile from earlier tries.
+ */
+async function findLogin(
+  prisma: PrismaClient,
+  all: UnipileAccount[],
+  a: { unipileAccountId: string | null; unipileLinkAt: Date | null; createdAt: Date },
+): Promise<{ found: UnipileAccount | null; extras: UnipileAccount[] }> {
+  const linked = a.unipileAccountId ? all.find((u) => u.id === a.unipileAccountId) : undefined;
+  if (linked) return { found: linked, extras: [] };
+  // A login link is valid for an hour: only accounts that appeared in that window can be this one.
+  const start = (a.unipileLinkAt ?? a.createdAt).getTime();
+  const fresh = all.filter((u) => {
+    const at = u.created_at ? Date.parse(u.created_at) : NaN;
+    return u.type?.toUpperCase() === "LINKEDIN" && at >= start - 60_000 && at <= start + 3 * 3600_000;
+  });
+  if (fresh.length === 0) return { found: null, extras: [] };
+  const claimed = new Set(
+    (await prisma.linkedinAccount.findMany({ where: { unipileAccountId: { in: fresh.map((u) => u.id) } }, select: { unipileAccountId: true } })).map(
+      (x) => x.unipileAccountId,
+    ),
+  );
+  const free = fresh.filter((u) => !claimed.has(u.id)).sort((x, y) => Date.parse(y.created_at!) - Date.parse(x.created_at!));
+  const found = free.find((u) => unipileStatus(u) === "OK") ?? free[0] ?? null;
+  const who = (u: UnipileAccount) => u.connection_params?.im?.id ?? u.connection_params?.im?.publicIdentifier ?? null;
+  const extras = found && who(found) ? free.filter((u) => u.id !== found.id && who(u) === who(found)) : [];
+  return { found, extras };
+}
+
+/** Signs the webhook link for one account, so only Unipile (which got the link) can call it. */
+export function notifyToken(accountId: string): string {
+  const key = process.env.SESSION_ENCRYPTION_KEY ?? "";
+  return createHmac("sha256", key).update(`unipile-notify:${accountId}`).digest("base64url").slice(0, 32);
 }
 
 /** Why connecting through Unipile didn't work (shown on the account page after the login). */
@@ -112,9 +152,10 @@ export async function syncUnipileAccount(
   if (!client) return { ok: false, code: "unavailable" };
   const a = await getAccount(prisma, workspaceId, accountId);
   let found: UnipileAccount | null = null;
+  let extras: UnipileAccount[] = [];
   const tries = opts.tries ?? 6;
   for (let i = 0; i < tries; i++) {
-    found = pick(await client.listAccounts(), a.id, a.unipileAccountId);
+    ({ found, extras } = await findLogin(prisma, await client.listAccounts(), a));
     if (found && unipileStatus(found) === "OK") break;
     if (i < tries - 1) await wait(opts.delayMs ?? 2000);
   }
@@ -145,6 +186,7 @@ export async function syncUnipileAccount(
     data: {
       engine: "UNIPILE",
       unipileAccountId: found.id,
+      unipileLinkAt: null,
       status: "ACTIVE",
       statusReason: null,
       sessionUpdatedAt: now,
@@ -155,5 +197,7 @@ export async function syncUnipileAccount(
       ...(photo && { avatar: Buffer.from(photo.base64, "base64"), avatarType: photo.type, avatarUpdatedAt: now }),
     },
   });
+  // The same LinkedIn logged in again on an earlier try: Unipile bills each one, so remove repeats.
+  for (const x of extras) await client.deleteAccount(x.id).catch(() => undefined);
   return { ok: true, name: profileName ?? a.label };
 }

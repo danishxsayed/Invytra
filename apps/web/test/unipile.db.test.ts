@@ -7,7 +7,7 @@ const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
 
 /** Unipile's accounts list, /users/me and the hosted-link call, faked. */
-function fakeUnipile(accounts: { id: string; name: string; status: string; slug: string }[]) {
+function fakeUnipile(accounts: { id: string; name: string; status: string; slug: string; at?: string; member?: string }[]) {
   const seen: { path: string; body?: unknown }[] = [];
   const deleted: string[] = [];
   const fetchImpl = (async (input: string | URL, init?: RequestInit) => {
@@ -17,7 +17,7 @@ function fakeUnipile(accounts: { id: string; name: string; status: string; slug:
     const json = (status: number, b: unknown) => new Response(JSON.stringify(b), { status });
     if (u.pathname === "/api/v1/hosted/accounts/link") return json(201, { url: "https://account.unipile.com/abc" });
     if (u.pathname === "/api/v1/accounts") {
-      return json(200, { items: accounts.map((a) => ({ id: a.id, name: a.name, type: "LINKEDIN", sources: [{ id: "s", status: a.status }] })), cursor: null });
+      return json(200, { items: accounts.map((a) => ({ id: a.id, name: a.name, type: "LINKEDIN", created_at: a.at ?? new Date().toISOString(), connection_params: { im: { id: a.member ?? a.slug, publicIdentifier: a.slug } }, sources: [{ id: "s", status: a.status }] })), cursor: null });
     }
     const one = /^\/api\/v1\/accounts\/(.+)$/.exec(u.pathname);
     if (one && init?.method === "DELETE") {
@@ -102,6 +102,23 @@ d("Unipile connect", () => {
     expect(r).toEqual({ ok: false, code: "duplicate" });
     expect(f.deleted).toEqual(["UNI-B"]);
     expect((await prisma.linkedinAccount.findUniqueOrThrow({ where: { id: "u-3" } })).status).toBe("DISCONNECTED");
+  });
+
+  it("recognises the new login by when it appeared (Unipile doesn't keep our name), and removes repeats", async () => {
+    await prisma.linkedinAccount.create({ data: { id: "u-4", workspaceId: WS, label: "four", proxyUrl: "", workingHours: {}, limits: {}, status: "DISCONNECTED", unipileLinkAt: new Date() } });
+    const old = new Date(Date.now() - 3600_000).toISOString();
+    const f = fakeUnipile([
+      { id: "OLD", name: "Someone Else", status: "OK", slug: "someone-else", at: old }, // before this login
+      { id: "UNI-A", name: "Orian Honey", status: "OK", slug: "orian-honey" }, // already u-1's
+      { id: "TRY-1", name: "Spare Person", status: "OK", slug: "spare-person", at: new Date(Date.now() - 5000).toISOString() },
+      { id: "TRY-2", name: "Spare Person", status: "OK", slug: "spare-person" },
+    ]);
+    const r = await syncUnipileAccount(prisma, WS, "u-4", f.client, { tries: 1 });
+    expect(r).toEqual({ ok: true, name: "Orian Honey" }); // the fake's /me always says Orian Honey
+    const a = await prisma.linkedinAccount.findUniqueOrThrow({ where: { id: "u-4" } });
+    expect(a.unipileAccountId).toBe("TRY-2");
+    expect(a.unipileLinkAt).toBeNull();
+    expect(f.deleted).toEqual(["TRY-1"]);
   });
 
   it("reports a login that didn't finish or is still being checked", async () => {
