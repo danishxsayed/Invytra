@@ -26,7 +26,8 @@ export const PRICE_TIERS: PriceTier[] = [
   { id: "scale", name: "Scale", minSenders: 50, maxSenders: null, perSender: { USD: 12, INR: 999 }, quoteAbove: 100 },
 ];
 
-export const TRIAL = { days: 14, maxSenders: 3, cardRequired: false } as const;
+/** The free plan: 7 days, up to 3 senders, and up to 100 people collected from searches. */
+export const TRIAL = { days: 7, maxSenders: 3, cardRequired: false, maxProfiles: 100 } as const;
 /** Yearly billing: 12 months for the price of 10. */
 export const YEARLY_MONTHS_PAID = 10;
 /** Agency and Scale: bring your own proxies for this much less per sender per month. */

@@ -1,10 +1,10 @@
 "use client";
 
-import { IMPORT_MAX_LEADS, RESULTS_PER_PAGE, SEARCH_KIND_LABEL, SEARCH_PAGES_PER_DAY, parseSearchUrl } from "@invytra/shared";
+import { IMPORT_MAX_LEADS, RESULTS_PER_PAGE, SEARCH_KIND_LABEL, SEARCH_PAGES_PER_DAY, TRIAL, parseSearchUrl } from "@invytra/shared";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { startSearchImportAction } from "@/app/app/leads/actions";
+import { useEffect, useState, useTransition } from "react";
+import { profilesLeftAction, startSearchImportAction } from "@/app/app/leads/actions";
 import { btn } from "./AccountControls";
 import { Field, inputCls } from "./fields";
 import { Modal } from "./Modal";
@@ -42,6 +42,16 @@ export function SearchImport({
   const [url, setUrl] = useState("");
   const [accountId, setAccountId] = useState(usable[0]?.id ?? "");
   const [maxLeads, setMaxLeads] = useState(100);
+  /** Free plan: people it can still collect from searches (null = no limit). */
+  const [left, setLeft] = useState<number | null>(null);
+  useEffect(() => {
+    profilesLeftAction()
+      .then((n) => {
+        setLeft(n);
+        if (n !== null) setMaxLeads((m) => Math.min(m, Math.max(n, 1)));
+      })
+      .catch(() => undefined);
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ listId: string } | null>(null);
   const [pending, start] = useTransition();
@@ -128,7 +138,7 @@ export function SearchImport({
         </Field>
         <Field label="How many people">
           <select className={inputCls} value={maxLeads} onChange={(e) => setMaxLeads(Number(e.target.value))}>
-            {SIZES.map((n) => (
+            {(left === null ? SIZES : [...SIZES.filter((n) => n < left), ...(left > 0 ? [left] : [])]).map((n) => (
               <option key={n} value={n}>
                 Up to {n.toLocaleString()}
               </option>
@@ -136,6 +146,13 @@ export function SearchImport({
           </select>
         </Field>
       </div>
+      {left !== null && (
+        <p className={cx("mt-3 rounded-lg px-3 py-2 text-[14px]", left === 0 ? "bg-amber-50 text-amber-900" : "bg-stone-50 text-stone-600")}>
+          {left === 0
+            ? `The free plan's ${TRIAL.maxProfiles} people from searches are used up. Choose a package to collect more, or upload a CSV.`
+            : `Free plan: ${left} of ${TRIAL.maxProfiles} people from searches left.`}
+        </p>
+      )}
       {parsed?.ok && (
         <p className="mt-3 text-[14px] text-stone-500">
           {parsed.kind === "LINKEDIN_SEARCH"

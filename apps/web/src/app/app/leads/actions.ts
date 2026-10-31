@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@invytra/db";
+import { prisma, profilesLeft } from "@invytra/db";
 import { revalidatePath } from "next/cache";
 import type { Result } from "@/lib/accounts";
 import { requireUser } from "@/lib/auth";
@@ -77,3 +77,10 @@ export async function cancelSearchImportAction(id: string, listId: string): Prom
   if (r.ok) refresh(String(listId));
   return r;
 }
+
+/** People the free plan can still collect from searches (null = paid plan, no limit). */
+export async function profilesLeftAction(): Promise<number | null> {
+  const me = await requireUser();
+  return profilesLeft(prisma, me.workspace.id);
+}
+

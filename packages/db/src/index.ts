@@ -17,3 +17,4 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 export const DEFAULT_WORKSPACE_ID = "default";
 export * from "./replies.js";
 export * from "./ai-line.js";
+export * from "./plan-limits.js";

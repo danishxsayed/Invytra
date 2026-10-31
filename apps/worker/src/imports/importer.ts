@@ -1,4 +1,4 @@
-import type { LeadImport, PrismaClient } from "@invytra/db";
+import { profilesLeft, type LeadImport, type PrismaClient } from "@invytra/db";
 import { MAX_PAGES, canonicalProfileUrl, searchPageUrl, type SearchKind } from "@invytra/shared";
 import type { Queue } from "bullmq";
 import type { FoundPerson } from "../linkedin/search.js";
@@ -49,6 +49,11 @@ export async function importTick(deps: ImportDeps): Promise<{ queued: number; ad
 
 async function queuePage(deps: ImportDeps, imp: LeadImport, now: Date): Promise<boolean> {
   const { prisma, queue } = deps;
+  // Free plan: no more searching once its people allowance is used up.
+  if ((await profilesLeft(prisma, imp.workspaceId)) === 0) {
+    await prisma.leadImport.update({ where: { id: imp.id }, data: { status: "DONE", reason: "FREE_PLAN_LIMIT", finishedAt: now } });
+    return false;
+  }
   // A campaign on this list asked for all prospects at once: a higher daily page allowance.
   const fetchAll = !!(await prisma.campaign.findFirst({
     where: { listId: imp.listId, workspaceId: imp.workspaceId, settings: { path: ["fetchAllAtOnce"], equals: true } },
@@ -99,7 +104,9 @@ export async function applyPage(prisma: PrismaClient, imp: LeadImport, action: F
   const existing = new Set(
     (await prisma.lead.findMany({ where: { listId: imp.listId, profileUrl: { in: urls } }, select: { profileUrl: true } })).map((l) => l.profileUrl),
   );
-  const fresh = people.filter((p) => !existing.has(p.profileUrl));
+  // Free plan: only as many new people as its allowance has left.
+  const left = await profilesLeft(prisma, imp.workspaceId);
+  const fresh = people.filter((p) => !existing.has(p.profileUrl)).slice(0, left ?? undefined);
   if (fresh.length) {
     const cut = (v: string | null) => (v ? v.slice(0, 200) : null);
     await prisma.lead.createMany({
@@ -124,7 +131,8 @@ export async function applyPage(prisma: PrismaClient, imp: LeadImport, action: F
 
   const counts = { pages: imp.pages + 1, found: imp.found + people.length, added: imp.added + fresh.length, nextPage: imp.nextPage + 1 };
   let reason: string | null = null;
-  if (people.length === 0 || !result.hasNext) reason = "END";
+  if (left !== null && left - fresh.length <= 0) reason = "FREE_PLAN_LIMIT";
+  else if (people.length === 0 || !result.hasNext) reason = "END";
   else if (counts.found >= imp.maxLeads) reason = "MAX_LEADS";
   else if (counts.nextPage > MAX_PAGES[imp.kind as SearchKind]) reason = "MAX_PAGES";
   if (reason) {

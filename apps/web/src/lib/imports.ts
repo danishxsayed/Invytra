@@ -1,5 +1,5 @@
-import type { PrismaClient } from "@invytra/db";
-import { IMPORT_MAX_LEADS, SEARCH_PAGES_PER_DAY, parseSearchUrl } from "@invytra/shared";
+import { profilesLeft, type PrismaClient } from "@invytra/db";
+import { IMPORT_MAX_LEADS, SEARCH_PAGES_PER_DAY, TRIAL, parseSearchUrl } from "@invytra/shared";
 import { waitText } from "./format";
 import { z } from "zod";
 import type { Result } from "./accounts";
@@ -24,6 +24,8 @@ export const searchImportSchema = z
   .refine((v) => v.listId || v.name !== undefined, { message: "Missing list." });
 export type SearchImportInput = z.infer<typeof searchImportSchema>;
 
+export const FREE_PLAN_USED = `The free plan includes ${TRIAL.maxProfiles} people from searches, and they've all been collected. Choose a package to collect more, or upload a CSV.`;
+
 /** At most this many imports running at once per workspace. */
 const MAX_RUNNING = 5;
 
@@ -33,6 +35,8 @@ export async function startSearchImport(prisma: PrismaClient, workspaceId: strin
   const account = await prisma.linkedinAccount.findFirst({ where: { id: input.accountId, workspaceId }, select: { id: true, label: true, status: true } });
   if (!account) return { ok: false, error: "Choose one of your LinkedIn accounts to run the search." };
   if (account.status === "DISCONNECTED") return { ok: false, error: `Connect “${account.label}” to LinkedIn first.` };
+  const left = await profilesLeft(prisma, workspaceId);
+  if (left === 0) return { ok: false, error: FREE_PLAN_USED };
   if ((await prisma.leadImport.count({ where: { workspaceId, status: "RUNNING" } })) >= MAX_RUNNING) {
     return { ok: false, error: `You already have ${MAX_RUNNING} searches being collected. Wait for one to finish, or stop one.` };
   }
@@ -45,7 +49,8 @@ export async function startSearchImport(prisma: PrismaClient, workspaceId: strin
     listId = (await prisma.leadList.create({ data: { workspaceId, name: name.data } })).id;
   }
   const imp = await prisma.leadImport.create({
-    data: { workspaceId, listId, accountId: account.id, kind: search.kind, url: search.url, maxLeads: input.maxLeads },
+    // On the free plan, never ask for more than it has left.
+    data: { workspaceId, listId, accountId: account.id, kind: search.kind, url: search.url, maxLeads: left === null ? input.maxLeads : Math.min(input.maxLeads, left) },
     select: { id: true },
   });
   return { ok: true, value: { listId, importId: imp.id } };
@@ -118,6 +123,7 @@ export const IMPORT_REASON: Record<string, string> = {
   CANCELLED: "Stopped",
   SEARCH_LIMIT: "LinkedIn's monthly search limit for this account was reached. It resets at the start of next month (Premium or Sales Navigator accounts have more).",
   NO_SALES_NAV: "This account doesn't have Sales Navigator. Use an account with Sales Navigator, or a regular LinkedIn search link.",
+  FREE_PLAN_LIMIT: `Reached the free plan's ${TRIAL.maxProfiles} people from searches. Choose a package to collect more.`,
 };
 
 /** Accounts offered for reading a search. */

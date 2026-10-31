@@ -130,3 +130,45 @@ d("search imports: facts and fetch-all", () => {
     expect(third.payload).not.toHaveProperty("fetchAll");
   });
 });
+
+d("free plan: 100 people from searches", () => {
+  let prisma: PrismaClient;
+  const WS = "ws-free";
+  const queue = { add: async () => undefined } as unknown as Queue<ActionJob>;
+  const tick = () => importTick({ prisma, queue });
+  const page = (from: number, n: number) => Array.from({ length: n }, (_, i) => person(`f${from + i}`, `F${from + i}`));
+
+  beforeAll(async () => {
+    prisma = new PrismaClient({ datasources: { db: { url } } });
+    await prisma.workspace.deleteMany({ where: { id: WS } });
+    await prisma.workspace.create({ data: { id: WS, name: "Free" } }); // a new workspace is on the free trial
+    await prisma.linkedinAccount.create({ data: { id: "acc-f", workspaceId: WS, label: "f", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE" } });
+    await prisma.leadList.create({ data: { id: "list-f", workspaceId: WS, name: "Free" } });
+    // 95 already collected by an earlier search.
+    await prisma.leadImport.create({ data: { id: "imp-old", workspaceId: WS, listId: "list-f", accountId: "acc-f", kind: "LINKEDIN_SEARCH", url: "https://www.linkedin.com/search/results/people/?keywords=a", status: "DONE", added: 95 } });
+    await prisma.leadImport.create({ data: { id: "imp-f", workspaceId: WS, listId: "list-f", accountId: "acc-f", kind: "LINKEDIN_SEARCH", url: "https://www.linkedin.com/search/results/people/?keywords=b", maxLeads: 500 } });
+  });
+  afterAll(async () => {
+    await prisma.workspace.deleteMany({ where: { id: WS } });
+    await prisma.$disconnect();
+  });
+
+  it("adds only what's left of the 100 and stops there", async () => {
+    await tick();
+    const a = (await prisma.leadImport.findUniqueOrThrow({ where: { id: "imp-f" } })).actionId!;
+    await prisma.action.update({ where: { id: a }, data: { status: "SUCCEEDED", executedAt: new Date(), payload: { result: { people: page(0, 10), hasNext: true } } } });
+    await tick();
+    expect(await prisma.leadImport.findUniqueOrThrow({ where: { id: "imp-f" } })).toMatchObject({ status: "DONE", reason: "FREE_PLAN_LIMIT", added: 5 });
+    expect(await prisma.lead.count({ where: { listId: "list-f" } })).toBe(5);
+  });
+
+  it("doesn't start searching again once the 100 are used, but a paid plan has no limit", async () => {
+    await prisma.leadImport.create({ data: { id: "imp-g", workspaceId: WS, listId: "list-f", accountId: "acc-f", kind: "LINKEDIN_SEARCH", url: "https://www.linkedin.com/search/results/people/?keywords=c" } });
+    await tick();
+    expect(await prisma.leadImport.findUniqueOrThrow({ where: { id: "imp-g" } })).toMatchObject({ status: "DONE", reason: "FREE_PLAN_LIMIT", actionId: null });
+    await prisma.workspace.update({ where: { id: WS }, data: { plan: "growth" } });
+    await prisma.leadImport.create({ data: { id: "imp-h", workspaceId: WS, listId: "list-f", accountId: "acc-f", kind: "LINKEDIN_SEARCH", url: "https://www.linkedin.com/search/results/people/?keywords=d" } });
+    expect((await tick()).queued).toBe(1);
+  });
+});
+
