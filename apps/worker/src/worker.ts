@@ -40,6 +40,11 @@ async function main() {
     data: { status: "FAILED", error: "Interrupted while sending. Check the conversation on LinkedIn before sending again.", executedAt: new Date() },
   });
   const stuck = await rt.prisma.action.updateMany({ where: { status: "RUNNING" }, data: { status: "QUEUED" } });
+  // Search pages of accounts through Unipile run around the clock: ones put off until working hours go now.
+  await rt.prisma.action.updateMany({
+    where: { status: "QUEUED", type: "SEARCH_PAGE", error: "waiting: OUTSIDE_WORKING_HOURS", account: { engine: "UNIPILE" } },
+    data: { scheduledAt: new Date(), error: null },
+  });
   const queued = await rt.prisma.action.findMany({ where: { status: "QUEUED" }, select: { id: true, scheduledAt: true } });
   for (const a of queued) await scheduleAction(queue, a.id, a.scheduledAt);
   log(`Worker started — ${queued.length} queued action(s)${stuck.count ? `, ${stuck.count} recovered from a crash` : ""}`);

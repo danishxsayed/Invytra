@@ -56,6 +56,9 @@ d("campaign days", () => {
     expect(await hoursForAction(prisma, action, DEFAULT_WORKING_HOURS)).toEqual(DEFAULT_WORKING_HOURS);
     expect(await hoursForAction(prisma, { type: "INBOX_SYNC", accountId: "acc-d", campaignLeadId: null }, DEFAULT_WORKING_HOURS)).toEqual(DEFAULT_WORKING_HOURS);
     expect((await hoursForAction(prisma, { type: "REPLY", accountId: "acc-d", campaignLeadId: null }, DEFAULT_WORKING_HOURS)).endHour).toBe(24);
+    // Collecting leads through Unipile runs around the clock; through Invytra's own browser, in working hours.
+    expect((await hoursForAction(prisma, { type: "SEARCH_PAGE", accountId: "acc-d", campaignLeadId: null, account: { engine: "UNIPILE" } }, DEFAULT_WORKING_HOURS)).days).toHaveLength(7);
+    expect(await hoursForAction(prisma, { type: "SEARCH_PAGE", accountId: "acc-d", campaignLeadId: null, account: { engine: "BROWSER" } }, DEFAULT_WORKING_HOURS)).toEqual(DEFAULT_WORKING_HOURS);
   });
 
   it("an account with a start date in the future sends nothing until then", async () => {

@@ -131,7 +131,7 @@ export function ConfigureStep({
         </Setting>
         <Setting
           title="Fetch all prospects at once"
-          hint={`For lists collected from a LinkedIn or Sales Navigator search: read the whole search in one go (up to ${FETCH_ALL_SEARCH_PAGES_PER_DAY} pages, about an hour, in working hours) instead of ${SEARCH_PAGES_PER_DAY} pages a day. Faster to start, but more searching in one day.`}
+          hint={`For lists collected from a LinkedIn or Sales Navigator search: read the whole search in one go (up to ${FETCH_ALL_SEARCH_PAGES_PER_DAY} pages a day, a few minutes apart) instead of ${SEARCH_PAGES_PER_DAY} pages a day. Faster to start, but more searching in one day.`}
         >
           <Toggle
             checked={settings.fetchAllAtOnce}

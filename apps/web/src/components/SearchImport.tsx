@@ -21,7 +21,8 @@ const SIZES = [10, 25, 50, 100, 250, 500, 1000, IMPORT_MAX_LEADS];
 
 /**
  * Paste a LinkedIn or Sales Navigator search link; the worker reads it page by
- * page into the list, inside the chosen account's working hours.
+ * page into the list: around the clock for accounts connected through Unipile, otherwise
+ * inside the chosen account's working hours.
  */
 export function SearchImport({
   target,
@@ -65,7 +66,7 @@ export function SearchImport({
         <div className="flex items-start gap-3 text-[15px] text-stone-700">
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" aria-hidden />
           <p>
-            <b>{account?.label}</b> reads the search one page at a time, a few minutes apart, inside its working hours. People appear in the list
+            <b>{account?.label}</b> reads the search one page at a time, a few minutes apart, around the clock for accounts connected through Unipile (inside working hours otherwise). People appear in the list
             as they&apos;re found{pages > 1 ? `, about ${pages} pages${days > 1 ? ` over ${days} days` : ""}` : ""}. Campaigns using this list pick them
             up automatically.
           </p>
