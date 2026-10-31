@@ -1,5 +1,8 @@
-import { UnipileError, isPersonChat, type LinkedinAccount, type PrismaClient, type UnipileClient, type UnipileUser } from "@invytra/db";
+import { UnipileError, isPersonChat, type AiLineWriter, type LinkedinAccount, type PrismaClient, type UnipileClient, type UnipileUser } from "@invytra/db";
 import {
+  COMMENT_MAX,
+  MESSAGE_MAX,
+  NOTE_MAX,
   RESULTS_PER_PAGE,
   audienceSkip,
   cleanPersonName,
@@ -16,6 +19,7 @@ import { InviteLimitReachedError, type ActionOutcome } from "../linkedin/actions
 import type { InboxThread, ThreadMessage } from "../linkedin/inbox.js";
 import type { ConnectionStatus } from "../linkedin/profile.js";
 import { companyFromHeadline, type FoundPerson } from "../linkedin/search.js";
+import { NO_AI_LINE, aiLineFor } from "./ai-line.js";
 
 /**
  * Every campaign action for an account connected through Unipile: the same inputs and
@@ -24,6 +28,8 @@ import { companyFromHeadline, type FoundPerson } from "../linkedin/search.js";
  */
 export interface UnipileCtx {
   client: UnipileClient;
+  /** Writes {aiLine}; undefined = from OPENAI_API_KEY, null = no AI. */
+  ai?: AiLineWriter | null;
   /** The account's id at Unipile. */
   accountId: string;
   account: Pick<LinkedinAccount, "id" | "timezone">;
@@ -33,6 +39,8 @@ export interface UnipileCtx {
 }
 
 export interface UnipileSpec {
+  /** The campaign lead this action is for (its {aiLine} is written once and kept). */
+  campaignLeadId?: string | null;
   type: ActionType;
   targetUrl?: string | null;
   payload?: Record<string, unknown> | null;
@@ -70,6 +78,33 @@ function varsOf(p: Record<string, unknown>): TemplateVars {
 function audienceOf(p: Record<string, unknown>): Audience | undefined {
   const a = p.audience as Audience | undefined;
   return a && Array.isArray(a.degrees) ? a : undefined;
+}
+
+/**
+ * Fills a note/message/comment, writing {aiLine} from their profile first when the text uses
+ * it. "skip" = no AI line and no fallback: nothing generic is sent.
+ */
+async function fillFor(
+  ctx: UnipileCtx,
+  spec: UnipileSpec,
+  template: string,
+  u: UnipileUser,
+  limit: number,
+): Promise<string | null | "skip"> {
+  const p = spec.payload ?? {};
+  const vars = varsOf(p);
+  if (template.includes("{aiLine}")) {
+    const line = await aiLineFor(ctx, {
+      campaignLeadId: spec.campaignLeadId,
+      providerId: u.provider_id,
+      template,
+      limit,
+      fallback: typeof p.aiFallback === "string" ? p.aiFallback : undefined,
+    });
+    if (!line) return "skip";
+    vars.aiLine = line;
+  }
+  return fillTemplate(template, vars, fullName(u));
 }
 
 /** Their profile, or null if LinkedIn has no such profile. */
@@ -117,7 +152,9 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
         const status = statusOf(u);
         if (status !== "NOT_CONNECTED") return { outcome: "SKIPPED", reason: status, data: base };
         const raw = typeof p.note === "string" ? p.note.trim() : "";
-        let note = raw ? fillTemplate(raw, varsOf(p), name) : undefined;
+        const filled = raw ? await fillFor(ctx, spec, raw, u, NOTE_MAX) : undefined;
+        if (filled === "skip") return { outcome: "SKIPPED", reason: NO_AI_LINE, data: base };
+        let note = filled;
         if (note === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data: base };
         // LinkedIn stopped this account's notes for now: send without one (or skip if a note is required).
         if (note && p.notesBlocked === true) {
@@ -153,7 +190,8 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
         if (out) return { outcome: "SKIPPED", reason: out, data };
         const status = statusOf(u);
         if (status !== "CONNECTED") return { outcome: "SKIPPED", reason: `NOT_CONNECTED (${status})`, data };
-        const text = fillTemplate(String(p.text ?? "").trim(), varsOf(p), data.name);
+        const text = await fillFor(ctx, spec, String(p.text ?? "").trim(), u, MESSAGE_MAX);
+        if (text === "skip") return { outcome: "SKIPPED", reason: NO_AI_LINE, data };
         if (text === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
         try {
           await ctx.client.startChat(ctx.accountId, u.provider_id, text);
@@ -167,24 +205,20 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
     case "LIKE_POST":
     case "COMMENT_POST":
       return async (ctx) => {
-        const slug = slugOf(url);
-        let name = [varsOf(p).firstName, varsOf(p).lastName].filter(Boolean).join(" ");
-        let factsSeen = {};
-        if (audience || spec.type === "COMMENT_POST") {
-          const u = await profile(ctx, slug);
-          if (!u) return { outcome: "SKIPPED", reason: "PROFILE_UNAVAILABLE" };
-          name = fullName(u) || name;
-          factsSeen = facts(u);
-          const out = outside(audience, u);
-          if (out) return { outcome: "SKIPPED", reason: out, data: { liked: false, ...factsSeen } };
-        }
-        const text = spec.type === "COMMENT_POST" ? fillTemplate(String(p.text ?? "").trim(), varsOf(p), name) : "";
+        // Posts are looked up by LinkedIn's member id, so the profile is always read first.
+        const u = await profile(ctx, slugOf(url));
+        if (!u) return { outcome: "SKIPPED", reason: "PROFILE_UNAVAILABLE" };
+        const factsSeen = facts(u);
+        const out = outside(audience, u);
+        if (out) return { outcome: "SKIPPED", reason: out, data: { liked: false, ...factsSeen } };
+        const text = spec.type === "COMMENT_POST" ? await fillFor(ctx, spec, String(p.text ?? "").trim(), u, COMMENT_MAX) : "";
+        if (text === "skip") return { outcome: "SKIPPED", reason: NO_AI_LINE, data: { liked: false, ...factsSeen } };
         if (text === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data: { liked: false, ...factsSeen } };
         let posts;
         try {
-          posts = await ctx.client.userPosts(ctx.accountId, slug, 5);
+          posts = (await ctx.client.userPosts(ctx.accountId, u.provider_id, 5)).filter((x) => !x.is_repost);
         } catch (e) {
-          if (e instanceof UnipileError && e.status === 404) return { outcome: "SKIPPED", reason: "PROFILE_UNAVAILABLE" };
+          if (e instanceof UnipileError && (e.status === 404 || e.status === 422)) return { outcome: "SKIPPED", reason: "PROFILE_UNAVAILABLE" };
           throw e;
         }
         const post = posts[0];

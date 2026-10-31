@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Degree } from "./audience.js";
 import { outreachTextProblem } from "./text.js";
+import { DEFAULT_AI_SETTINGS, aiSettingsSchema } from "./ai.js";
 
 /*
  * A campaign is one LinkedIn account working through one lead list with a
@@ -134,6 +135,8 @@ export const campaignSettingsSchema = z.object({
    * go (up to FETCH_ALL_SEARCH_PAGES_PER_DAY pages a day) instead of SEARCH_PAGES_PER_DAY.
    */
   fetchAllAtOnce: z.boolean().default(false),
+  /** AI personalisation for {aiLine}. */
+  ai: aiSettingsSchema.default(DEFAULT_AI_SETTINGS),
 });
 export type CampaignSettings = z.infer<typeof campaignSettingsSchema>;
 export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = {
@@ -145,6 +148,7 @@ export const DEFAULT_CAMPAIGN_SETTINGS: CampaignSettings = {
   premiumOnly: false,
   skipOtherCampaigns: true,
   fetchAllAtOnce: false,
+  ai: DEFAULT_AI_SETTINGS,
 };
 
 /** Whether a launched campaign is still waiting for its start date. */

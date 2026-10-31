@@ -358,6 +358,10 @@ model CampaignLead {
   /// Connection degree (1, 2, 3 = 3rd+) and Premium badge, as last seen; used by the campaign's audience settings
   degree       Int?
   premium      Boolean?
+  /// The AI personalisation line written for this person ({aiLine}), what it was based on, and when
+  aiLine       String?           @map("ai_line")
+  aiSignal     String?           @map("ai_signal")
+  aiLineAt     DateTime?         @map("ai_line_at")
   state        CampaignLeadState @default(QUEUED)
   /// Index of the next step to run
   step         Int               @default(0)

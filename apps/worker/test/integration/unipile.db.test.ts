@@ -151,4 +151,47 @@ d("Unipile accounts", () => {
     expect(stopped).toEqual(["LOGGED_OUT"]);
     expect((await prisma.linkedinAccount.findUniqueOrThrow({ where: { id: ACC } })).status).toBe("NEEDS_ATTENTION");
   });
+
+  it("writes {aiLine} from their profile once, keeps it for the lead, and falls back or skips", async () => {
+    await prisma.linkedinAccount.update({ where: { id: ACC }, data: { status: "ACTIVE", statusReason: null } }); // the test before logged it out
+    const asked: number[] = [];
+    const ai = {
+      write: async (ctx: { name: string; hiring: string[] }, _s: unknown, max: number) => {
+        asked.push(max);
+        return ctx.name === "Mia Ray" ? { line: null, signal: null } : { line: `Saw you're hiring, ${ctx.name.split(" ")[0]}.`, signal: "hiring" };
+      },
+    };
+    fake.add({ slug: "zoe-t", providerId: "P-ZOE", first: "Zoe", last: "Tan", distance: "SECOND_DEGREE", posts: ["333"] });
+    fake.add({ slug: "mia-r", providerId: "P-MIA", first: "Mia", last: "Ray", distance: "SECOND_DEGREE" });
+    const steps = [{ type: "INVITE", delayDays: 0, note: "Hi {firstName}, {aiLine}" }];
+    await prisma.campaign.create({ data: { id: "uni-c", workspaceId: WS, name: "AI", steps, settings: { ai: { offer: "Clinic apps", tone: "friendly", fallback: "" } } } });
+    for (const [id, url] of [["cl-zoe", "zoe-t"], ["cl-mia", "mia-r"]]) {
+      await prisma.campaignLead.create({ data: { id, campaignId: "uni-c", workspaceId: WS, profileUrl: `https://www.linkedin.com/in/${url}/`, accountId: ACC } });
+    }
+    const runAi = async (leadId: string, url: string, note: string) => {
+      const id = `uni-a${++n}`;
+      await prisma.action.create({ data: { id, accountId: ACC, type: "CONNECTION_REQUEST", status: "QUEUED", targetUrl: url, payload: { note }, scheduledAt: new Date(Date.now() - 1000), campaignLeadId: leadId } });
+      await processAction({ prisma, session, pacing: memoryPacingStore(), ignoreWorkingHours: true, gapScale: 0.001, unipile: client, ai: ai as never }, id);
+      return prisma.action.findUniqueOrThrow({ where: { id } });
+    };
+
+    const ok = await runAi("cl-zoe", "https://www.linkedin.com/in/zoe-t/", "Hi {firstName}, {aiLine}");
+    expect(ok.status).toBe("SUCCEEDED");
+    expect(fake.invites.find((x) => x.providerId === "P-ZOE")?.message).toBe("Hi Zoe, Saw you're hiring, Zoe.");
+    expect(asked[0]).toBeLessThanOrEqual(220);
+    expect(await prisma.campaignLead.findUniqueOrThrow({ where: { id: "cl-zoe" } })).toMatchObject({ aiLine: "Saw you're hiring, Zoe.", aiSignal: "hiring" });
+
+    // Nothing specific and no fallback: skipped, nothing generic sent.
+    const skipped = await runAi("cl-mia", "https://www.linkedin.com/in/mia-r/", "Hi {firstName}, {aiLine}");
+    expect(skipped).toMatchObject({ status: "SKIPPED", error: "NO_AI_LINE" });
+    expect(fake.invites.some((x) => x.providerId === "P-MIA")).toBe(false);
+
+    // With a fallback line, they get that instead.
+    await prisma.campaign.update({ where: { id: "uni-c" }, data: { settings: { ai: { offer: "Clinic apps", tone: "friendly", fallback: "Always good to meet people in healthcare." } } } });
+    const fb = await runAi("cl-mia", "https://www.linkedin.com/in/mia-r/", "Hi {firstName}, {aiLine}");
+    expect(fb.status).toBe("SUCCEEDED");
+    expect(fake.invites.find((x) => x.providerId === "P-MIA")?.message).toBe("Hi Mia, Always good to meet people in healthcare.");
+    expect(await prisma.campaignLead.findUniqueOrThrow({ where: { id: "cl-mia" } })).toMatchObject({ aiSignal: "fallback" });
+  });
 });
+

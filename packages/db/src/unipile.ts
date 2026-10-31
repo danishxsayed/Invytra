@@ -104,6 +104,17 @@ export interface UnipilePost {
   social_id: string;
   text?: string;
   is_repost?: boolean;
+  /** ISO time of the post. */
+  parsed_datetime?: string;
+}
+
+/** A profile with its sections (linkedin_sections=*): About, experience, education, skills. */
+export interface UnipileFullProfile extends UnipileUser {
+  summary?: string;
+  location?: string;
+  work_experience?: { company?: string; position?: string; location?: string; start?: string | null; end?: string | null; description?: string; skills?: string[] }[];
+  education?: { school?: string; degree?: string; field_of_study?: string; start?: string | null; end?: string | null }[];
+  skills?: { name?: string; endorsement_count?: number }[];
 }
 
 export interface UnipileSearchPerson {
@@ -210,6 +221,11 @@ export class UnipileClient {
     return this.request("GET", `/api/v1/users/${encodeURIComponent(identifier)}`, { query: { account_id: accountId, notify } });
   }
 
+  /** A profile with its About, experience, education and skills sections. */
+  fullProfile(accountId: string, identifier: string): Promise<UnipileFullProfile> {
+    return this.request("GET", `/api/v1/users/${encodeURIComponent(identifier)}`, { query: { account_id: accountId, linkedin_sections: "*" } });
+  }
+
   invite(accountId: string, providerId: string, message?: string): Promise<{ invitation_id?: string; usage?: number }> {
     return this.request("POST", "/api/v1/users/invite", { json: { account_id: accountId, provider_id: providerId, ...(message ? { message } : {}) } });
   }
@@ -257,6 +273,7 @@ export class UnipileClient {
 
   // ---- Posts ----
 
+  /** Someone's latest posts. `providerId` is their provider_id (a public /in/ name isn't accepted). */
   async userPosts(accountId: string, identifier: string, limit = 5): Promise<UnipilePost[]> {
     const r = await this.request<{ items: UnipilePost[] }>("GET", `/api/v1/users/${encodeURIComponent(identifier)}/posts`, { query: { account_id: accountId, limit } });
     return r.items ?? [];

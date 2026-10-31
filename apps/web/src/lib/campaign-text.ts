@@ -43,6 +43,8 @@ const REASONS: Record<string, string> = {
   NOT_IN_CONNECTIONS: "Not found among your connections for the event invite",
   ALREADY_INVITED: "Already invited to the event",
   SENDER_REMOVED: "Its sending account was removed from the campaign after contacting them",
+  NO_AI_LINE: "Nothing specific for the AI line in their profile, and no fallback line",
+  NOT_AVAILABLE_UNIPILE: "Not available for accounts connected through Unipile",
 };
 
 export function reasonText(code: string | null | undefined): string {

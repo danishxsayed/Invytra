@@ -1,4 +1,4 @@
-import { UnipileError, type PrismaClient, type UnipileClient } from "@invytra/db";
+import { UnipileError, type AiLineWriter, type PrismaClient, type UnipileClient } from "@invytra/db";
 import { AccountBusyError, AccountNeedsAttentionError, AccountUnavailableError } from "../browser/errors.js";
 import type { SessionManagerDeps } from "../browser/session-manager.js";
 import type { UnipileCtx } from "./work.js";
@@ -23,6 +23,8 @@ export async function withUnipileAccount<T>(
   accountId: string,
   conversationId: string | null | undefined,
   task: (ctx: UnipileCtx) => Promise<T>,
+  /** Writes {aiLine} (undefined = from OPENAI_API_KEY). */
+  ai?: AiLineWriter | null,
 ): Promise<T> {
   const account = await prisma.linkedinAccount.findUnique({
     where: { id: accountId },
@@ -39,7 +41,7 @@ export async function withUnipileAccount<T>(
   const token = await deps.lock.acquire(accountId);
   if (!token) throw new AccountBusyError(accountId);
   try {
-    const result = await task({ client, accountId: account.unipileAccountId, account, prisma, conversationId });
+    const result = await task({ client, accountId: account.unipileAccountId, account, prisma, conversationId, ...(ai !== undefined && { ai }) });
     await deps.accounts.touch(accountId).catch(() => undefined);
     return result;
   } catch (err) {

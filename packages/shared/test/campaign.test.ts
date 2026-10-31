@@ -152,7 +152,7 @@ describe("reply matching names", () => {
 
 describe("campaign sending days and start date", () => {
   it("defaults to Monday–Friday, starting right away (older campaigns too)", () => {
-    expect(campaignSettingsSchema.parse({})).toEqual({ acceptWithinDays: 21, days: [1, 2, 3, 4, 5], startAt: null, withdrawExpired: true, degrees: [1, 2, 3], premiumOnly: false, skipOtherCampaigns: true, fetchAllAtOnce: false });
+    expect(campaignSettingsSchema.parse({})).toEqual({ acceptWithinDays: 21, days: [1, 2, 3, 4, 5], startAt: null, withdrawExpired: true, degrees: [1, 2, 3], premiumOnly: false, skipOtherCampaigns: true, fetchAllAtOnce: false, ai: { offer: "", tone: "friendly", fallback: "" } });
   });
   it("allows weekends, sorted and without repeats", () => {
     expect(campaignSettingsSchema.parse({ days: [7, 6, 6, 1] }).days).toEqual([1, 6, 7]);
@@ -314,3 +314,22 @@ describe("comment and event steps", () => {
     expect(canExecute("EVENT_INVITE", account, usage({ EVENT_INVITE: EVENT_INVITES_PER_DAY }))).toMatchObject({ allowed: false });
   });
 });
+
+import { aiLineMaxChars, aiProblems, fillTemplate, usesAiLine } from "../src/index.js";
+describe("AI personalisation ({aiLine})", () => {
+  const steps = [{ type: "INVITE", delayDays: 0, note: "Hi {firstName}, {aiLine}" }] as const;
+  it("knows when a sequence uses it, and needs to know what you offer", () => {
+    expect(usesAiLine([...steps])).toBe(true);
+    expect(aiProblems([...steps], { offer: "", tone: "friendly", fallback: "" })).toHaveLength(1);
+    expect(aiProblems([...steps], { offer: "Custom apps for clinics", tone: "friendly", fallback: "" })).toEqual([]);
+  });
+  it("fills {aiLine}, and refuses to send without it", () => {
+    expect(fillTemplate("Hi {firstName}, {aiLine}", { firstName: "Raj", aiLine: "Saw your post on hiring a React dev." })).toBe("Hi Raj, Saw your post on hiring a React dev.");
+    expect(fillTemplate("Hi {firstName}, {aiLine}", { firstName: "Raj" })).toBeNull();
+  });
+  it("keeps a note within LinkedIn's limit", () => {
+    expect(aiLineMaxChars("Hi {firstName}, {aiLine} Open to connect?", 300)).toBe(220);
+    expect(aiLineMaxChars("x".repeat(250) + "{aiLine}", 300)).toBe(60);
+  });
+});
+

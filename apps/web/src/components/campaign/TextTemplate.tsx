@@ -5,7 +5,7 @@ import { useRef } from "react";
 import { inputCls } from "../fields";
 import { cx } from "../ui";
 
-const TOKEN_LABEL: Record<string, string> = { firstName: "First name", lastName: "Last name", name: "Full name", company: "Company", title: "Job title" };
+const TOKEN_LABEL: Record<string, string> = { firstName: "First name", lastName: "Last name", name: "Full name", company: "Company", title: "Job title", aiLine: "AI line" };
 
 /** A note/message box with one-click placeholders and a character counter. */
 export function TextTemplate({
@@ -66,10 +66,15 @@ export function TextTemplate({
               type="button"
               disabled={disabled}
               onClick={() => insert(t)}
-              className="rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5 text-[13px] font-medium text-stone-600 transition hover:border-brand-500 hover:bg-brand-50 hover:text-stone-900 disabled:opacity-50"
-              title={`Insert {${t}}`}
+              className={cx(
+                "rounded-md border px-2 py-0.5 text-[13px] font-medium transition disabled:opacity-50",
+                t === "aiLine"
+                  ? "border-violet-200 bg-violet-50 text-violet-800 hover:border-violet-400 hover:bg-violet-100"
+                  : "border-stone-200 bg-stone-50 text-stone-600 hover:border-brand-500 hover:bg-brand-50 hover:text-stone-900",
+              )}
+              title={t === "aiLine" ? "Insert {aiLine}: one line AI writes from each person's LinkedIn profile" : `Insert {${t}}`}
             >
-              + {TOKEN_LABEL[t]}
+              {t === "aiLine" ? "✦" : "+"} {TOKEN_LABEL[t]}
             </button>
           ))}
         </div>

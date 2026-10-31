@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from "@invytra/db";
 import {
   DEFAULT_CAMPAIGN_SETTINGS,
   audienceProblems,
+  aiProblems,
   campaignSettingsSchema,
   sequenceProblems,
   stepSchema,
@@ -105,7 +106,8 @@ export async function updateCampaign(prisma: PrismaClient, workspaceId: string, 
     // Once it has really started, a new start date would silently pause it — keep the old one.
     if (!waitingToStart(current.settings, new Date())) input = { ...input, settings: { ...input.settings, startAt: current.settings.startAt } };
     if (current.listId && input.listId !== current.listId) return { ok: false, error: "The lead list can't change after launch." };
-    const problems = [...sequenceProblems(input.steps), ...audienceProblems(input.steps, campaignSettingsSchema.parse(input.settings))];
+    const settings = campaignSettingsSchema.parse(input.settings);
+    const problems = [...sequenceProblems(input.steps), ...audienceProblems(input.steps, settings), ...aiProblems(input.steps, settings.ai)];
     if (problems.length) return { ok: false, error: problems[0]! };
   }
   const ids = senderIds(input);
@@ -139,7 +141,7 @@ export async function launchProblems(prisma: PrismaClient, workspaceId: string, 
   ) {
     out.push("The lead list is empty.");
   }
-  out.push(...sequenceProblems(c.steps), ...audienceProblems(c.steps, c.settings));
+  out.push(...sequenceProblems(c.steps), ...audienceProblems(c.steps, c.settings), ...aiProblems(c.steps, c.settings.ai));
   return out;
 }
 

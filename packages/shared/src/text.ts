@@ -1,9 +1,9 @@
 /** Placeholders notes and messages can use. */
-export const TEMPLATE_TOKENS = ["firstName", "lastName", "name", "company", "title"] as const;
+export const TEMPLATE_TOKENS = ["firstName", "lastName", "name", "company", "title", "aiLine"] as const;
 export type TemplateToken = (typeof TEMPLATE_TOKENS)[number];
 export type TemplateVars = Partial<Record<TemplateToken, string | null>>;
 
-const TOKEN_LIST = "{firstName}, {lastName}, {name}, {company} and {title}";
+const TOKEN_LIST = "{firstName}, {lastName}, {name}, {company}, {title} and {aiLine}";
 
 /** The placeholders a text uses, e.g. ["firstName", "company"]. */
 export function templateTokens(text: string): string[] {
@@ -40,9 +40,11 @@ export function fillTemplate(text: string, vars: TemplateVars, profileName = "")
     name: full || [vars.firstName, vars.lastName].filter(Boolean).join(" ").trim(),
     company: (vars.company ?? "").trim(),
     title: (vars.title ?? "").trim(),
+    // Written by AI from their profile when the message goes out (or the campaign's fallback line).
+    aiLine: (vars.aiLine ?? "").trim(),
   };
   let missing = false;
-  const out = text.replace(/\{(firstName|lastName|name|company|title)\}/g, (_, k: TemplateToken) => {
+  const out = text.replace(/\{(firstName|lastName|name|company|title|aiLine)\}/g, (_, k: TemplateToken) => {
     if (!value[k]) missing = true;
     return value[k];
   });

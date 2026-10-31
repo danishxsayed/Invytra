@@ -1,4 +1,4 @@
-import type { PrismaClient, UnipileClient } from "@invytra/db";
+import type { AiLineWriter, PrismaClient, UnipileClient } from "@invytra/db";
 import { ACTION_DELAY_SECONDS, FETCH_ALL_SEARCH_PAGES_PER_DAY, SEARCH_DELAY_SECONDS, randomActionDelayMs } from "@invytra/shared";
 
 /** How often an inbox check also re-reads whether the account has Premium (shown on the Accounts page). */
@@ -36,6 +36,8 @@ export interface ProcessorDeps {
   now?: () => Date;
   /** For accounts connected through Unipile (null when UNIPILE_* isn't set). */
   unipile?: UnipileClient | null;
+  /** Writes {aiLine} (undefined = from OPENAI_API_KEY; tests pass their own). */
+  ai?: AiLineWriter | null;
 }
 
 export type ProcessResult =
@@ -150,7 +152,7 @@ export async function processAction(deps: ProcessorDeps, actionId: string): Prom
   // Accounts connected through Unipile: the same action through Unipile's API, no browser.
   const viaUnipile = action.account.engine === "UNIPILE";
   const runner = viaUnipile
-    ? () => withUnipileAccount(prisma, deps.session, deps.unipile, action.accountId, action.conversationId, unipileWorkFor(spec))
+    ? () => withUnipileAccount(prisma, deps.session, deps.unipile, action.accountId, action.conversationId, unipileWorkFor({ ...spec, campaignLeadId: action.campaignLeadId }), deps.ai)
     : undefined;
   const result = await executeActionRow(prisma, deps.session, action, work, runner);
   const finished = deps.now?.() ?? new Date();

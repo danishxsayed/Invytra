@@ -3,6 +3,7 @@
 import {
   DEFAULT_CAMPAIGN_SETTINGS,
   DEGREE_LABEL,
+  aiProblems,
   audienceProblems,
   hasInvite,
   sequenceProblems,
@@ -81,7 +82,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
     else if (list && list.count === 0 && list.coming === 0) leads.push("The lead list is empty.");
     const configure: string[] = [];
     if (settings.degrees.length === 0) configure.push("Pick at least one connection level.");
-    const sequence = [...sequenceProblems(steps), ...audienceProblems(steps, settings)];
+    const sequence = [...sequenceProblems(steps), ...audienceProblems(steps, settings), ...aiProblems(steps, settings.ai)];
     const type = seqType ? [] : ["Choose a sequence type."];
     return [details, leads, configure, type, sequence, []];
   }, [name, senders, listId, list, steps, settings, seqType]);
@@ -197,7 +198,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
               <div>
                 <h3 className="mb-1 text-[17px] font-semibold text-stone-900">Preview</h3>
                 <p className="mb-3 text-[15px] text-stone-500">Exactly what a few people from your list would receive.</p>
-                <Preview steps={steps} sample={list?.sample ?? []} />
+                <Preview steps={steps} sample={list?.sample ?? []} ai={listId ? { listId, accountIds, settings: settings.ai } : null} />
               </div>
             </div>
           )}

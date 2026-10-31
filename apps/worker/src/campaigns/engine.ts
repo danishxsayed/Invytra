@@ -291,6 +291,9 @@ async function enqueueStep(
   const payload: Record<string, unknown> = { campaignId: c.id, vars, ...(audience && { audience }) };
   if (plan.type === "CONNECTION_REQUEST" && plan.note) payload.note = plan.note;
   if (plan.type === "MESSAGE" || plan.type === "COMMENT_POST") payload.text = plan.text;
+  // {aiLine}: written when it goes out (accounts through Unipile); the fallback line otherwise.
+  const ai = campaignSettingsSchema.safeParse(c.settings).data?.ai;
+  if (ai?.fallback && [payload.note, payload.text].some((t) => typeof t === "string" && t.includes("{aiLine}"))) payload.aiFallback = ai.fallback;
   if (plan.type === "EVENT_INVITE") {
     payload.eventUrl = plan.eventUrl;
     // The invite dialog searches your connections by name: LinkedIn's spelling first.

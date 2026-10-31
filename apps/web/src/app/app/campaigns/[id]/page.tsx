@@ -1,4 +1,5 @@
 import { prisma } from "@invytra/db";
+import { AI_SIGNAL_LABEL } from "@invytra/shared";
 import { AlertTriangle, ArrowLeft, CalendarPlus, ChevronLeft, ChevronRight, ExternalLink, Eye, Hourglass, MessageCircle, MessageSquare, Plus, ThumbsUp, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -255,6 +256,11 @@ export default async function CampaignPage({
                       {detail || [l.title, l.company].filter(Boolean).join(" · ")}
                       {multi && l.account && <span className="text-stone-400"> · via {l.account.label}</span>}
                     </p>
+                    {l.aiLine && (
+                      <p className="mt-0.5 line-clamp-2 text-[13px] text-violet-800" title={l.aiSignal ? `AI line from: ${aiSignalText(l.aiSignal)}` : undefined}>
+                        ✦ {l.aiLine} <span className="text-violet-500">· {aiSignalText(l.aiSignal)}</span>
+                      </p>
+                    )}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <LeadStateBadge state={l.state} />
@@ -301,3 +307,10 @@ function Banner({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+/** Where a lead's AI line came from, in words. */
+function aiSignalText(signal: string | null): string {
+  if (signal === "fallback") return "your fallback line";
+  return (AI_SIGNAL_LABEL as Record<string, string>)[signal ?? ""] ?? "their profile";
+}
+

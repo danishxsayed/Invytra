@@ -49,7 +49,9 @@ export function validateSpec(spec: ActionSpec): void {
 function varsOf(p: Record<string, unknown>): TemplateVars {
   const v = (p.vars ?? {}) as Record<string, unknown>;
   const str = (k: string) => (typeof v[k] === "string" ? (v[k] as string) : null);
-  return { firstName: str("firstName"), lastName: str("lastName"), company: str("company"), title: str("title") };
+  // Invytra's own browser doesn't read whole profiles, so {aiLine} is the campaign's fallback line there.
+  const fallback = typeof p.aiFallback === "string" ? p.aiFallback : null;
+  return { firstName: str("firstName"), lastName: str("lastName"), company: str("company"), title: str("title"), aiLine: fallback };
 }
 
 /** A campaign's audience (connection levels / Premium only), sent with a lead's first contact. */

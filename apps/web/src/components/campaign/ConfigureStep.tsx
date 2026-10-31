@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AI_TONES,
   DEGREES,
   DEGREE_LABEL,
   FETCH_ALL_SEARCH_PAGES_PER_DAY,
@@ -8,8 +9,8 @@ import {
   type CampaignSettings,
   type Degree,
 } from "@invytra/shared";
-import { Check, Lock } from "lucide-react";
-import { Toggle } from "../fields";
+import { Check, Lock, Sparkles } from "lucide-react";
+import { Toggle, inputCls } from "../fields";
 import { cx } from "../ui";
 
 const DEGREE_HINT: Record<Degree, string> = {
@@ -183,6 +184,55 @@ export function ConfigureStep({
           </div>
         </Setting>
       </div>
+
+      <Setting
+        wide
+        title="AI personalisation"
+        hint="Put ✦ AI line ({aiLine}) in a note or message, and AI writes one line for each person from their LinkedIn profile: a hiring post, a recent post, their role, headline or About."
+      >
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="block md:col-span-2">
+            <span className="flex items-center gap-1.5 text-[14px] font-medium text-stone-800">
+              <Sparkles className="h-4 w-4 text-violet-600" aria-hidden /> What you offer
+            </span>
+            <textarea
+              className={cx(inputCls, "mt-1.5 resize-y")}
+              rows={2}
+              maxLength={400}
+              value={settings.ai.offer}
+              onChange={(e) => set({ ai: { ...settings.ai, offer: e.target.value } })}
+              placeholder="e.g. We build custom mobile apps for clinics and hospitals in India."
+            />
+            <span className="mt-1 block text-[13px] text-stone-500">So the line can lead naturally into your message. It's never pasted in as is.</span>
+          </label>
+          <label className="block">
+            <span className="text-[14px] font-medium text-stone-800">Tone</span>
+            <select
+              className={cx(inputCls, "mt-1.5 capitalize")}
+              value={settings.ai.tone}
+              onChange={(e) => set({ ai: { ...settings.ai, tone: e.target.value as (typeof AI_TONES)[number] } })}
+            >
+              {AI_TONES.map((t) => (
+                <option key={t} value={t}>
+                  {t[0]!.toUpperCase() + t.slice(1)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-[14px] font-medium text-stone-800">Fallback line (optional)</span>
+            <input
+              className={cx(inputCls, "mt-1.5")}
+              maxLength={200}
+              value={settings.ai.fallback}
+              onChange={(e) => set({ ai: { ...settings.ai, fallback: e.target.value } })}
+              placeholder="e.g. Always good to connect with people in healthcare."
+            />
+            <span className="mt-1 block text-[13px] text-stone-500">Used when a profile has nothing specific. Leave empty to skip those people.</span>
+          </label>
+        </div>
+        <p className="mt-3 text-[13px] text-stone-500">Written with accounts connected through Unipile. Accounts on Invytra&apos;s own browser use the fallback line.</p>
+      </Setting>
 
       <p className="text-[14px] text-stone-500 md:col-span-2">
         Sending days, hours and the start date are set per LinkedIn account, in

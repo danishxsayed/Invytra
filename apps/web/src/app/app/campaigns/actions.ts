@@ -4,6 +4,8 @@ import { prisma } from "@invytra/db";
 import { revalidatePath } from "next/cache";
 import type { Result } from "@/lib/accounts";
 import { requireUser } from "@/lib/auth";
+import { previewAiLines, type AiPreviewLine } from "@/lib/ai-preview";
+import { aiSettingsSchema } from "@invytra/shared";
 import {
   CampaignNotFoundError,
   campaignInputSchema,
@@ -75,3 +77,24 @@ export async function deleteCampaignAction(id: string): Promise<Result> {
   if (r.ok) refresh();
   return r;
 }
+
+/** AI lines for the first few people of the list (the launch preview). */
+export async function previewAiLinesAction(input: {
+  listId: string;
+  accountIds: string[];
+  ai: unknown;
+  template: string;
+  limit: number;
+}): Promise<Result<AiPreviewLine[]>> {
+  const me = await requireUser();
+  const ai = aiSettingsSchema.safeParse(input?.ai);
+  if (!ai.success || typeof input.listId !== "string" || !Array.isArray(input.accountIds)) return { ok: false, error: "Couldn't preview the AI lines." };
+  return previewAiLines(prisma, me.workspace.id, {
+    listId: input.listId,
+    accountIds: input.accountIds.filter((x): x is string => typeof x === "string"),
+    ai: ai.data,
+    template: String(input.template ?? "").slice(0, 2000),
+    limit: Math.min(2000, Math.max(100, Number(input.limit) || 300)),
+  });
+}
+
