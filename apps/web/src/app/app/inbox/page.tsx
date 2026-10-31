@@ -5,7 +5,7 @@ import { ConversationView, type ConversationViewData } from "@/components/inbox/
 import { FilterBar } from "@/components/inbox/FilterBar";
 import { InboxLive } from "@/components/inbox/InboxLive";
 import { Avatar, EmptyState, cx } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { progressText } from "@/lib/campaign-text";
 import { dayLabel, shortWhen } from "@/lib/format";
 import {
@@ -33,7 +33,7 @@ export default async function InboxPage({
 }: {
   searchParams: Promise<{ f?: string; c?: string; account?: string; campaign?: string; tag?: string; q?: string; page?: string }>;
 }) {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const sp = await searchParams;
   const filter: InboxFilter = (INBOX_FILTERS as readonly string[]).includes(sp.f ?? "") ? (sp.f as InboxFilter) : "needs_reply";
   const query = { accountId: sp.account || undefined, campaignId: sp.campaign || undefined, tag: sp.tag || undefined, q: (sp.q ?? "").slice(0, 100) };

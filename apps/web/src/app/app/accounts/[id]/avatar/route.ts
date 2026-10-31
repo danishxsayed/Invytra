@@ -1,5 +1,5 @@
 import { prisma } from "@invytra/db";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -7,7 +7,7 @@ const TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 /** The connected LinkedIn account's own profile photo (this workspace's accounts only). */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const { id } = await params;
   const a = await prisma.linkedinAccount.findFirst({
     where: { id: String(id), workspaceId: me.workspace.id },

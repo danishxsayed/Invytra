@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { unipileFromEnv, unipileName, unipileStatus, type PrismaClient, type UnipileAccount, type UnipileClient } from "@invytra/db";
 import { parseProfileUrl } from "@invytra/shared";
 import { getAccount, type Result } from "./accounts";
+import { channelOrigin } from "./domains";
 
 /*
  * Connecting a LinkedIn account through Unipile: Unipile hosts the login page (the person
@@ -31,7 +32,8 @@ export function connectMode(a: { engine: string; proxyUrl: string }): ConnectMod
   return "choose";
 }
 
-const origin = () => (process.env.WEB_ORIGIN ?? "http://localhost:3000").replace(/\/$/, "");
+/** LinkedIn's address: its own subdomain when ROOT_DOMAIN is set, otherwise WEB_ORIGIN. */
+const origin = () => channelOrigin("linkedin") || (process.env.WEB_ORIGIN ?? "http://localhost:3000").replace(/\/$/, "");
 
 /**
  * Whether Invytra runs on this computer or a private network (local development). Browsers
@@ -41,6 +43,8 @@ const origin = () => (process.env.WEB_ORIGIN ?? "http://localhost:3000").replace
 export function isLocalOrigin(o = origin()): boolean {
   try {
     const h = new URL(o).hostname;
+    // lvh.me / localtest.me: public names for this computer, used to try subdomains locally.
+    if (/(^|\.)(lvh\.me|localtest\.me)$/.test(h)) return true;
     return h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local") || h === "::1" || h === "[::1]" ||
       /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h);
   } catch {

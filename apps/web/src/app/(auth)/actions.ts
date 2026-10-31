@@ -3,6 +3,7 @@
 import { prisma } from "@invytra/db";
 import { redirect } from "next/navigation";
 import { endSession, startSession } from "@/lib/auth";
+import { hubHref, safeNext } from "@/lib/domains";
 import { EmailTakenError, checkLogin, registerUser, signupSchema } from "@/lib/registration";
 import { clearFailures, isThrottled, recordFailure } from "@/lib/throttle";
 
@@ -23,7 +24,7 @@ export async function signup(_prev: FormState, form: FormData): Promise<FormStat
     if (e instanceof EmailTakenError) return { error: e.message, fields: keep };
     throw e;
   }
-  redirect("/app");
+  redirect(afterSignIn(form));
 }
 
 export async function login(_prev: FormState, form: FormData): Promise<FormState> {
@@ -39,10 +40,15 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
   }
   clearFailures(email);
   await startSession(result.userId, result.workspaceId);
-  redirect("/app");
+  redirect(afterSignIn(form));
 }
 
 export async function logout(): Promise<void> {
   await endSession();
-  redirect("/login");
+  redirect(hubHref("/login"));
+}
+
+/** Back to the page that asked for a sign-in (only ours), or the workspace hub. */
+function afterSignIn(form: FormData): string {
+  return safeNext(String(form.get("next") ?? "")) ?? hubHref("/");
 }

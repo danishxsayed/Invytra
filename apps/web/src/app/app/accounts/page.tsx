@@ -6,7 +6,7 @@ import { AddAccountButton } from "@/components/AddAccountButton";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { proxyRequired, sharedProxyGroups } from "@/lib/accounts";
 import { unipileEnabled } from "@/lib/unipile";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { accountsOverview } from "@/lib/data";
 import { allTimeZones } from "@/lib/timezones";
 
@@ -14,7 +14,7 @@ export const metadata = { title: "Accounts" };
 export const dynamic = "force-dynamic";
 
 export default async function AccountsPage() {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const accounts = await accountsOverview(prisma, me.workspace.id);
   const twins = sameProfileGroups(accounts);
   const sharedProxies = await sharedProxyGroups(prisma, me.workspace.id);

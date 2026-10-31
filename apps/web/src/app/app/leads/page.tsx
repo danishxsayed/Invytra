@@ -3,7 +3,7 @@ import { ChevronRight, ListChecks, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { NewListButton } from "@/components/LeadListButtons";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { timeAgo } from "@/lib/format";
 import { importAccounts, listsImporting } from "@/lib/imports";
 import { listSummaries } from "@/lib/leads";
@@ -12,7 +12,7 @@ export const metadata = { title: "Leads" };
 export const dynamic = "force-dynamic";
 
 export default async function LeadsPage() {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const [lists, accounts, importing] = await Promise.all([
     listSummaries(prisma, me.workspace.id),
     importAccounts(prisma, me.workspace.id),

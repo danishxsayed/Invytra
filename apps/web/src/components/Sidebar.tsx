@@ -5,6 +5,7 @@ import {
   ChevronsUpDown,
   Inbox,
   LayoutDashboard,
+  LayoutGrid,
   ListChecks,
   LogOut,
   Menu,
@@ -34,6 +35,8 @@ interface Props {
   needsReply?: number;
   /** Desktop sidebar starts narrow (icons only); remembered in a cookie. */
   collapsed?: boolean;
+  /** The workspace hub with every outreach channel (another subdomain when ROOT_DOMAIN is set). */
+  hubHref?: string;
 }
 
 const NAV: { href: string; label: string; icon: typeof Settings; soon?: boolean }[] = [
@@ -195,7 +198,7 @@ function AccountSwitcher({ accounts, onNavigate }: { accounts: Props["accounts"]
   );
 }
 
-function SidebarBody({ workspace, user, accounts, needsReply, onNavigate, onCollapse }: Props & { onNavigate?: () => void; onCollapse?: () => void }) {
+function SidebarBody({ workspace, user, accounts, needsReply, hubHref, onNavigate, onCollapse }: Props & { onNavigate?: () => void; onCollapse?: () => void }) {
   const path = usePathname();
   return (
     <div className="flex h-full flex-col gap-5 px-3 py-5">
@@ -256,6 +259,15 @@ function SidebarBody({ workspace, user, accounts, needsReply, onNavigate, onColl
           );
         })}
       </nav>
+      {hubHref && (
+        <a
+          href={hubHref}
+          className="flex items-center gap-2.5 rounded-lg border border-stone-200 px-2.5 py-2 text-[15px] font-medium text-stone-600 transition hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900"
+        >
+          <LayoutGrid className="h-4 w-4 text-stone-400" aria-hidden />
+          <span className="flex-1">All channels</span>
+        </a>
+      )}
       <div className="mt-auto flex items-center gap-2.5 rounded-xl px-1.5 py-1">
         <Avatar name={user.name} />
         <div className="min-w-0 flex-1">
@@ -273,7 +285,7 @@ function SidebarBody({ workspace, user, accounts, needsReply, onNavigate, onColl
 }
 
 /** The narrow sidebar: icons only, names on hover. */
-function SidebarRail({ accounts, user, needsReply, onExpand }: Props & { onExpand: () => void }) {
+function SidebarRail({ accounts, user, needsReply, hubHref, onExpand }: Props & { onExpand: () => void }) {
   const path = usePathname();
   const rank = (st: string) => (st === "NEEDS_ATTENTION" ? 0 : st === "DISCONNECTED" ? 1 : st === "PAUSED" ? 2 : 3);
   const current = [...accounts].sort((a, b) => rank(a.status) - rank(b.status))[0];
@@ -294,6 +306,11 @@ function SidebarRail({ accounts, user, needsReply, onExpand }: Props & { onExpan
         <Link href="/app/accounts?add=1" title="Connect LinkedIn" className="rounded-lg border border-dashed border-stone-300 p-2 text-stone-500 hover:border-brand-500">
           <Plus className="h-4 w-4" />
         </Link>
+      )}
+      {hubHref && (
+        <a href={hubHref} title="All channels" aria-label="All channels" className="rounded-lg p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-800">
+          <LayoutGrid className="h-5 w-5" />
+        </a>
       )}
       <Link href="/app/accounts" title="Safe mode on" className="rounded-lg bg-emerald-50 p-2 text-emerald-700 hover:bg-emerald-100">
         <ShieldCheck className="h-4 w-4" aria-label="Safe mode on" />

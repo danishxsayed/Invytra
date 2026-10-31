@@ -2,7 +2,7 @@
 
 import { prisma, signConnectTicket } from "@invytra/db";
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import {
   AccountNotFoundError,
   createAccount,
@@ -40,7 +40,7 @@ async function guarded<T>(fn: () => Promise<Result<T>>): Promise<Result<T>> {
 }
 
 export async function addAccountAction(input: unknown): Promise<Result<string>> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const parsed = newAccountSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
   if (!parsed.data.email) return { ok: false, error: "Enter the email you log in to LinkedIn with." };
@@ -50,7 +50,7 @@ export async function addAccountAction(input: unknown): Promise<Result<string>> 
 }
 
 export async function saveSettingsAction(accountId: string, input: unknown): Promise<Result> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const parsed = settingsSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
   const r = await guarded(() => updateSettings(prisma, me.workspace.id, String(accountId), parsed.data));
@@ -59,21 +59,21 @@ export async function saveSettingsAction(accountId: string, input: unknown): Pro
 }
 
 export async function pauseAction(accountId: string, paused: boolean): Promise<Result> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const r = await guarded(() => setPaused(prisma, me.workspace.id, String(accountId), !!paused));
   if (r.ok) refresh(accountId);
   return r;
 }
 
 export async function resumeAfterCheckAction(accountId: string): Promise<Result> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const r = await guarded(() => resumeAfterCheck(prisma, me.workspace.id, String(accountId)));
   if (r.ok) refresh(accountId);
   return r;
 }
 
 export async function removeAccountAction(accountId: string): Promise<Result> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const r = await guarded(() => removeAccount(prisma, me.workspace.id, String(accountId)));
   if (r.ok) refresh();
   return r;
@@ -90,7 +90,7 @@ export async function startUnipileConnectAction(
   accountId: string,
   how?: "unipile" | "browser",
 ): Promise<Result<ConnectStart>> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   return guarded<ConnectStart>(async () => {
     const a = await getAccount(prisma, me.workspace.id, String(accountId));
     // First the LinkedIn login email, checked so one LinkedIn account is on Invytra only once.
@@ -119,7 +119,7 @@ export async function startUnipileConnectAction(
 
 /** Step 1 of adding an account: is this LinkedIn login email free on Invytra? */
 export async function verifyLinkedinEmailAction(email: unknown): Promise<Result<string>> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const parsed = linkedinEmailSchema.safeParse(email);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
   const problem = await linkedinEmailProblem(prisma, me.workspace.id, parsed.data);
@@ -128,7 +128,7 @@ export async function verifyLinkedinEmailAction(email: unknown): Promise<Result<
 
 /** The LinkedIn login email for an account, checked against every account on Invytra. */
 export async function saveLinkedinEmailAction(accountId: string, email: unknown): Promise<Result> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const parsed = linkedinEmailSchema.safeParse(email);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
   const r = await guarded(() => setLinkedinEmail(prisma, me.workspace.id, String(accountId), parsed.data));
@@ -142,7 +142,7 @@ export async function saveLinkedinEmailAction(accountId: string, email: unknown)
  * connected here; otherwise "waiting".
  */
 export async function pollUnipileLoginAction(accountId: string): Promise<Result<"done" | "waiting" | "duplicate" | "elsewhere">> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   return guarded(async () => {
     const r = await syncUnipileAccount(prisma, me.workspace.id, String(accountId), undefined, { tries: 1 });
     if (r.ok) {
@@ -155,7 +155,7 @@ export async function pollUnipileLoginAction(accountId: string): Promise<Result<
 
 /** A one-time, 2-minute ticket for the live login window of ONE account in the user's workspace. */
 export async function startConnectAction(accountId: string): Promise<Result<{ url: string }>> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   return guarded(async () => {
     const a = await getAccount(prisma, me.workspace.id, String(accountId));
     const ticket = await signConnectTicket(
@@ -169,6 +169,6 @@ export async function startConnectAction(accountId: string): Promise<Result<{ ur
 
 /** Called by the login window when it finishes, so pages show the new status. */
 export async function connectFinishedAction(accountId: string): Promise<void> {
-  await requireUser();
+  await requireChannel("linkedin");
   refresh(String(accountId));
 }

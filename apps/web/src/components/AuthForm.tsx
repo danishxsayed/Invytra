@@ -20,16 +20,22 @@ export function AuthForm({
   submit,
   pending,
   footer,
+  hidden,
 }: {
   action: (prev: FormState, form: FormData) => Promise<FormState>;
   fields: Field[];
   submit: string;
   pending: string;
   footer: { text: string; href: string; link: string };
+  /** Extra values sent with the form (e.g. where to go after signing in). */
+  hidden?: Record<string, string>;
 }) {
   const [state, formAction, isPending] = useActionState(action, {});
   return (
     <form action={formAction} className="space-y-4" noValidate>
+      {Object.entries(hidden ?? {}).map(([k, v]) => (
+        <input key={k} type="hidden" name={k} value={v} />
+      ))}
       {fields.map((f) => (
         <label key={f.name} className="block">
           <span className="text-[15px] font-medium text-stone-700">{f.label}</span>

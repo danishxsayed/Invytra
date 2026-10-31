@@ -1,8 +1,9 @@
 import { prisma } from "@invytra/db";
 import { revalidatePath } from "next/cache";
 import { AccountNotFoundError } from "@/lib/accounts";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { syncUnipileAccount } from "@/lib/unipile";
+import { channelOrigin } from "@/lib/domains";
 
 export const dynamic = "force-dynamic";
 
@@ -11,9 +12,9 @@ export const dynamic = "force-dynamic";
  * (nothing in the link is trusted) and returns to the account page with the result.
  */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const { id } = await params;
-  const back = new URL(`/app/accounts/${encodeURIComponent(String(id))}`, process.env.WEB_ORIGIN ?? req.url);
+  const back = new URL(`/app/accounts/${encodeURIComponent(String(id))}`, channelOrigin("linkedin") || process.env.WEB_ORIGIN || req.url);
   if (new URL(req.url).searchParams.get("failed")) {
     back.searchParams.set("connect_error", "unfinished");
     return goTo(back);

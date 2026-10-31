@@ -3,15 +3,23 @@ import { prisma, type MemberRole } from "@invytra/db";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { canUseChannel, channelById, type ChannelId } from "@invytra/shared";
+import { cookieDomain, hubHref } from "./domains";
 import { authKey, secureCookies } from "./env";
 import { SESSION_COOKIE, SESSION_DAYS, signSession, verifySession } from "./session-token";
 
 export interface CurrentUser {
   user: { id: string; name: string; email: string };
-  workspace: { id: string; name: string; plan: string };
+  /** channels: the outreach channels its subscription includes. */
+  workspace: { id: string; name: string; plan: string; channels: string[] };
   role: MemberRole;
 }
 
+/**
+ * One sign-in for the whole platform: with ROOT_DOMAIN set the cookie is on the parent
+ * domain (.invytra.com), so the hub and every channel subdomain see the same session.
+ * It only holds the user and workspace ids, signed; everything else is read fresh.
+ */
 export async function startSession(userId: string, workspaceId: string): Promise<void> {
   const token = await signSession({ userId, workspaceId }, authKey());
   (await cookies()).set(SESSION_COOKIE, token, {
@@ -19,12 +27,15 @@ export async function startSession(userId: string, workspaceId: string): Promise
     sameSite: "lax",
     secure: secureCookies,
     path: "/",
+    domain: cookieDomain(),
     maxAge: SESSION_DAYS * 24 * 60 * 60,
   });
 }
 
 export async function endSession(): Promise<void> {
-  (await cookies()).delete(SESSION_COOKIE);
+  const jar = await cookies();
+  // Expire it with the same Domain it was set with, or the browser keeps it.
+  jar.set(SESSION_COOKIE, "", { path: "/", domain: cookieDomain(), maxAge: 0, httpOnly: true, sameSite: "lax", secure: secureCookies });
 }
 
 /**
@@ -44,7 +55,7 @@ export const currentUser = cache(async (): Promise<CurrentUser | null> => {
   if (user.sessionsValidAfter && (claims.issuedAt ?? 0) < user.sessionsValidAfter.getTime()) return null;
   return {
     user: { id: user.id, name: user.name, email: user.email },
-    workspace: { id: workspace.id, name: workspace.name, plan: workspace.plan },
+    workspace: { id: workspace.id, name: workspace.name, plan: workspace.plan, channels: workspace.channels },
     role: membership.role,
   };
 });
@@ -53,5 +64,16 @@ export const currentUser = cache(async (): Promise<CurrentUser | null> => {
 export async function requireUser(): Promise<CurrentUser> {
   const me = await currentUser();
   if (!me) redirect("/login");
+  return me;
+}
+
+/**
+ * Use at the top of every page and server action of a channel: signed in, and this
+ * workspace's subscription includes the channel (and it has launched). Otherwise back to
+ * the workspace hub, which says why.
+ */
+export async function requireChannel(id: ChannelId): Promise<CurrentUser> {
+  const me = await requireUser();
+  if (!canUseChannel(channelById(id), me.workspace.channels)) redirect(hubHref(`/?denied=${id}`));
   return me;
 }

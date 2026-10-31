@@ -4,7 +4,7 @@ import { ChevronRight, Plus, Rocket } from "lucide-react";
 import Link from "next/link";
 import { CampaignStatusBadge } from "@/components/campaign/CampaignBits";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { pct } from "@/lib/campaign-text";
 import { listCampaigns } from "@/lib/campaigns";
 
@@ -18,7 +18,7 @@ const newButton = (
 );
 
 export default async function CampaignsPage() {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const campaigns = await listCampaigns(prisma, me.workspace.id);
 
   return (

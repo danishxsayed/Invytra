@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { CampaignControls } from "@/components/campaign/CampaignControls";
 import { CampaignStatusBadge, LeadStateBadge, Metric } from "@/components/campaign/CampaignBits";
 import { Avatar, Card, EmptyState, cx } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { pct, positionText, reasonText, startText, stepLabel } from "@/lib/campaign-text";
 import { CampaignNotFoundError, LEAD_FILTERS, campaignLeadsPage, campaignStats, getCampaign, launchProblems, senderStats, type LeadFilter } from "@/lib/campaigns";
 import { slugName, timeAgo } from "@/lib/format";
@@ -34,7 +34,7 @@ export default async function CampaignPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ filter?: string; page?: string }>;
 }) {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const { id } = await params;
   const sp = await searchParams;
   const filter: LeadFilter = sp.filter && sp.filter in LEAD_FILTERS ? (sp.filter as LeadFilter) : "all";

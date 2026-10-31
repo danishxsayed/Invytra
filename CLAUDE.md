@@ -49,6 +49,11 @@ M6 go-live (server, domain, billing, team invites) is next. Phase 0's engine is 
    Never trust a workspace or account id from the URL or form without checking it belongs
    to that workspace.
 
+0b. **One platform, many channels.** One account, one workspace, one sign-in; each
+   outreach channel (LinkedIn, later WhatsApp, Email, Instagram) is a tool on its own
+   subdomain, listed in `CHANNELS` (`packages/shared/src/channels.ts`). Every page, route and
+   server action of a channel starts with `requireChannel("<id>")`. See `docs/CHANNELS.md`.
+
 1. **Every LinkedIn action is a queued job.** API routes never touch a browser.
    The worker picks jobs from BullMQ and executes them.
 2. **One LinkedIn account = one browser profile = one proxy.** Never share a proxy or

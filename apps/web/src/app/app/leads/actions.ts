@@ -3,7 +3,7 @@
 import { prisma, profilesLeft } from "@invytra/db";
 import { revalidatePath } from "next/cache";
 import type { Result } from "@/lib/accounts";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { cancelSearchImport, searchImportSchema, startSearchImport } from "@/lib/imports";
 import {
   LeadListNotFoundError,
@@ -32,7 +32,7 @@ function refresh(listId?: string) {
 }
 
 export async function importLeadsAction(input: unknown): Promise<Result<ImportSummary>> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const parsed = importSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
   const r = await guarded(() => importLeads(prisma, me.workspace.id, parsed.data));
@@ -41,21 +41,21 @@ export async function importLeadsAction(input: unknown): Promise<Result<ImportSu
 }
 
 export async function renameListAction(listId: string, name: string): Promise<Result> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const r = await guarded(() => renameList(prisma, me.workspace.id, String(listId), String(name)));
   if (r.ok) refresh(listId);
   return r;
 }
 
 export async function deleteListAction(listId: string): Promise<Result> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const r = await guarded(() => deleteList(prisma, me.workspace.id, String(listId)));
   if (r.ok) refresh();
   return r;
 }
 
 export async function removeLeadsAction(listId: string, ids: unknown): Promise<Result<number>> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   if (!Array.isArray(ids) || !ids.every((i) => typeof i === "string")) return { ok: false, error: "Nothing selected." };
   const r = await guarded(() => removeLeads(prisma, me.workspace.id, String(listId), ids as string[]));
   if (r.ok) refresh(listId);
@@ -63,7 +63,7 @@ export async function removeLeadsAction(listId: string, ids: unknown): Promise<R
 }
 
 export async function startSearchImportAction(input: unknown): Promise<Result<{ listId: string; importId: string }>> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const parsed = searchImportSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
   const r = await guarded(() => startSearchImport(prisma, me.workspace.id, parsed.data));
@@ -72,7 +72,7 @@ export async function startSearchImportAction(input: unknown): Promise<Result<{ 
 }
 
 export async function cancelSearchImportAction(id: string, listId: string): Promise<Result> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const r = await cancelSearchImport(prisma, me.workspace.id, String(id));
   if (r.ok) refresh(String(listId));
   return r;
@@ -80,7 +80,7 @@ export async function cancelSearchImportAction(id: string, listId: string): Prom
 
 /** People the free plan can still collect from searches (null = paid plan, no limit). */
 export async function profilesLeftAction(): Promise<number | null> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   return profilesLeft(prisma, me.workspace.id);
 }
 

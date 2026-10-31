@@ -6,7 +6,7 @@ import { Checklist } from "@/components/Checklist";
 import { StatCard } from "@/components/StatCard";
 import { WeekTable } from "@/components/WeekTable";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { isValidTimeZone } from "@/lib/accounts";
 import { accountsOverview, weekTable, weeklyStats } from "@/lib/data";
 import { leadCount } from "@/lib/leads";
@@ -21,7 +21,7 @@ function greeting(): string {
 }
 
 export default async function Dashboard() {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const wid = me.workspace.id;
   const [accounts, stats, leads, launched] = await Promise.all([
     accountsOverview(prisma, wid),

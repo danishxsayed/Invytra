@@ -7,7 +7,7 @@ import { AccountPanel } from "@/components/AccountPanel";
 import { SettingsForm } from "@/components/SettingsForm";
 import { PageHeader } from "@/components/ui";
 import { proxyRequired } from "@/lib/accounts";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { accountsOverview } from "@/lib/data";
 import { allTimeZones } from "@/lib/timezones";
 import { CONNECT_PROBLEM, type ConnectProblem } from "@/lib/unipile";
@@ -22,7 +22,7 @@ export default async function AccountPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ connected?: string; connect_error?: string }>;
 }) {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const { id } = await params;
   const q = await searchParams;
   // Back from Unipile's login page: only known codes are shown, never text from the link.

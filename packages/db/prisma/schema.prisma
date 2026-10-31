@@ -21,6 +21,8 @@ model Workspace {
   id        String   @id @default(cuid())
   name      String
   plan      String   @default("trial")
+  /// Outreach channels this workspace's subscription includes (ids from CHANNELS in @invytra/shared)
+  channels  String[] @default(["linkedin"])
   createdAt DateTime @default(now()) @map("created_at")
 
   members   Membership[]

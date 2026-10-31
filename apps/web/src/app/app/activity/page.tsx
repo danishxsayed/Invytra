@@ -3,7 +3,7 @@ import { Activity, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { ActivityList } from "@/components/ActivityList";
 import { Card, EmptyState, PageHeader, cx } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { activityCount, recentActivity, type ActivityFilter } from "@/lib/data";
 import { inboxFilterOptions } from "@/lib/inbox";
 
@@ -40,7 +40,7 @@ export default async function ActivityPage({
 }: {
   searchParams: Promise<{ show?: string; type?: string; account?: string; campaign?: string; page?: string }>;
 }) {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const sp = await searchParams;
   const status = STATUSES.find((f) => f.key === sp.show) ?? STATUSES[0]!;
   const type = TYPES.find((t) => t.value === sp.type)?.value;

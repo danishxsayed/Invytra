@@ -2,14 +2,14 @@ import { prisma } from "@invytra/db";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { CampaignBuilder } from "@/components/campaign/CampaignBuilder";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { builderOptions } from "@/lib/campaigns";
 
 export const metadata = { title: "New campaign" };
 export const dynamic = "force-dynamic";
 
 export default async function NewCampaignPage({ searchParams }: { searchParams: Promise<{ list?: string }> }) {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const options = await builderOptions(prisma, me.workspace.id);
   const { list } = await searchParams;
   return (

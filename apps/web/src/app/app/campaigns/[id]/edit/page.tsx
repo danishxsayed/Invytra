@@ -3,14 +3,14 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CampaignBuilder } from "@/components/campaign/CampaignBuilder";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { CampaignNotFoundError, builderOptions, getCampaign } from "@/lib/campaigns";
 
 export const metadata = { title: "Edit campaign" };
 export const dynamic = "force-dynamic";
 
 export default async function EditCampaignPage({ params }: { params: Promise<{ id: string }> }) {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const { id } = await params;
   let c;
   try {

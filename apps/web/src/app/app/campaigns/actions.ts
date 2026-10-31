@@ -3,7 +3,7 @@
 import { prisma } from "@invytra/db";
 import { revalidatePath } from "next/cache";
 import type { Result } from "@/lib/accounts";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { previewAiLines, type AiPreviewLine } from "@/lib/ai-preview";
 import { aiSettingsSchema } from "@invytra/shared";
 import {
@@ -40,7 +40,7 @@ export async function saveCampaignAction(
   input: unknown,
   launch: boolean,
 ): Promise<Result<{ id: string; launchError?: string }>> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const parsed = campaignInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
   return guarded(async () => {
@@ -64,7 +64,7 @@ export async function saveCampaignAction(
 }
 
 export async function setCampaignStatusAction(id: string, to: "ACTIVE" | "PAUSED"): Promise<Result> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   if (to !== "ACTIVE" && to !== "PAUSED") return { ok: false, error: "Unknown status." };
   const r = await guarded(() => setCampaignStatus(prisma, me.workspace.id, String(id), to));
   if (r.ok) refresh(id);
@@ -72,7 +72,7 @@ export async function setCampaignStatusAction(id: string, to: "ACTIVE" | "PAUSED
 }
 
 export async function deleteCampaignAction(id: string): Promise<Result> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const r = await guarded(() => deleteCampaign(prisma, me.workspace.id, String(id)));
   if (r.ok) refresh();
   return r;
@@ -86,7 +86,7 @@ export async function previewAiLinesAction(input: {
   template: string;
   limit: number;
 }): Promise<Result<AiPreviewLine[]>> {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const ai = aiSettingsSchema.safeParse(input?.ai);
   if (!ai.success || typeof input.listId !== "string" || !Array.isArray(input.accountIds)) return { ok: false, error: "Couldn't preview the AI lines." };
   return previewAiLines(prisma, me.workspace.id, {

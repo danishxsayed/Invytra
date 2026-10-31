@@ -1,13 +1,13 @@
 import { prisma } from "@invytra/db";
 import { readFile } from "node:fs/promises";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { evidenceFile } from "@/lib/evidence";
 
 export const dynamic = "force-dynamic";
 
 /** The screenshot taken when one of this workspace's actions failed. */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const { id } = await params;
   const action = await prisma.action.findFirst({
     where: { id: String(id), account: { workspaceId: me.workspace.id } },

@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { ListActions } from "@/components/LeadListButtons";
 import { LeadTable } from "@/components/LeadTable";
 import { Card, EmptyState, cx } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { requireChannel } from "@/lib/auth";
 import { ImportProgress } from "@/components/ImportProgress";
 import { timeAgo } from "@/lib/format";
 import { IMPORT_REASON, importAccounts, importWaits, importsForList } from "@/lib/imports";
@@ -23,7 +23,7 @@ export default async function LeadListPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const me = await requireUser();
+  const me = await requireChannel("linkedin");
   const { id } = await params;
   const sp = await searchParams;
   const q = (sp.q ?? "").slice(0, 100);
