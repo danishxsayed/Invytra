@@ -26,3 +26,4 @@ export * from "./warmup-imap.js";
 export * from "./inbox-reader.js";
 export * from "./unsubscribe.js";
 export * from "./bounces.js";
+export * from "./verify.js";

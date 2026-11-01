@@ -16,6 +16,7 @@ import { importTick } from "./imports/importer.js";
 import { warmupTick } from "./email/warmup.js";
 import { emailCampaignTick } from "./email/campaigns.js";
 import { emailReplyTick } from "./email/replies.js";
+import { verifyTick } from "./email/verify.js";
 import { createRuntime } from "./runtime.js";
 import { unipileFromEnv } from "@invytra/db";
 
@@ -143,6 +144,8 @@ async function main() {
       }
       const r = await emailReplyTick({ prisma: rt.prisma, key });
       if (r.replies || r.bounces || r.autoReplies) log(`Email inbox: ${r.replies} repl${r.replies === 1 ? "y" : "ies"}, ${r.autoReplies} auto-repl${r.autoReplies === 1 ? "y" : "ies"}, ${r.bounces} bounce(s)${r.fromSpam ? ` (${r.fromSpam} found in spam, moved to the inbox)` : ""}`);
+      const v = await verifyTick({ prisma: rt.prisma });
+      if (v.checked || v.error) log(`Email verification: ${v.checked} checked${v.waiting ? `, ${v.waiting} waiting` : ""}${v.error ? ` (stopped: ${v.error})` : ""}`);
       const w = await warmupTick({ prisma: rt.prisma, key });
       if (w.sent || w.checked || w.failed) {
         log(`Email warm-up: ${w.sent} sent, ${w.checked} checked${w.spam ? ` (${w.spam} rescued from spam)` : ""}, ${w.replied} replied${w.failed ? `, ${w.failed} failed` : ""}`);

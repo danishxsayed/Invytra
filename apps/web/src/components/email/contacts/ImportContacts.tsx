@@ -4,7 +4,7 @@ import { CONTACT_IMPORT, FIELD_LABEL, SAMPLE_CONTACTS_CSV, applyMapping, detectM
 import { AlertTriangle, CheckCircle2, Download, FileUp, Loader2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
-import { importContactsAction } from "@/app/email/contacts/actions";
+import { importContactsAction, requestVerificationAction } from "@/app/email/contacts/actions";
 import type { ContactImportResult } from "@/lib/email-contacts";
 import { btn } from "../../AccountControls";
 import { Field, inputCls } from "../../fields";
@@ -51,6 +51,7 @@ export function ImportContactsButton({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ContactImportResult | null>(null);
   const [afterNote, setAfterNote] = useState<string | null>(null);
+  const [verify, setVerify] = useState(true);
 
   const reset = () => {
     setText("");
@@ -82,7 +83,13 @@ export function ImportContactsButton({
       const r = await importContactsAction({ text, mapping, list: listChoice === "new" ? { name: listName } : { id: listChoice } });
       if (!r.ok) return setError(r.error);
       setResult(r.value);
-      if (after) setAfterNote(await after(r.value));
+      const notes: string[] = [];
+      if (verify) {
+        const v = await requestVerificationAction({ listId: r.value.listId });
+        if (v.ok && v.value) notes.push(`${v.value} contact${v.value === 1 ? " is" : "s are"} being verified in the background.`);
+      }
+      if (after) notes.push((await after(r.value)) ?? "");
+      setAfterNote(notes.filter(Boolean).join(" ") || null);
       router.refresh();
     });
 
@@ -240,6 +247,10 @@ export function ImportContactsButton({
                   </Field>
                 )}
               </div>
+              <label className="flex items-start gap-2 text-[14px] text-stone-700">
+                <input type="checkbox" className="mt-1 accent-lime-500" checked={verify} onChange={(e) => setVerify(e.target.checked)} />
+                <span>Verify these contacts after importing (in the background; campaigns skip addresses that fail)</span>
+              </label>
               {error && <p role="alert" className="text-[14px] text-rose-700">{error}</p>}
               <div className="flex justify-between gap-2">
                 <button type="button" className={btn.ghost} onClick={reset} disabled={pending}>

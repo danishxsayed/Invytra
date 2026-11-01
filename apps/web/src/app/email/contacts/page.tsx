@@ -4,10 +4,11 @@ import { ContactActions, DeleteListButton, SampleCsvButton } from "@/components/
 import { ImportContactsButton } from "@/components/email/contacts/ImportContacts";
 import { SuppressionPanel } from "@/components/email/contacts/SuppressionPanel";
 import { VariablesPanel } from "@/components/email/contacts/VariablesPanel";
+import { VerifyButton, VerifyProgress } from "@/components/email/contacts/VerifyButton";
 import { inputCls } from "@/components/fields";
 import { Card, EmptyState, PageHeader, cx } from "@/components/ui";
 import { requireChannel } from "@/lib/auth";
-import { CONTACT_FILTERS, listContacts, listLists, listSuppressions, listVariables, type ContactFilter, type ContactRowView } from "@/lib/email-contacts";
+import { CONTACT_FILTERS, listContacts, listLists, listSuppressions, listVariables, verificationConfigured, verificationProgress, type ContactFilter, type ContactRowView } from "@/lib/email-contacts";
 
 export const metadata = { title: "Contacts" };
 export const dynamic = "force-dynamic";
@@ -46,6 +47,7 @@ function Status({ c }: { c: ContactRowView }) {
       {c.bounceStatus === "HARD" && pill("Hard bounce", "bg-rose-50 text-rose-700", c.bounceReason ?? undefined)}
       {c.bounceStatus === "SOFT" && pill(`Soft bounce ×${c.softBounces}`, "bg-amber-50 text-amber-800", c.bounceReason ?? undefined)}
       {pill(v.text, v.cls, c.verifyDetail ?? undefined)}
+      {c.verifyDetail && ["INVALID", "RISKY", "UNKNOWN"].includes(c.verification) && <span className="block w-full max-w-[240px] truncate text-[12px] text-stone-500" title={c.verifyDetail}>{c.verifyDetail}</span>}
     </span>
   );
 }
@@ -61,7 +63,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
   const [lists, variables] = await Promise.all([listLists(prisma, ws), listVariables(prisma, ws)]);
   const list = lists.find((l) => l.id === q.list);
   const href = (o: Partial<Q>) => `/email/contacts?${new URLSearchParams(Object.entries({ tab, list: list?.id, f: filter === "all" ? undefined : filter, q: q.q, ...o }).filter((e): e is [string, string] => !!e[1]))}`;
-  const total = await prisma.emailContact.count({ where: { workspaceId: ws } });
+  const [total, progress] = await Promise.all([prisma.emailContact.count({ where: { workspaceId: ws } }), verificationProgress(prisma, ws)]);
 
   return (
     <div className="space-y-5">
@@ -89,6 +91,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
         ))}
       </nav>
 
+      {tab === "contacts" && total > 0 && <VerifyProgress pending={progress.pending} problem={progress.problem} configured={verificationConfigured()} />}
       {tab === "variables" && (
         <Card className="p-5">
           <VariablesPanel variables={variables} />
@@ -135,7 +138,10 @@ async function ContactsTable({ ws, q, filter, listId, href, listHeader }: { ws: 
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" aria-hidden />
           <input name="q" defaultValue={q.q} placeholder="Search email, name, company" className={cx(inputCls, "mt-0 py-2 pl-9 text-[14px]")} />
         </form>
-        <span className="ml-auto">{listHeader}</span>
+        <span className="ml-auto flex flex-wrap items-center gap-2">
+          <VerifyButton listId={listId} filter={filter} q={q.q?.trim() || undefined} />
+          {listHeader}
+        </span>
       </div>
       <nav className="mb-3 flex flex-wrap gap-1" aria-label="Filter">
         {CONTACT_FILTERS.map((f) => (

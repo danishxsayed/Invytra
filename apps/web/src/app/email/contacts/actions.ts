@@ -14,6 +14,8 @@ import {
   deleteVariable,
   importContacts,
   removeSuppression,
+  requestVerification,
+  CONTACT_FILTERS,
   setSubscribed,
   updateVariableFallback,
   variableSchema,
@@ -75,4 +77,11 @@ export async function addSuppressionsAction(text: unknown): Promise<Result<{ add
 
 export async function removeSuppressionAction(suppressionId: string): Promise<Result> {
   return done(await removeSuppression(prisma, await ws(), id.parse(suppressionId)));
+}
+
+export async function requestVerificationAction(scope: unknown): Promise<Result<number>> {
+  const w = await ws();
+  const p = z.object({ listId: z.string().max(40).optional(), filter: z.enum(CONTACT_FILTERS).optional(), q: z.string().max(200).optional() }).safeParse(scope ?? {});
+  if (!p.success) return { ok: false, error: "Choose contacts to verify." };
+  return done(await requestVerification(prisma, w, p.data));
 }

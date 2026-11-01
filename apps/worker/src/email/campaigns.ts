@@ -86,7 +86,7 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
       where: { campaignId: c.id, status: "ACTIVE", nextAt: { lte: now } },
       orderBy: { nextAt: "asc" },
       take: d.batch ?? 50,
-      include: { contact: { select: { subscribed: true, bounceStatus: true } } },
+      include: { contact: { select: { subscribed: true, bounceStatus: true, verification: true, verifyDetail: true } } },
     });
     if (!due.length) continue;
     const [fallbacks, suppressed] = await Promise.all([
@@ -96,7 +96,16 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
     for (const lead of due) {
       // Never email someone who unsubscribed, hard-bounced or is on the suppression list (checked again at send time).
       const domain = lead.email.slice(lead.email.indexOf("@") + 1);
-      const stop = lead.contact && !lead.contact.subscribed ? "Unsubscribed" : lead.contact?.bounceStatus === "HARD" ? "Bounced before (hard bounce)" : suppressed.has(lead.email) || suppressed.has(`@${domain}`) || suppressed.has(domain) ? "On the suppression list" : null;
+      const stop =
+        lead.contact && !lead.contact.subscribed
+          ? "Unsubscribed"
+          : lead.contact?.bounceStatus === "HARD"
+            ? "Bounced before (hard bounce)"
+            : suppressed.has(lead.email) || suppressed.has(`@${domain}`) || suppressed.has(domain)
+              ? "On the suppression list"
+              : lead.contact?.verification === "INVALID"
+                ? `Failed verification: ${lead.contact.verifyDetail ?? "invalid address"}`
+                : null;
       if (stop) {
         await prisma.emailLead.update({ where: { id: lead.id }, data: { status: "SKIPPED", nextAt: null, reason: stop } });
         res.skipped++;

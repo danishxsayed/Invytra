@@ -88,3 +88,34 @@ d("email contacts", () => {
     expect((await listContacts(prisma, WS)).total).toBe(3);
   });
 });
+
+import { requestVerification, verificationProgress } from "../src/lib/email-contacts";
+
+d("asking for verification", () => {
+  let prisma: PrismaClient;
+  const WS = "ws-ctc-v";
+  beforeAll(async () => {
+    prisma = new PrismaClient({ datasources: { db: { url } } });
+    await prisma.workspace.deleteMany({ where: { id: WS } });
+    await prisma.workspace.create({ data: { id: WS, name: "V" } });
+    await prisma.emailContact.createMany({
+      data: [
+        { workspaceId: WS, email: "new@x.co" },
+        { workspaceId: WS, email: "unknown@x.co", verification: "UNKNOWN" },
+        { workspaceId: WS, email: "valid@x.co", verification: "VALID" },
+      ],
+    });
+  });
+  afterAll(async () => {
+    await prisma.workspace.deleteMany({ where: { id: WS } });
+    await prisma.$disconnect();
+  });
+
+  it("queues unverified and unknown contacts only, once", async () => {
+    expect(await requestVerification(prisma, WS)).toEqual({ ok: true, value: 2 });
+    expect(await requestVerification(prisma, WS)).toEqual({ ok: true, value: 0 });
+    expect(await verificationProgress(prisma, WS)).toEqual({ pending: 2, problem: null });
+    await prisma.emailContact.updateMany({ where: { workspaceId: WS, email: "new@x.co" }, data: { verifyDetail: "Waiting: Insufficient credits" } });
+    expect(await verificationProgress(prisma, WS)).toEqual({ pending: 2, problem: "Insufficient credits" });
+  });
+});

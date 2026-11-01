@@ -244,3 +244,30 @@ export async function removeSuppression(prisma: PrismaClient, workspaceId: strin
 export function isSuppressed(entries: Set<string>, email: string): boolean {
   return entries.has(email) || entries.has(`@${email.slice(email.indexOf("@") + 1)}`) || entries.has(email.slice(email.indexOf("@") + 1));
 }
+
+// ---------------------------------------------------------------- verification
+
+export const verificationConfigured = () => !!process.env.MILLIONVERIFIER_API_KEY;
+
+/**
+ * Queues contacts for verification (the worker checks them in the background): those in a
+ * list / filter / search that haven't been verified, or came back unknown.
+ */
+export async function requestVerification(prisma: PrismaClient, workspaceId: string, o: { listId?: string; filter?: ContactFilter; q?: string } = {}): Promise<Result<number>> {
+  const where: Prisma.EmailContactWhereInput = {
+    workspaceId,
+    ...(o.listId && { lists: { some: { listId: o.listId } } }),
+    ...filterWhere(o.filter ?? "all"),
+    ...(o.q && { OR: [{ email: { contains: o.q, mode: "insensitive" } }, { firstName: { contains: o.q, mode: "insensitive" } }, { company: { contains: o.q, mode: "insensitive" } }] }),
+  };
+  const r = await prisma.emailContact.updateMany({ where: { AND: [where, { verification: { in: ["NOT_CHECKED", "UNKNOWN"] } }] }, data: { verification: "PENDING", verifyDetail: "Queued" } });
+  return { ok: true, value: r.count };
+}
+
+export async function verificationProgress(prisma: PrismaClient, workspaceId: string) {
+  const [pending, waiting] = await Promise.all([
+    prisma.emailContact.count({ where: { workspaceId, verification: "PENDING" } }),
+    prisma.emailContact.findFirst({ where: { workspaceId, verification: "PENDING", verifyDetail: { startsWith: "Waiting:" } }, select: { verifyDetail: true } }),
+  ]);
+  return { pending, problem: waiting?.verifyDetail?.replace(/^Waiting:\s*/, "") ?? null };
+}
