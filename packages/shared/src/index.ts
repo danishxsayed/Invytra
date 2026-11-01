@@ -19,3 +19,4 @@ export * from "./email-warmup.js";
 export * from "./email-campaign.js";
 export * from "./email-vars.js";
 export * from "./email-contacts.js";
+export * from "./email-ai.js";

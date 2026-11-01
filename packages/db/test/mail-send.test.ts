@@ -12,6 +12,9 @@ describe("unsubscribe line", () => {
     expect(b.text).toBe("Hi Priya\n\nTom\n\nDon't want these emails? Unsubscribe here: https://app.x/unsubscribe/t1");
     expect(b.html).toContain(`Don&#39;t want these emails? <a href="https://app.x/unsubscribe/t1">Unsubscribe here</a>`.replace("&#39;", "'"));
   });
+  it("puts preview text first, hidden", () => {
+    expect(emailBody("Hi", "", null, "A quick idea").html).toMatch(/^<div style="display:none[^"]*">A quick idea<\/div>/);
+  });
   it("goes where the email says {{unsubscribe}}, or disappears when off", () => {
     expect(emailBody("Hi\n\n{{unsubscribe}}\n\nP.S. more", "", u).text).toBe("Hi\n\nDon't want these emails? Unsubscribe here: https://app.x/unsubscribe/t1\n\nP.S. more");
     expect(emailBody("Hi {{unsubscribe}}", "", null).text).toBe("Hi");

@@ -1,7 +1,9 @@
 "use server";
 
 import { prisma } from "@invytra/db";
-import { emailSequenceSchema } from "@invytra/shared";
+import { emailAiRequestSchema, emailSequenceSchema, type EmailDraft } from "@invytra/shared";
+import { OpenAiError } from "@invytra/db";
+import { aiEmailFromEnv } from "@/lib/ai-email";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { Result } from "@/lib/accounts";
@@ -90,4 +92,20 @@ export async function saveEmailCampaignSettingsAction(id: string, input: unknown
   const p = emailCampaignSettingsSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]!.message };
   return done(await saveEmailCampaignSettings(prisma, w, String(id), p.data));
+}
+
+/** Drafts from the AI writer. It only drafts: nothing is saved or sent from here. */
+export async function aiEmailAction(input: unknown): Promise<Result<EmailDraft[]>> {
+  await ws();
+  const p = emailAiRequestSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]!.message };
+  const writer = aiEmailFromEnv();
+  if (!writer) return { ok: false, error: "AI writing isn't set up: add OPENAI_API_KEY to .env and restart." };
+  try {
+    const drafts = await writer.write(p.data);
+    return drafts.length ? { ok: true, value: drafts } : { ok: false, error: "The drafts didn't pass the checks (links, made-up variables or spammy words). Try again." };
+  } catch (e) {
+    if (e instanceof OpenAiError) return { ok: false, error: e.status === 429 ? "The AI is busy or out of credit right now. Try again in a minute." : e.status === 401 ? "The OpenAI key was refused. Check OPENAI_API_KEY." : "The AI couldn't write right now. Try again." };
+    return { ok: false, error: "The AI took too long. Try again." };
+  }
 }

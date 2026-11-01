@@ -132,6 +132,8 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
         continue;
       }
 
+      const pv = step.preview ? renderEmailText(step.preview, vars, rand) : null;
+      const preview = pv?.ok ? pv.text : undefined;
       // Unsubscribe: the one-click header always (mail providers show their own button), the visible line if the campaign wants it.
       const urls = unsubscribeUrls(d.origin ?? publicOrigin(), unsubscribeToken(lead.id, d.key));
       const unsubscribe = c.unsubscribeLink ? { text: c.unsubscribeText, url: urls.page } : null;
@@ -141,7 +143,7 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
       };
       const r = await sendEmail(
         { ...box, provider: box.provider as never, password: openSecret(box.secret, d.key) },
-        { fromName: box.fromName, from: box.email, to: lead.email, subject: subject.text, text: body.text, signature: box.signature, inReplyTo: followUpInThread ? lead.threadMessageId! : undefined, unsubscribe, headers },
+        { fromName: box.fromName, from: box.email, to: lead.email, subject: subject.text, text: body.text, signature: box.signature, inReplyTo: followUpInThread ? lead.threadMessageId! : undefined, unsubscribe, headers, preview },
         d.sender,
       );
       await prisma.emailSend.create({

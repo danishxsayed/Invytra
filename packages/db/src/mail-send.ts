@@ -17,6 +17,8 @@ export interface OutgoingEmail {
   inReplyTo?: string;
   /** Extra headers (List-Unsubscribe …). */
   headers?: Record<string, string>;
+  /** Preview text: the line inboxes show after the subject (hidden in the email itself). */
+  preview?: string;
 }
 
 /** An unsubscribe line: its text ([brackets] mark the linked words) and where it links. */
@@ -85,7 +87,7 @@ function unsubscribeParts(u: UnsubscribeLine): { text: string; html: string } {
  * The body with the signature under it, as text and as simple HTML. With an unsubscribe
  * line it goes where the email says {{unsubscribe}}, otherwise at the very bottom.
  */
-export function emailBody(text: string, signature: string, unsubscribe?: UnsubscribeLine | null): { text: string; html: string } {
+export function emailBody(text: string, signature: string, unsubscribe?: UnsubscribeLine | null, preview?: string): { text: string; html: string } {
   const full = signature.trim() ? `${text.trimEnd()}\n\n${signature.trim()}` : text.trimEnd();
   const MARK = "\u0000UNSUB\u0000";
   let body = full.replace(UNSUB_TOKEN, unsubscribe ? MARK : "");
@@ -96,7 +98,8 @@ export function emailBody(text: string, signature: string, unsubscribe?: Unsubsc
     .map((p) => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
     .join("\n")
     .replace(MARK, u ? `<span style="color:#888;font-size:12px">${u.html}</span>` : "");
-  return { text: body.replace(MARK, u?.text ?? "").trim(), html: `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5">${html}</div>` };
+  const pre = preview?.trim() ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(preview.trim())}</div>` : "";
+  return { text: body.replace(MARK, u?.text ?? "").trim(), html: `${pre}<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5">${html}</div>` };
 }
 
 /** Sends one email. Never throws: a failure comes back as a plain-language reason. */
@@ -107,7 +110,7 @@ export async function sendEmail(
 ): Promise<SendResult> {
   try {
     await checkMailHost(login.smtpHost);
-    const body = emailBody(mail.text, mail.signature ?? "", mail.unsubscribe);
+    const body = emailBody(mail.text, mail.signature ?? "", mail.unsubscribe, mail.preview);
     const { messageId } = await sender.send(login, { ...mail, ...body });
     return { ok: true, messageId };
   } catch (e) {

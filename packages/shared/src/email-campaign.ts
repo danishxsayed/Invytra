@@ -19,6 +19,8 @@ export const emailStepSchema = z.object({
   body: z.string().max(EMAIL_CAMPAIGN.bodyMax),
   /** Days after the previous email (the first email: 0 = as soon as sending allows). */
   delayDays: z.number().int().min(0).max(EMAIL_CAMPAIGN.maxDelayDays),
+  /** Preview text: the line inboxes show after the subject (optional). */
+  preview: z.string().max(150).optional(),
 });
 export type EmailStep = z.infer<typeof emailStepSchema>;
 

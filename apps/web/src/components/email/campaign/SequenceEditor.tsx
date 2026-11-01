@@ -1,7 +1,8 @@
 "use client";
 
 import { BUILT_IN_VARS, EMAIL_CAMPAIGN, renderEmailText, unknownVars, type EmailRecipientVars, type EmailStep } from "@invytra/shared";
-import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
+import { AiWriter } from "./AiWriter";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { saveEmailSequenceAction } from "@/app/email/campaigns/actions";
@@ -19,6 +20,7 @@ export function SequenceEditor({ id, initial, columns, sample, editable }: { id:
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [who, setWho] = useState(0);
+  const [ai, setAi] = useState<number | null>(null);
   const focus = useRef<Target>({ step: 0, field: "body" });
   const fields = useRef(new Map<string, HTMLInputElement | HTMLTextAreaElement>());
 
@@ -81,8 +83,13 @@ export function SequenceEditor({ id, initial, columns, sample, editable }: { id:
                   days after email {i}, if no reply
                 </span>
               )}
+              {editable && (
+                <button type="button" className={cx(btn.secondary, "ml-auto border-violet-200 px-2.5 py-1 text-[13.5px] text-violet-700 hover:bg-violet-50")} onClick={() => setAi(i)}>
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden /> Write with AI
+                </button>
+              )}
               {editable && steps.length > 1 && (
-                <button type="button" className={cx(btn.ghost, "ml-auto px-2 py-1")} onClick={() => (setSaved(false), setSteps(steps.filter((_, j) => j !== i)))} aria-label={`Remove email ${i + 1}`}>
+                <button type="button" className={cx(btn.ghost, "px-2 py-1")} onClick={() => (setSaved(false), setSteps(steps.filter((_, j) => j !== i)))} aria-label={`Remove email ${i + 1}`}>
                   <Trash2 className="h-4 w-4" aria-hidden />
                 </button>
               )}
@@ -96,6 +103,14 @@ export function SequenceEditor({ id, initial, columns, sample, editable }: { id:
               onFocus={() => (focus.current = { step: i, field: "subject" })}
               onChange={(e) => set(i, { subject: e.target.value })}
               placeholder={i === 0 ? "Subject" : "Leave empty to reply in the same thread (Re: …)"}
+            />
+            <input
+              className={cx(inputCls, "mt-2 py-2 text-[14px]")}
+              value={s.preview ?? ""}
+              disabled={!editable}
+              maxLength={150}
+              onChange={(e) => set(i, { preview: e.target.value })}
+              placeholder="Preview text (optional): the line inboxes show after the subject"
             />
             <textarea
               ref={(el) => void (el && fields.current.set(`${i}.body`, el))}
@@ -142,6 +157,17 @@ export function SequenceEditor({ id, initial, columns, sample, editable }: { id:
         {error && <p role="alert" className="text-[14px] text-rose-700">{error}</p>}
       </div>
 
+      {ai !== null && (
+        <AiWriter
+          campaignId={id}
+          step={ai}
+          current={steps[ai]!}
+          previous={ai > 0 ? steps[ai - 1] : undefined}
+          variables={columns}
+          onUse={(d) => set(ai, { ...(ai === 0 || d.subject ? { subject: d.subject } : {}), body: d.body, preview: d.preview })}
+          onClose={() => setAi(null)}
+        />
+      )}
       <aside className="h-fit rounded-xl border border-stone-200 bg-stone-50/60 p-4 lg:sticky lg:top-4">
         <div className="mb-3 flex items-center justify-between gap-2">
           <span className="text-[15px] font-semibold text-stone-900">Preview</span>
@@ -172,6 +198,7 @@ export function SequenceEditor({ id, initial, columns, sample, editable }: { id:
                   ) : (
                     <>
                       <p className="mt-1 text-[14px] font-semibold text-stone-900">{(subj as { text: string }).text}</p>
+                      {s.preview && <p className="text-[12.5px] text-stone-500">{(() => { const p = renderEmailText(s.preview, lead, () => 0); return p.ok ? p.text : s.preview; })()}</p>}
                       <p className="mt-1 whitespace-pre-wrap text-[13.5px] text-stone-700">{(body as { text: string }).text}</p>
                     </>
                   )}
