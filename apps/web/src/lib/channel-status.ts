@@ -28,6 +28,15 @@ const READERS: Partial<Record<ChannelId, StatusReader>> = {
       text: `${active} account${active === 1 ? "" : "s"} connected · ${campaigns} active campaign${campaigns === 1 ? "" : "s"}`,
     };
   },
+  email: async (prisma, workspaceId) => {
+    const [active, failing] = await Promise.all([
+      prisma.emailAccount.count({ where: { workspaceId, status: "ACTIVE" } }),
+      prisma.emailAccount.count({ where: { workspaceId, status: "ERROR" } }),
+    ]);
+    if (failing > 0) return { state: "attention", text: `${failing} mailbox${failing === 1 ? " needs" : "es need"} attention` };
+    if (active === 0) return { state: "setup", text: "Connect a mailbox to start" };
+    return { state: "ready", text: `${active} mailbox${active === 1 ? "" : "es"} connected` };
+  },
 };
 
 export async function channelSetup(prisma: PrismaClient, workspaceId: string, id: ChannelId): Promise<ChannelSetup> {

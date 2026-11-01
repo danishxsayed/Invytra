@@ -45,9 +45,9 @@ export const CHANNELS: readonly ChannelDef[] = [
   },
   {
     id: "email",
-    name: "Email Marketing",
-    description: "Cold email sequences with warm-up, inbox rotation and reply tracking.",
-    status: "soon",
+    name: "Email Outreach",
+    description: "Cold email from mailboxes on your own domains, with sending limits, warm-up and reply tracking.",
+    status: "live",
     subdomain: "email",
     basePath: "/email",
     open: "Open Email",
@@ -67,7 +67,7 @@ export const channelById = (id: string): ChannelDef | undefined => CHANNELS.find
 export const channelBySubdomain = (sub: string): ChannelDef | undefined => CHANNELS.find((c) => c.subdomain === sub.toLowerCase());
 
 /** Channels a new workspace gets (a paid package can add more as they launch). */
-export const DEFAULT_WORKSPACE_CHANNELS: ChannelId[] = ["linkedin"];
+export const DEFAULT_WORKSPACE_CHANNELS: ChannelId[] = ["linkedin", "email"];
 
 /**
  * Whether a workspace may use a channel: it has launched, and the workspace's subscription

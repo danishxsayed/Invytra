@@ -22,7 +22,7 @@ model Workspace {
   name      String
   plan      String   @default("trial")
   /// Outreach channels this workspace's subscription includes (ids from CHANNELS in @invytra/shared)
-  channels  String[] @default(["linkedin"])
+  channels  String[] @default(["linkedin", "email"])
   createdAt DateTime @default(now()) @map("created_at")
 
   members   Membership[]
@@ -31,6 +31,7 @@ model Workspace {
   imports   LeadImport[]
   leads     Lead[]
   campaigns Campaign[]
+  mailboxes EmailAccount[]
 
   @@map("workspaces")
 }
@@ -500,4 +501,53 @@ model ConversationMessage {
   @@unique([conversationId, key])
   @@index([conversationId, sentAt])
   @@map("conversation_messages")
+}
+
+enum MailboxProvider {
+  GOOGLE
+  MICROSOFT
+  ZOHO
+  HOSTINGER
+  GODADDY
+  OTHER
+}
+
+enum MailboxStatus {
+  ACTIVE
+  ERROR
+  PAUSED
+}
+
+/// A sending mailbox on the customer's own domain (Email Outreach), connected with SMTP to
+/// send and IMAP to read replies. One mailbox is on Invytra once.
+model EmailAccount {
+  id          String          @id @default(cuid())
+  workspaceId String          @map("workspace_id")
+  /// Lower-case address, e.g. tahur@getcrawlers.com
+  email       String          @unique
+  fromName    String          @map("from_name")
+  provider    MailboxProvider
+  smtpHost    String          @map("smtp_host")
+  smtpPort    Int             @map("smtp_port")
+  /// true = TLS from the start (465); false = STARTTLS (587)
+  smtpSecure  Boolean         @map("smtp_secure")
+  imapHost    String          @map("imap_host")
+  imapPort    Int             @map("imap_port")
+  /// Login name (usually the address itself)
+  username    String
+  /// The (app) password, AES-256-GCM encrypted with SESSION_ENCRYPTION_KEY. Never logged.
+  secret      String
+  status      MailboxStatus   @default(ACTIVE)
+  /// Why it stopped working (a short, plain message)
+  statusReason String?        @map("status_reason")
+  /// Emails it may send a day (warm-up raises it over time)
+  dailyLimit  Int             @default(30) @map("daily_limit")
+  lastCheckedAt DateTime?     @map("last_checked_at")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("email_accounts")
 }

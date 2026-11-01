@@ -18,3 +18,4 @@ export const DEFAULT_WORKSPACE_ID = "default";
 export * from "./replies.js";
 export * from "./ai-line.js";
 export * from "./plan-limits.js";
+export * from "./mailbox.js";

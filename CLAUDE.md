@@ -1,7 +1,8 @@
 # Invytra — Project Context for Claude Code
 
-Invytra is a cloud-based LinkedIn outreach automation SaaS (Expandi-style), built by
-Crawlers Technologies Pvt Ltd. LinkedIn-only — no email or WhatsApp channels.
+Invytra is a cloud-based outreach automation SaaS (Expandi / Instantly-style), built by
+Crawlers Technologies Pvt Ltd. Channels: LinkedIn Outreach (live), Email Outreach (live:
+mailboxes on the customer's own domains, SMTP/IMAP), WhatsApp and Instagram (coming soon).
 
 Each customer connects one or more LinkedIn accounts. Invytra runs every account in
 its own cloud browser, through its own dedicated proxy, and executes outreach

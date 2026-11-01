@@ -9,7 +9,8 @@ subdomain.
 | `invytra.com` | Public website |
 | `app.invytra.com` | Workspace hub (lands here after signing in), log in, sign up |
 | `linkedin.invytra.com` | LinkedIn Outreach (live) |
-| `whatsapp.` / `email.` / `instagram.invytra.com` | Upcoming channels (cards shown disabled; the subdomain sends you to the hub) |
+| `email.invytra.com` | Email Outreach (live): mailboxes on the customer's own domains (`apps/web/src/app/email`, `packages/db/src/mailbox.ts`) |
+| `whatsapp.` / `instagram.invytra.com` | Upcoming channels (cards shown disabled; the subdomain sends you to the hub) |
 
 ## How it fits together
 

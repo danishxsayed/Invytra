@@ -10,7 +10,7 @@ export default {
   // `pnpm web` (dev) and `pnpm build` must never share a folder — mixing them
   // corrupts it and the dashboard shows a blank page.
   distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
-  serverExternalPackages: ["@prisma/client", "bcryptjs"],
+  serverExternalPackages: ["@prisma/client", "bcryptjs", "nodemailer", "imapflow"],
   poweredByHeader: false,
   // Lead lists are uploaded as CSV text (up to 5 MB, see LEAD_IMPORT in @invytra/shared).
   experimental: { serverActions: { bodySizeLimit: "6mb" } },

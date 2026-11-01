@@ -1,3 +1,4 @@
+import { CHANNELS } from "@invytra/shared";
 import { hostKind, channelOrigin, domainConfig, hubOrigin, siteOrigin, type DomainConfig } from "./domains";
 
 export type RouteDecision = { type: "next" } | { type: "rewrite"; path: string } | { type: "redirect"; url: string };
@@ -20,8 +21,8 @@ export function routeRequest(
 
   switch (where.kind) {
     case "single":
-      // Everything on one address: the hub at /workspace, LinkedIn at /app.
-      if ((is(path, "/app") || is(path, "/workspace")) && !hasSession) return { type: "redirect", url: login(path + search) };
+      // Everything on one address: the hub at /workspace, each channel at its base path (/app, /email …).
+      if ((is(path, "/workspace") || CHANNELS.some((c) => is(path, c.basePath))) && !hasSession) return { type: "redirect", url: login(path + search) };
       return { type: "next" };
 
     case "site":

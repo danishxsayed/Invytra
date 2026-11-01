@@ -9,11 +9,11 @@ const single: DomainConfig = { root: null, protocol: "http:" };
 const go = (host: string, pathname: string, hasSession = true, cfg = live, search = "") => routeRequest({ host, pathname, search, hasSession }, cfg);
 
 describe("channels", () => {
-  it("lists LinkedIn as live and the rest as coming soon", () => {
+  it("lists LinkedIn and Email as live and the rest as coming soon", () => {
     expect(CHANNELS.map((c) => [c.id, c.status])).toEqual([
       ["linkedin", "live"],
       ["whatsapp", "soon"],
-      ["email", "soon"],
+      ["email", "live"],
       ["instagram", "soon"],
     ]);
   });
@@ -67,6 +67,10 @@ describe("routing by host", () => {
     expect(go("app.invytra.com", "/app/inbox")).toEqual({ type: "redirect", url: "https://linkedin.invytra.com/app/inbox" });
     expect(go("app.invytra.com", "/pricing")).toEqual({ type: "redirect", url: "https://invytra.com/pricing" });
   });
+  it("serves Email on its own subdomain", () => {
+    expect(go("email.invytra.com", "/")).toEqual({ type: "rewrite", path: "/email" });
+    expect(go("email.invytra.com", "/mailboxes")).toEqual({ type: "rewrite", path: "/email/mailboxes" });
+  });
   it("serves LinkedIn on its subdomain, with or without /app in the path", () => {
     expect(go("linkedin.invytra.com", "/")).toEqual({ type: "rewrite", path: "/app" });
     expect(go("linkedin.invytra.com", "/campaigns")).toEqual({ type: "rewrite", path: "/app/campaigns" });
@@ -93,5 +97,6 @@ describe("routing by host", () => {
     expect(go("localhost:3000", "/app/inbox", false, single)).toEqual({ type: "redirect", url: "/login?next=%2Fapp%2Finbox" });
     expect(go("localhost:3000", "/workspace", false, single)).toEqual({ type: "redirect", url: "/login?next=%2Fworkspace" });
     expect(go("localhost:3000", "/pricing", false, single)).toEqual({ type: "next" });
+    expect(go("localhost:3000", "/email/mailboxes", false, single)).toEqual({ type: "redirect", url: "/login?next=%2Femail%2Fmailboxes" });
   });
 });
