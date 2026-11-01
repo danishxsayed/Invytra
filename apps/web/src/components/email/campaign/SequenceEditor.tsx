@@ -1,6 +1,6 @@
 "use client";
 
-import { BUILT_IN_VARS, EMAIL_CAMPAIGN, renderEmailText, unknownVars, type EmailLeadVars, type EmailStep } from "@invytra/shared";
+import { BUILT_IN_VARS, EMAIL_CAMPAIGN, renderEmailText, unknownVars, type EmailRecipientVars, type EmailStep } from "@invytra/shared";
 import { AlertTriangle, Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
@@ -12,7 +12,7 @@ import { cx } from "../../ui";
 type Target = { step: number; field: "subject" | "body" };
 
 /** The emails of the sequence, with variables and a preview for real leads. */
-export function SequenceEditor({ id, initial, columns, sample, editable }: { id: string; initial: EmailStep[]; columns: string[]; sample: EmailLeadVars[]; editable: boolean }) {
+export function SequenceEditor({ id, initial, columns, sample, editable }: { id: string; initial: EmailStep[]; columns: string[]; sample: EmailRecipientVars[]; editable: boolean }) {
   const router = useRouter();
   const [steps, setSteps] = useState<EmailStep[]>(initial.length ? initial : [{ subject: "", body: "", delayDays: 0 }]);
   const [pending, start] = useTransition();
@@ -31,7 +31,7 @@ export function SequenceEditor({ id, initial, columns, sample, editable }: { id:
     const el = fields.current.get(`${step}.${field}`);
     const cur = steps[step]?.[field] ?? "";
     const at = el?.selectionStart ?? cur.length;
-    const token = v === "firstName" ? "{firstName|there}" : `{${v}}`;
+    const token = v === "first_name" ? "{{first_name|there}}" : `{{${v}}}`;
     set(step, { [field]: cur.slice(0, at) + token + cur.slice(el?.selectionEnd ?? at) });
     requestAnimationFrame(() => {
       el?.focus();
@@ -50,12 +50,15 @@ export function SequenceEditor({ id, initial, columns, sample, editable }: { id:
             <span className="text-[13px] text-stone-500">Insert:</span>
             {vars.map((v) => (
               <button key={v} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => insert(v)} className="rounded-md bg-stone-100 px-2 py-0.5 font-mono text-[12.5px] text-stone-700 hover:bg-stone-200">
-                {`{${v}}`}
+                {`{{${v}}}`}
               </button>
             ))}
             <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => insert("random:Hi|Hello|Hey")} className="rounded-md bg-violet-50 px-2 py-0.5 font-mono text-[12.5px] text-violet-700 hover:bg-violet-100">
-              {"{random:Hi|Hello|Hey}"}
+              {"{{random:Hi|Hello|Hey}}"}
             </button>
+            <a href="/email/contacts?tab=variables" className="ml-1 text-[12.5px] text-stone-500 underline-offset-2 hover:underline">
+              Manage variables
+            </a>
           </div>
         )}
         {steps.map((s, i) => (
@@ -133,7 +136,7 @@ export function SequenceEditor({ id, initial, columns, sample, editable }: { id:
         )}
         {unknown.length > 0 && (
           <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[14px] text-amber-800">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {unknown.map((u) => `{${u}}`).join(", ")} isn't a column of your leads. Add it to your CSV or remove it.
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {unknown.map((u) => `{{${u}}}`).join(", ")} isn't a variable yet. Create it under Contacts → Variables, import a CSV column with that name, or remove it.
           </p>
         )}
         {error && <p role="alert" className="text-[14px] text-rose-700">{error}</p>}
@@ -165,7 +168,7 @@ export function SequenceEditor({ id, initial, columns, sample, editable }: { id:
                 <div key={i} className="rounded-lg bg-white p-3 ring-1 ring-stone-200">
                   <p className="text-[12px] font-medium uppercase tracking-wide text-stone-400">Email {i + 1}</p>
                   {missing.length ? (
-                    <p className="mt-1 text-[13px] text-amber-800">Not sent to this lead: no value for {missing.map((m) => `{${m}}`).join(", ")}. Add a fallback, like {`{${missing[0]}|there}`}.</p>
+                    <p className="mt-1 text-[13px] text-amber-800">Not sent to this lead: no value for {missing.map((m) => `{{${m}}}`).join(", ")}. Add a fallback, like {`{{${missing[0]}|there}}`}, or a default under Contacts → Variables.</p>
                   ) : (
                     <>
                       <p className="mt-1 text-[14px] font-semibold text-stone-900">{(subj as { text: string }).text}</p>
@@ -175,7 +178,7 @@ export function SequenceEditor({ id, initial, columns, sample, editable }: { id:
                 </div>
               );
             })}
-            <p className="text-[12px] text-stone-500">{"{random:…}"} picks one option per email; the preview shows the first.</p>
+            <p className="text-[12px] text-stone-500">{"{{random:…}}"} picks one option per email; the preview shows the first.</p>
           </div>
         )}
       </aside>

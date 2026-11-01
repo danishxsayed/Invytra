@@ -1,12 +1,13 @@
 "use client";
 
-import { Flame, Inbox, Mail, Send } from "lucide-react";
+import { Flame, Inbox, Mail, Send, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cx } from "../ui";
 
 const LIVE = [
   { href: "/email/mailboxes", end: "/mailboxes", label: "Mailboxes", Icon: Mail },
   { href: "/email/warmup", end: "/warmup", label: "Warm-up", Icon: Flame },
+  { href: "/email/contacts", end: "/contacts", label: "Contacts", Icon: Users },
   { href: "/email/campaigns", end: "/campaigns", label: "Campaigns", Icon: Send },
   { href: "/email/inbox", end: "/inbox", label: "Inbox", Icon: Inbox },
 ];

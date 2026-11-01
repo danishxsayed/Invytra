@@ -75,8 +75,26 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
     const mine = c.mailboxes.map((x) => boxes.get(x.emailAccountId)!);
     if (!mine.some((b) => mailboxReadiness(b, now).ok)) continue;
 
-    const due = await prisma.emailLead.findMany({ where: { campaignId: c.id, status: "ACTIVE", nextAt: { lte: now } }, orderBy: { nextAt: "asc" }, take: d.batch ?? 50 });
+    const due = await prisma.emailLead.findMany({
+      where: { campaignId: c.id, status: "ACTIVE", nextAt: { lte: now } },
+      orderBy: { nextAt: "asc" },
+      take: d.batch ?? 50,
+      include: { contact: { select: { subscribed: true, bounceStatus: true } } },
+    });
+    if (!due.length) continue;
+    const [fallbacks, suppressed] = await Promise.all([
+      prisma.emailVariable.findMany({ where: { workspaceId: c.workspaceId, fallback: { not: "" } }, select: { key: true, fallback: true } }).then((v) => Object.fromEntries(v.map((x) => [x.key, x.fallback]))),
+      prisma.emailSuppression.findMany({ where: { workspaceId: c.workspaceId }, select: { email: true } }).then((r) => new Set(r.map((x) => x.email))),
+    ]);
     for (const lead of due) {
+      // Never email someone who unsubscribed, hard-bounced or is on the suppression list (checked again at send time).
+      const domain = lead.email.slice(lead.email.indexOf("@") + 1);
+      const stop = lead.contact && !lead.contact.subscribed ? "Unsubscribed" : lead.contact?.bounceStatus === "HARD" ? "Bounced before (hard bounce)" : suppressed.has(lead.email) || suppressed.has(`@${domain}`) || suppressed.has(domain) ? "On the suppression list" : null;
+      if (stop) {
+        await prisma.emailLead.update({ where: { id: lead.id }, data: { status: "SKIPPED", nextAt: null, reason: stop } });
+        res.skipped++;
+        continue;
+      }
       // Its own mailbox (if still in the campaign), else the one with the most room.
       const own = lead.emailAccountId ? mine.find((b) => b.id === lead.emailAccountId) : undefined;
       const box = own ?? pickMailbox(mine, now);
@@ -86,14 +104,14 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
         await prisma.emailLead.update({ where: { id: lead.id }, data: { status: "COMPLETED", nextAt: null } });
         continue;
       }
-      const vars = { ...lead, vars: (lead.vars ?? {}) as Record<string, string> };
+      const vars = { ...lead, vars: { ...fallbacks, ...((lead.vars ?? {}) as Record<string, string>) } };
       const followUpInThread = !step.subject && !!lead.threadMessageId;
       const subjectTpl = step.subject || (lead.threadSubject ? `Re: ${lead.threadSubject}` : steps.data[0]!.subject);
       const subject = followUpInThread ? { ok: true as const, text: subjectTpl } : renderEmailText(subjectTpl, vars, rand);
       const body = renderEmailText(step.body, vars, rand);
       if (!subject.ok || !body.ok) {
         const missing = [...(subject.ok ? [] : subject.missing), ...(body.ok ? [] : body.missing)];
-        await prisma.emailLead.update({ where: { id: lead.id }, data: { status: "SKIPPED", nextAt: null, reason: `No value for ${missing.map((m) => `{${m}}`).join(", ")} (add a fallback like {${missing[0]}|there})` } });
+        await prisma.emailLead.update({ where: { id: lead.id }, data: { status: "SKIPPED", nextAt: null, reason: `No value for ${missing.map((m) => `{{${m}}}`).join(", ")} (add a fallback like {{${missing[0]}|there}})` } });
         res.skipped++;
         continue;
       }

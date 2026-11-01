@@ -10,13 +10,13 @@ import {
   campaignNameSchema,
   createEmailCampaign,
   deleteEmailCampaign,
-  importEmailLeads,
+  addListsToCampaign,
   launchEmailCampaign,
   renameEmailCampaign,
   saveEmailSequence,
   setCampaignMailboxes,
   setEmailCampaignPaused,
-  type LeadImportResult,
+  type AddContactsResult,
 } from "@/lib/email-campaigns";
 
 /* Email campaign actions: Email channel only, and only the signed-in workspace's campaigns. */
@@ -55,11 +55,11 @@ export async function setCampaignMailboxesAction(id: string, mailboxIds: unknown
   return done(await setCampaignMailboxes(prisma, w, String(id), ids.data));
 }
 
-export async function importEmailLeadsAction(id: string, text: unknown): Promise<Result<LeadImportResult>> {
+export async function addListsToCampaignAction(id: string, listIds: unknown): Promise<Result<AddContactsResult>> {
   const w = await ws();
-  const t = z.string().min(1, "Paste or upload a CSV.").max(5_000_000, "That file is too big (max 5 MB).").safeParse(text);
-  if (!t.success) return { ok: false, error: t.error.issues[0]!.message };
-  return done(await importEmailLeads(prisma, w, String(id), t.data));
+  const p = z.array(z.string().max(40)).min(1, "Choose a list.").max(50).safeParse(listIds);
+  if (!p.success) return { ok: false, error: p.error.issues[0]!.message };
+  return done(await addListsToCampaign(prisma, w, String(id), p.data));
 }
 
 export async function launchEmailCampaignAction(id: string): Promise<Result> {

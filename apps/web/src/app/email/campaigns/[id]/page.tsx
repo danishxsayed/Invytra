@@ -3,12 +3,13 @@ import { emailWarmupDay } from "@invytra/shared";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, Clock, Send } from "lucide-react";
 import { notFound } from "next/navigation";
 import { CampaignActions } from "@/components/email/campaign/CampaignActions";
-import { LeadsImport } from "@/components/email/campaign/LeadsImport";
+import { AddLeads } from "@/components/email/campaign/AddLeads";
 import { MailboxPicker } from "@/components/email/campaign/MailboxPicker";
 import { SequenceEditor } from "@/components/email/campaign/SequenceEditor";
 import { CAMPAIGN_STATUS, LEAD_STATUS, pct } from "@/components/email/campaign/status";
 import { Card, cx } from "@/components/ui";
 import { requireChannel } from "@/lib/auth";
+import { listLists, listVariables } from "@/lib/email-contacts";
 import { LEAD_FILTERS, getEmailCampaign, type LeadFilter } from "@/lib/email-campaigns";
 
 export const metadata = { title: "Email campaign" };
@@ -99,6 +100,7 @@ export default async function EmailCampaignPage({ params, searchParams }: { para
     orderBy: { createdAt: "asc" },
     select: { id: true, email: true, status: true, dailyLimit: true, warmupEnabled: true, warmupStartedAt: true, timeZone: true },
   });
+  const [lists, variables] = await Promise.all([listLists(prisma, me.workspace.id), listVariables(prisma, me.workspace.id)]);
   const now = new Date();
   const s = CAMPAIGN_STATUS[c.status]!;
   const draft = c.status === "DRAFT";
@@ -138,8 +140,8 @@ export default async function EmailCampaignPage({ params, searchParams }: { para
         </p>
       )}
 
-      <Section n={draft ? 1 : undefined} title="Leads" done={c.stats.leads > 0} description={c.columns.length ? `Variables from your columns: ${c.columns.map((x) => `{${x}}`).join(", ")}` : undefined}>
-        {c.status !== "COMPLETED" && <LeadsImport id={c.id} />}
+      <Section n={draft ? 1 : undefined} title="Leads" done={c.stats.leads > 0} description="Add a contact list, or upload a CSV. Each lead's details fill the variables in your emails.">
+        {c.status !== "COMPLETED" && <AddLeads id={c.id} lists={lists} variables={variables} />}
         {c.stats.leads > 0 && (
           <div className="mt-5">
             <nav className="mb-2 flex flex-wrap gap-1" aria-label="Filter leads">

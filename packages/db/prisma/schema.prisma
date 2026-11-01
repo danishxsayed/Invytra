@@ -25,14 +25,18 @@ model Workspace {
   channels  String[] @default(["linkedin", "email"])
   createdAt DateTime @default(now()) @map("created_at")
 
-  members        Membership[]
-  accounts       LinkedinAccount[]
-  leadLists      LeadList[]
-  imports        LeadImport[]
-  leads          Lead[]
-  campaigns      Campaign[]
-  mailboxes      EmailAccount[]
-  emailCampaigns EmailCampaign[]
+  members           Membership[]
+  accounts          LinkedinAccount[]
+  leadLists         LeadList[]
+  imports           LeadImport[]
+  leads             Lead[]
+  campaigns         Campaign[]
+  mailboxes         EmailAccount[]
+  emailCampaigns    EmailCampaign[]
+  emailContacts     EmailContact[]
+  emailLists        EmailList[]
+  emailVariables    EmailVariable[]
+  emailSuppressions EmailSuppression[]
 
   @@map("workspaces")
 }
@@ -698,11 +702,14 @@ model EmailLead {
   id              String          @id @default(cuid())
   workspaceId     String          @map("workspace_id")
   campaignId      String          @map("campaign_id")
+  /// The workspace contact this lead is (statuses: subscribed, bounced, verified)
+  contactId       String?         @map("contact_id")
   email           String
   firstName       String?         @map("first_name")
   lastName        String?         @map("last_name")
   company         String?
   title           String?
+  website         String?
   /// Other CSV columns: { variableName: value }
   vars            Json            @default("{}")
   status          EmailLeadStatus @default(ACTIVE)
@@ -723,6 +730,7 @@ model EmailLead {
   createdAt       DateTime        @default(now()) @map("created_at")
 
   campaign     EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact      EmailContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   emailAccount EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: SetNull)
   sends        EmailSend[]
   replies      EmailReply[]
@@ -758,4 +766,120 @@ model EmailReply {
   @@unique([emailAccountId, messageId])
   @@index([workspaceId, receivedAt])
   @@map("email_replies")
+}
+
+enum EmailBounceStatus {
+  NONE
+  /// Temporary (mailbox full, server busy): retried a few times
+  SOFT
+  /// Permanent (no such address): never emailed again
+  HARD
+}
+
+enum EmailVerification {
+  NOT_CHECKED
+  PENDING
+  VALID
+  INVALID
+  RISKY
+  UNKNOWN
+}
+
+/// A person the workspace can email: one row per address, shared by lists and campaigns.
+model EmailContact {
+  id             String            @id @default(cuid())
+  workspaceId    String            @map("workspace_id")
+  email          String
+  firstName      String?           @map("first_name")
+  lastName       String?           @map("last_name")
+  company        String?
+  title          String?
+  website        String?
+  /// Custom variables: { key: value }
+  vars           Json              @default("{}")
+  subscribed     Boolean           @default(true)
+  unsubscribedAt DateTime?         @map("unsubscribed_at")
+  bounceStatus   EmailBounceStatus @default(NONE) @map("bounce_status")
+  softBounces    Int               @default(0) @map("soft_bounces")
+  lastBounceAt   DateTime?         @map("last_bounce_at")
+  bounceReason   String?           @map("bounce_reason")
+  verification   EmailVerification @default(NOT_CHECKED)
+  verifiedAt     DateTime?         @map("verified_at")
+  /// The verifier's own words (e.g. "catch-all", "disposable", "mailbox not found")
+  verifyDetail   String?           @map("verify_detail")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lists     EmailListMember[]
+  leads     EmailLead[]
+
+  @@unique([workspaceId, email])
+  @@index([workspaceId, verification])
+  @@map("email_contacts")
+}
+
+model EmailList {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  name        String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members   EmailListMember[]
+
+  @@unique([workspaceId, name])
+  @@map("email_lists")
+}
+
+model EmailListMember {
+  listId    String   @map("list_id")
+  contactId String   @map("contact_id")
+  addedAt   DateTime @default(now()) @map("added_at")
+
+  list    EmailList    @relation(fields: [listId], references: [id], onDelete: Cascade)
+  contact EmailContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@id([listId, contactId])
+  @@index([contactId])
+  @@map("email_list_members")
+}
+
+/// A custom variable the workspace uses in emails ({{key}}), from a CSV column or made by hand.
+model EmailVariable {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  /// snake_case, e.g. pain_point
+  key         String
+  label       String
+  /// Used when a contact has no value (empty = such contacts are skipped)
+  fallback    String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+  @@map("email_variables")
+}
+
+enum SuppressionReason {
+  UNSUBSCRIBED
+  HARD_BOUNCE
+  COMPLAINT
+  MANUAL
+}
+
+/// Addresses the workspace never emails (campaigns skip them; imports flag them).
+model EmailSuppression {
+  id          String            @id @default(cuid())
+  workspaceId String            @map("workspace_id")
+  email       String
+  reason      SuppressionReason
+  detail      String?
+  createdAt   DateTime          @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, email])
+  @@map("email_suppressions")
 }

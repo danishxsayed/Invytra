@@ -17,3 +17,5 @@ export * from "./channels.js";
 export * from "./email-sending.js";
 export * from "./email-warmup.js";
 export * from "./email-campaign.js";
+export * from "./email-vars.js";
+export * from "./email-contacts.js";

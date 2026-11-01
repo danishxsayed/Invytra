@@ -1,11 +1,12 @@
 /** Email campaigns: leads, sequence, mailboxes, launch (only with TEST_DATABASE_URL). */
 import { PrismaClient } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { importContacts } from "../src/lib/email-contacts";
 import {
   createEmailCampaign,
   deleteEmailCampaign,
   getEmailCampaign,
-  importEmailLeads,
+  addListsToCampaign,
   launchEmailCampaign,
   listEmailCampaigns,
   saveEmailSequence,
@@ -47,27 +48,31 @@ d("email campaigns", () => {
     expect(await getEmailCampaign(prisma, OTHER, id)).toBeNull();
   });
 
-  it("imports leads from a CSV: variables from columns, no repeats, no one who replied before", async () => {
-    const csv = "Email,First Name,Company,City\npriya@acme.io,Priya,Acme,Pune\nsam@beta.com,Sam,Beta,\nreplied@before.co,R,X,\nbad,,,";
-    const r = await importEmailLeads(prisma, WS, id, csv, now);
-    expect(r).toMatchObject({ ok: true, value: { added: 2, doNotContact: 1, alreadyInCampaign: 0, columns: ["city"] } });
-    expect((await importEmailLeads(prisma, WS, id, csv, now) as { value: { alreadyInCampaign: number; added: number } }).value).toMatchObject({ added: 0, alreadyInCampaign: 2 });
+  it("adds a contact list, skipping anyone who must not be emailed", async () => {
+    const csv = "Email,First Name,Company,City\npriya@acme.io,Priya,Acme,Pune\nsam@beta.com,Sam,Beta,\nreplied@before.co,R,X,\nblocked@rival.com,B,Rival,\nbad,,,";
+    const imp = await importContacts(prisma, WS, { text: csv, mapping: ["email", "first_name", "company_name", "custom:city"], list: { name: "Nov" } });
+    const listId = (imp as { value: { listId: string } }).value.listId;
+    await prisma.emailSuppression.create({ data: { workspaceId: WS, email: "@rival.com", reason: "MANUAL" } });
+    const r = await addListsToCampaign(prisma, WS, id, [listId], now);
+    expect(r).toMatchObject({ ok: true, value: { added: 2, doNotContact: 1, suppressed: 1, alreadyInCampaign: 0 } });
+    expect((await addListsToCampaign(prisma, WS, id, [listId], now) as { value: { alreadyInCampaign: number; added: number } }).value).toMatchObject({ added: 0, alreadyInCampaign: 2 });
     const lead = await prisma.emailLead.findFirstOrThrow({ where: { campaignId: id, email: "priya@acme.io" } });
-    expect(lead).toMatchObject({ firstName: "Priya", company: "Acme", vars: { city: "Pune" }, nextAt: null });
-    expect(await importEmailLeads(prisma, OTHER, id, csv)).toMatchObject({ ok: false });
+    expect(lead).toMatchObject({ firstName: "Priya", company: "Acme", vars: { city: "Pune" }, nextAt: null, contactId: expect.any(String) });
+    expect(await addListsToCampaign(prisma, OTHER, id, [listId])).toMatchObject({ ok: false });
   });
 
   it("checks the sequence's variables and the mailboxes' owner, then launches", async () => {
     await saveEmailSequence(prisma, WS, id, [{ subject: "Hi {firstName}", body: "About {painPoint}", delayDays: 0 }]);
     expect(await setCampaignMailboxes(prisma, WS, id, ["ecm-other"])).toMatchObject({ ok: false });
     await setCampaignMailboxes(prisma, WS, id, ["ecm1"]);
-    expect(await launchEmailCampaign(prisma, WS, id, now)).toEqual({ ok: false, error: "Unknown variable {painPoint}: it isn't a column of your leads." });
-    await saveEmailSequence(prisma, WS, id, [{ subject: "Hi {firstName|there}", body: "Is {city|your city} busy?", delayDays: 0 }, { subject: "", body: "Bump", delayDays: 3 }]);
+    expect(await launchEmailCampaign(prisma, WS, id, now)).toEqual({ ok: false, error: "Unknown variable {{painPoint}}: create it under Contacts → Variables, or import a CSV column with that name." });
+    await saveEmailSequence(prisma, WS, id, [{ subject: "Hi {{first_name|there}}", body: "Is {{city|your city}} busy?", delayDays: 0 }, { subject: "", body: "Bump", delayDays: 3 }]);
     expect(await launchEmailCampaign(prisma, WS, id, now)).toEqual({ ok: true, value: undefined });
     expect(await prisma.emailLead.count({ where: { campaignId: id, nextAt: now } })).toBe(2);
     // Running: the emails are locked; new leads start right away.
     expect(await saveEmailSequence(prisma, WS, id, [{ subject: "x", body: "y", delayDays: 0 }])).toMatchObject({ ok: false });
-    await importEmailLeads(prisma, WS, id, "email\nann@gamma.co", now);
+    const more = await importContacts(prisma, WS, { text: "email\nann@gamma.co", mapping: ["email"], list: { name: "More" } });
+    await addListsToCampaign(prisma, WS, id, [(more as { value: { listId: string } }).value.listId], now);
     expect((await prisma.emailLead.findFirstOrThrow({ where: { campaignId: id, email: "ann@gamma.co" } })).nextAt).toEqual(now);
   });
 

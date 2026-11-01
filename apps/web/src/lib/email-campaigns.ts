@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@invytra/db";
-import { DEFAULT_EMAIL_SEQUENCE, emailLeadsFromCsv, emailSequenceSchema, localDayStart, unknownVars, waitingText, type EmailStep } from "@invytra/shared";
+import { DEFAULT_EMAIL_SEQUENCE, emailSequenceSchema, localDayStart, unknownVars, waitingText, type EmailStep } from "@invytra/shared";
+import { isSuppressed } from "./email-contacts";
 import { z } from "zod";
 import type { Result } from "./accounts";
 
@@ -47,49 +48,77 @@ export async function setCampaignMailboxes(prisma: PrismaClient, workspaceId: st
   return { ok: true, value: undefined };
 }
 
-export interface LeadImportResult {
+export interface AddContactsResult {
   added: number;
   alreadyInCampaign: number;
-  /** Replied or bounced in another campaign: not emailed again. */
+  /** On the suppression list (unsubscribed, hard bounce, blocked by you). */
+  suppressed: number;
+  unsubscribed: number;
+  bounced: number;
+  /** Verification said the address doesn't exist. */
+  invalid: number;
+  /** Replied or bounced in another campaign. */
   doNotContact: number;
-  invalid: { row: number; value: string }[];
-  duplicates: number;
-  overLimit: number;
-  columns: string[];
-  noEmailColumn: boolean;
 }
 
-export async function importEmailLeads(prisma: PrismaClient, workspaceId: string, id: string, text: string, now = new Date()): Promise<Result<LeadImportResult>> {
+/** Adds the contacts of one or more lists to a campaign, skipping anyone who must not be emailed. */
+export async function addListsToCampaign(prisma: PrismaClient, workspaceId: string, id: string, listIds: string[], now = new Date()): Promise<Result<AddContactsResult>> {
   const c = await find(prisma, workspaceId, id);
   if (!c) return NOT_FOUND;
   if (c.status === "COMPLETED") return { ok: false, error: "This campaign has finished. Start a new one." };
-  const p = emailLeadsFromCsv(text);
-  const base = { invalid: p.invalid.slice(0, 20), duplicates: p.duplicates, overLimit: p.overLimit, columns: p.columns, noEmailColumn: !p.emailColumn };
-  if (!p.leads.length) return { ok: true, value: { ...base, added: 0, alreadyInCampaign: 0, doNotContact: 0 } };
-
-  const emails = p.leads.map((l) => l.email);
-  const here = new Set((await prisma.emailLead.findMany({ where: { campaignId: id, email: { in: emails } }, select: { email: true } })).map((l) => l.email));
-  const stop = new Set(
-    (await prisma.emailLead.findMany({ where: { workspaceId, email: { in: emails }, status: { in: ["REPLIED", "BOUNCED"] } }, select: { email: true } })).map((l) => l.email),
-  );
-  const fresh = p.leads.filter((l) => !here.has(l.email) && !stop.has(l.email));
-  await prisma.emailLead.createMany({
-    data: fresh.map((l) => ({ workspaceId, campaignId: id, ...l, vars: l.vars, nextAt: c.status === "DRAFT" ? null : now })),
+  const lists = await prisma.emailList.count({ where: { workspaceId, id: { in: listIds } } });
+  if (!listIds.length || lists !== new Set(listIds).size) return { ok: false, error: "Choose a list." };
+  const contacts = await prisma.emailContact.findMany({ where: { workspaceId, lists: { some: { listId: { in: listIds } } } } });
+  const emails = contacts.map((x) => x.email);
+  const [here, stop, supp] = await Promise.all([
+    prisma.emailLead.findMany({ where: { campaignId: id, email: { in: emails } }, select: { email: true } }).then((r) => new Set(r.map((x) => x.email))),
+    prisma.emailLead.findMany({ where: { workspaceId, email: { in: emails }, status: { in: ["REPLIED", "BOUNCED"] } }, select: { email: true } }).then((r) => new Set(r.map((x) => x.email))),
+    prisma.emailSuppression.findMany({ where: { workspaceId }, select: { email: true } }).then((r) => new Set(r.map((x) => x.email))),
+  ]);
+  const res: AddContactsResult = { added: 0, alreadyInCampaign: 0, suppressed: 0, unsubscribed: 0, bounced: 0, invalid: 0, doNotContact: 0 };
+  const fresh = contacts.filter((x) => {
+    if (here.has(x.email)) return void res.alreadyInCampaign++;
+    if (!x.subscribed) return void res.unsubscribed++;
+    if (x.bounceStatus === "HARD") return void res.bounced++;
+    if (isSuppressed(supp, x.email)) return void res.suppressed++;
+    if (x.verification === "INVALID") return void res.invalid++;
+    if (stop.has(x.email)) return void res.doNotContact++;
+    return true;
+  });
+  const r = await prisma.emailLead.createMany({
+    data: fresh.map((x) => ({
+      workspaceId,
+      campaignId: id,
+      contactId: x.id,
+      email: x.email,
+      firstName: x.firstName,
+      lastName: x.lastName,
+      company: x.company,
+      title: x.title,
+      website: x.website,
+      vars: (x.vars ?? {}) as Prisma.InputJsonValue,
+      nextAt: c.status === "DRAFT" ? null : now,
+    })),
     skipDuplicates: true,
   });
-  const columns = [...new Set([...c.columns, ...p.columns])];
-  if (columns.length !== c.columns.length) await prisma.emailCampaign.update({ where: { id }, data: { columns } });
-  return { ok: true, value: { ...base, added: fresh.length, alreadyInCampaign: p.leads.filter((l) => here.has(l.email)).length, doNotContact: p.leads.filter((l) => !here.has(l.email) && stop.has(l.email)).length } };
+  res.added = r.count;
+  return { ok: true, value: res };
 }
 
 /** What still stops a launch, in plain words (empty = ready). */
-export async function launchProblems(prisma: PrismaClient, c: { id: string; steps: unknown; columns: string[] }): Promise<string[]> {
+/** The custom variables a campaign may use: the workspace's, plus columns of older imports. */
+export async function knownVariables(prisma: PrismaClient, workspaceId: string, columns: string[] = []): Promise<string[]> {
+  const vs = await prisma.emailVariable.findMany({ where: { workspaceId }, select: { key: true } });
+  return [...new Set([...vs.map((v) => v.key), ...columns])];
+}
+
+export async function launchProblems(prisma: PrismaClient, c: { id: string; workspaceId: string; steps: unknown; columns: string[] }): Promise<string[]> {
   const problems: string[] = [];
   const steps = emailSequenceSchema.safeParse(c.steps);
   if (!steps.success) problems.push(steps.error.issues[0]!.message);
   else {
-    const unknown = unknownVars(steps.data, c.columns);
-    if (unknown.length) problems.push(`Unknown variable ${unknown.map((u) => `{${u}}`).join(", ")}: it isn't a column of your leads.`);
+    const unknown = unknownVars(steps.data, await knownVariables(prisma, c.workspaceId, c.columns));
+    if (unknown.length) problems.push(`Unknown variable ${unknown.map((u) => `{{${u}}}`).join(", ")}: create it under Contacts → Variables, or import a CSV column with that name.`);
   }
   const boxes = await prisma.emailCampaignMailbox.findMany({ where: { campaignId: c.id }, include: { emailAccount: { select: { status: true } } } });
   if (!boxes.length) problems.push("Choose at least one mailbox to send from.");
@@ -179,26 +208,28 @@ export async function getEmailCampaign(prisma: PrismaClient, workspaceId: string
       take: 200,
       select: { id: true, email: true, firstName: true, lastName: true, company: true, status: true, stepIndex: true, nextAt: true, lastSentAt: true, reason: true, emailAccount: { select: { email: true } } },
     }),
-    prisma.emailLead.findMany({ where: { campaignId: id }, orderBy: { createdAt: "asc" }, take: 5, select: { email: true, firstName: true, lastName: true, company: true, title: true, vars: true } }),
+    prisma.emailLead.findMany({ where: { campaignId: id }, orderBy: { createdAt: "asc" }, take: 5, select: { email: true, firstName: true, lastName: true, company: true, title: true, website: true, vars: true } }),
     c.status === "DRAFT" ? launchProblems(prisma, c) : Promise.resolve([] as string[]),
   ]);
   const sending = c.status === "ACTIVE" ? await sendingStatus(prisma, id, now) : [];
   const due = c.status === "ACTIVE" ? await prisma.emailLead.count({ where: { campaignId: id, status: "ACTIVE", nextAt: { lte: now } } }) : 0;
   const lastSend = await prisma.emailSend.findFirst({ where: { kind: "CAMPAIGN", emailLead: { campaignId: id } }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
   const steps = emailSequenceSchema.safeParse(c.steps);
+  const variables = await knownVariables(prisma, workspaceId, c.columns);
+  const fallbacks = Object.fromEntries((await prisma.emailVariable.findMany({ where: { workspaceId, fallback: { not: "" } } })).map((v) => [v.key, v.fallback]));
   return {
     id: c.id,
     name: c.name,
     status: c.status,
     launchedAt: c.launchedAt,
     steps: (steps.success ? steps.data : (c.steps as EmailStep[])) ?? [],
-    columns: c.columns,
+    columns: variables,
     mailboxIds: c.mailboxes.map((m) => m.emailAccountId),
     stats: stats.get(id)!,
     leads,
-    sample: sample.map((s) => ({ ...s, vars: (s.vars ?? {}) as Record<string, string> })),
+    sample: sample.map((s) => ({ ...s, vars: { ...fallbacks, ...((s.vars ?? {}) as Record<string, string>) } })),
     problems,
-    sequenceOk: steps.success && unknownVars(steps.data, c.columns).length === 0,
+    sequenceOk: steps.success && unknownVars(steps.data, variables).length === 0,
     sending,
     due,
     lastSendAt: lastSend?.createdAt ?? null,

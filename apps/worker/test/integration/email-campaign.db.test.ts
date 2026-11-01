@@ -99,6 +99,29 @@ d("email campaign engine", () => {
     expect(await prisma.emailSend.count({ where: { emailLead: { campaignId: "ec1" }, kind: "CAMPAIGN", status: "SENT" } })).toBe(6);
   });
 
+  it("never emails unsubscribed or suppressed people, and uses variable defaults", async () => {
+    await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "ACTIVE", steps: [{ subject: "Hi", body: "About {{pain_point}}", delayDays: 0 }] } });
+    await prisma.emailAccount.updateMany({ where: { id: { in: ["em1", "em2"] } }, data: { nextSendAt: null } });
+    const contact = await prisma.emailContact.create({ data: { workspaceId: WS, email: "unsub@z.co", subscribed: false } });
+    await prisma.emailSuppression.create({ data: { workspaceId: WS, email: "@blocked.co", reason: "MANUAL" } });
+    await prisma.emailVariable.create({ data: { workspaceId: WS, key: "pain_point", label: "Pain point", fallback: "slow months" } });
+    await prisma.emailLead.createMany({
+      data: [
+        { workspaceId: WS, campaignId: "ec1", email: "unsub@z.co", contactId: contact.id, nextAt: now },
+        { workspaceId: WS, campaignId: "ec1", email: "anyone@blocked.co", nextAt: now },
+        { workspaceId: WS, campaignId: "ec1", email: "ok@fine.co", nextAt: now },
+      ],
+    });
+    now = new Date("2026-11-05T07:00:00Z");
+    sent.length = 0;
+    expect(await tick()).toMatchObject({ skipped: 2, sent: 1 });
+    expect(await lead("unsub@z.co")).toMatchObject({ status: "SKIPPED", reason: "Unsubscribed" });
+    expect(await lead("anyone@blocked.co")).toMatchObject({ status: "SKIPPED", reason: "On the suppression list" });
+    expect(sent[0]).toMatchObject({ to: "ok@fine.co", text: expect.stringContaining("About slow months") });
+    await prisma.emailLead.deleteMany({ where: { email: { in: ["unsub@z.co", "anyone@blocked.co", "ok@fine.co"] } } });
+    await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "COMPLETED" } });
+  });
+
   it("respects the daily limit and sending hours", async () => {
     await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "ACTIVE" } });
     await prisma.emailLead.createMany({ data: ["x1@z.co", "x2@z.co"].map((email) => ({ workspaceId: WS, campaignId: "ec1", email, company: "Z", nextAt: now })) });
