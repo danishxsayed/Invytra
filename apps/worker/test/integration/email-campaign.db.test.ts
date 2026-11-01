@@ -11,16 +11,16 @@ d("email campaign engine", () => {
   let prisma: PrismaClient;
   const WS = "ws-ecamp";
   let now = new Date("2026-11-02T05:30:00Z"); // Mon 11:00 Kolkata
-  const sent: { from: string; to: string; subject: string; text: string; inReplyTo?: string }[] = [];
+  const sent: { from: string; to: string; subject: string; text: string; inReplyTo?: string; headers?: Record<string, string> }[] = [];
   let refuse = new Set<string>();
   const sender: MailSender = {
     send: async (_l, m) => {
       if (refuse.has(m.to)) throw Object.assign(new Error("x"), { responseCode: 550, response: "550 5.1.1 No such user" });
-      sent.push({ from: m.from, to: m.to, subject: m.subject, text: m.text, inReplyTo: m.inReplyTo });
+      sent.push({ from: m.from, to: m.to, subject: m.subject, text: m.text, inReplyTo: m.inReplyTo, headers: m.headers });
       return { messageId: `<m${sent.length}@x>` };
     },
   };
-  const tick = () => emailCampaignTick({ prisma, key: KEY, sender, now, rand: () => 0 });
+  const tick = () => emailCampaignTick({ prisma, key: KEY, sender, now, rand: () => 0, origin: "https://app.invytra.test" });
   const mins = (n: number) => (now = new Date(now.getTime() + n * 60_000));
   const lead = (email: string) => prisma.emailLead.findFirstOrThrow({ where: { campaignId: "ec1", email } });
 
@@ -41,6 +41,7 @@ d("email campaign engine", () => {
         workspaceId: WS,
         name: "Test",
         status: "ACTIVE",
+        unsubscribeLink: false,
         launchedAt: now,
         columns: ["city"],
         steps: [
@@ -79,7 +80,11 @@ d("email campaign engine", () => {
     refuse = new Set(["gone@epsilon.co"]);
     expect(await tick()).toMatchObject({ sent: 1, skipped: 1, bounced: 1 });
     expect(await lead("nocompany@delta.co")).toMatchObject({ status: "SKIPPED", reason: expect.stringContaining("{company}") });
-    expect(await lead("gone@epsilon.co")).toMatchObject({ status: "BOUNCED", reason: expect.stringContaining("No such user") });
+    expect(await lead("gone@epsilon.co")).toMatchObject({ status: "BOUNCED", bounceType: "HARD", reason: expect.stringContaining("No such user") });
+    // A hard bounce is never emailed again by any campaign.
+    expect(await prisma.emailSuppression.findFirst({ where: { workspaceId: WS, email: "gone@epsilon.co" } })).toMatchObject({ reason: "HARD_BOUNCE" });
+    // Every email carries the one-click unsubscribe header, even with the visible line off.
+    expect(sent[0]!.headers).toMatchObject({ "List-Unsubscribe-Post": "List-Unsubscribe=One-Click", "List-Unsubscribe": expect.stringMatching(/^<https:\/\/app\.invytra\.test\/api\/unsubscribe\/.+>, <mailto:tom@camp-a\.pro\?subject=unsubscribe>$/) });
     expect(await lead("priya@acme.io")).toMatchObject({ stepIndex: 1, emailAccountId: "em1", threadMessageId: "<m1@x>", threadSubject: "Hello Priya", status: "ACTIVE" });
   });
 
@@ -120,6 +125,34 @@ d("email campaign engine", () => {
     expect(sent[0]).toMatchObject({ to: "ok@fine.co", text: expect.stringContaining("About slow months") });
     await prisma.emailLead.deleteMany({ where: { email: { in: ["unsub@z.co", "anyone@blocked.co", "ok@fine.co"] } } });
     await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "COMPLETED" } });
+  });
+
+  it("adds the unsubscribe line when the campaign wants it, and retries soft bounces", async () => {
+    await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "ACTIVE", unsubscribeLink: true, unsubscribeText: "No more? [Click here]", softBounceRetries: 1, softRetryHours: 2, steps: [{ subject: "Hi", body: "Hello", delayDays: 0 }] } });
+    await prisma.emailAccount.updateMany({ where: { id: { in: ["em1", "em2"] } }, data: { nextSendAt: null } });
+    await prisma.emailLead.createMany({ data: [{ workspaceId: WS, campaignId: "ec1", email: "full@box.co", nextAt: now }] });
+    sent.length = 0;
+    const full = new Set(["full@box.co"]);
+    const busy: MailSender = { send: async (l, m) => (full.has(m.to) ? Promise.reject(Object.assign(new Error("x"), { responseCode: 452, command: "RCPT TO", response: "452 4.2.2 Mailbox full" })) : sender.send(l, m)) };
+    const run = () => emailCampaignTick({ prisma, key: KEY, sender: busy, now, rand: () => 0, origin: "https://app.invytra.test" });
+    expect(await run()).toMatchObject({ bounced: 1 });
+    const l1 = await lead("full@box.co");
+    expect(l1).toMatchObject({ status: "ACTIVE", softBounces: 1, stepIndex: 0, nextAt: new Date(now.getTime() + 2 * 3_600_000) });
+    now = new Date(now.getTime() + 2 * 3_600_000 + 60_000);
+    await prisma.emailAccount.updateMany({ where: { id: { in: ["em1", "em2"] } }, data: { nextSendAt: null } });
+    await run();
+    expect(await lead("full@box.co")).toMatchObject({ status: "BOUNCED", bounceType: "SOFT", softBounces: 2 });
+    // Soft bounces aren't suppressed: the address may work later.
+    expect(await prisma.emailSuppression.findFirst({ where: { workspaceId: WS, email: "full@box.co" } })).toBeNull();
+    // The visible line, linked to this lead's page.
+    full.clear();
+    await prisma.emailLead.create({ data: { workspaceId: WS, campaignId: "ec1", email: "line@ok.co", nextAt: now } });
+    await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "ACTIVE" } }); // it finished when the last lead bounced
+    await prisma.emailAccount.updateMany({ where: { id: { in: ["em1", "em2"] } }, data: { nextSendAt: null } });
+    await run();
+    expect(sent.at(-1)!.text).toMatch(/No more\? Click here: https:\/\/app\.invytra\.test\/unsubscribe\/\w+\.[\w-]+$/);
+    await prisma.emailLead.deleteMany({ where: { email: { in: ["full@box.co", "line@ok.co"] } } });
+    await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "COMPLETED", unsubscribeLink: false } });
   });
 
   it("respects the daily limit and sending hours", async () => {

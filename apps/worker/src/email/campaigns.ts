@@ -1,4 +1,4 @@
-import { emailBody, openSecret, sendEmail, type MailSender, type PrismaClient } from "@invytra/db";
+import { emailBody, hardBounce, openSecret, publicOrigin, sendEmail, softBounce, unsubscribeToken, unsubscribeUrls, type MailSender, type PrismaClient } from "@invytra/db";
 import {
   emailSequenceSchema,
   localDayStart,
@@ -26,6 +26,8 @@ export interface CampaignTickDeps {
   rand?: () => number;
   /** Leads looked at per campaign per tick. */
   batch?: number;
+  /** Where unsubscribe links point (default: PUBLIC_URL / WEB_ORIGIN). */
+  origin?: string;
 }
 
 export interface CampaignTickResult {
@@ -116,9 +118,16 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
         continue;
       }
 
+      // Unsubscribe: the one-click header always (mail providers show their own button), the visible line if the campaign wants it.
+      const urls = unsubscribeUrls(d.origin ?? publicOrigin(), unsubscribeToken(lead.id, d.key));
+      const unsubscribe = c.unsubscribeLink ? { text: c.unsubscribeText, url: urls.page } : null;
+      const headers = {
+        "List-Unsubscribe": `<${urls.oneClick}>, <mailto:${box.email}?subject=unsubscribe>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      };
       const r = await sendEmail(
         { ...box, provider: box.provider as never, password: openSecret(box.secret, d.key) },
-        { fromName: box.fromName, from: box.email, to: lead.email, subject: subject.text, text: body.text, signature: box.signature, inReplyTo: followUpInThread ? lead.threadMessageId! : undefined },
+        { fromName: box.fromName, from: box.email, to: lead.email, subject: subject.text, text: body.text, signature: box.signature, inReplyTo: followUpInThread ? lead.threadMessageId! : undefined, unsubscribe, headers },
         d.sender,
       );
       await prisma.emailSend.create({
@@ -131,7 +140,7 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
           subject: subject.text,
           messageId: r.ok ? r.messageId : null,
           error: r.ok ? null : r.error,
-          text: emailBody(body.text, box.signature).text,
+          text: emailBody(body.text, box.signature, unsubscribe).text,
           emailLeadId: lead.id,
           stepIndex: lead.stepIndex,
           createdAt: now,
@@ -157,7 +166,12 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
         });
       } else if (r.refused) {
         res.bounced++;
-        await prisma.emailLead.update({ where: { id: lead.id }, data: { status: "BOUNCED", nextAt: null, reason: r.error, emailAccountId: box.id } });
+        await prisma.emailLead.update({ where: { id: lead.id }, data: { emailAccountId: box.id } });
+        await hardBounce(prisma, lead.id, r.error.replace(/^The receiving server refused this address\. /, ""), now);
+      } else if (r.temporary) {
+        res.bounced++;
+        await prisma.emailLead.update({ where: { id: lead.id }, data: { emailAccountId: box.id } });
+        await softBounce(prisma, lead.id, lead.stepIndex, r.error, { retries: c.softBounceRetries, retryHours: c.softRetryHours }, now);
       } else {
         // The mailbox couldn't send (login, connection): the lead waits; the mailbox stops after a few failures in a row.
         res.failed++;

@@ -16,6 +16,8 @@ import {
   saveEmailSequence,
   setCampaignMailboxes,
   setEmailCampaignPaused,
+  saveEmailCampaignSettings,
+  emailCampaignSettingsSchema,
   type AddContactsResult,
 } from "@/lib/email-campaigns";
 
@@ -72,4 +74,11 @@ export async function pauseEmailCampaignAction(id: string, paused: boolean): Pro
 
 export async function deleteEmailCampaignAction(id: string): Promise<Result> {
   return done(await deleteEmailCampaign(prisma, await ws(), String(id)));
+}
+
+export async function saveEmailCampaignSettingsAction(id: string, input: unknown): Promise<Result> {
+  const w = await ws();
+  const p = emailCampaignSettingsSchema.safeParse(input);
+  if (!p.success) return { ok: false, error: p.error.issues[0]!.message };
+  return done(await saveEmailCampaignSettings(prisma, w, String(id), p.data));
 }

@@ -16,6 +16,8 @@ export function routeRequest(
   cfg: DomainConfig = domainConfig(),
 ): RouteDecision {
   const { pathname: path, search, hasSession } = req;
+  // Public pages that work for anyone, on any host (links inside emails).
+  if (path.startsWith("/unsubscribe/")) return { type: "next" };
   const where = hostKind(req.host, cfg);
   const login = (next: string) => `/login?next=${encodeURIComponent(next)}`;
 

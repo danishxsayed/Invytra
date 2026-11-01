@@ -63,7 +63,7 @@ d("email replies and bounces", () => {
     expect(await lead("priya@acme.io", "er2")).toMatchObject({ status: "REPLIED", reason: "Replied to another campaign" });
     expect(await lead("ann@gamma.co")).toMatchObject({ status: "REPLIED" });
     expect(await lead("ooo@delta.co")).toMatchObject({ status: "ACTIVE" });
-    expect(await lead("gone@eps.co")).toMatchObject({ status: "BOUNCED", reason: "Bounced: User unknown" });
+    expect(await lead("gone@eps.co")).toMatchObject({ status: "BOUNCED", bounceType: "HARD", reason: "Hard bounce: User unknown" });
     expect(await lead("sam@beta.com")).toMatchObject({ status: "ACTIVE" });
     const replies = await prisma.emailReply.findMany({ where: { workspaceId: WS }, orderBy: { kind: "asc" } });
     expect(replies.map((r) => r.kind).sort()).toEqual(["AUTO_REPLY", "BOUNCE", "REPLY", "REPLY"]);
@@ -79,6 +79,21 @@ d("email replies and bounces", () => {
     expect(await emailReplyTick({ prisma, key: KEY, reader, now: new Date(at.getTime() + 10 * 60_000) })).toMatchObject({ replies: 0, fromSpam: 0 });
     expect(await prisma.emailReply.count({ where: { fromEmail: "sam@beta.com" } })).toBe(1);
     spam = [];
+  });
+
+  it("retries a soft bounce, ignores 'delayed' notices, and honours 'unsubscribe' replies", async () => {
+    await prisma.emailLead.createMany({ data: [{ workspaceId: WS, campaignId: "er1", email: "busy@full.co", emailAccountId: "erm", stepIndex: 2, lastSentAt: now, status: "COMPLETED" }, { workspaceId: WS, campaignId: "er1", email: "stopme@x.co", emailAccountId: "erm", stepIndex: 1, lastSentAt: now, nextAt: now }] });
+    const busy = await lead("busy@full.co");
+    await prisma.emailSend.create({ data: { workspaceId: WS, emailAccountId: "erm", kind: "CAMPAIGN", status: "SENT", toEmail: "busy@full.co", subject: "x", stepIndex: 1, emailLeadId: busy.id } });
+    inbox = [
+      mail({ fromEmail: "mailer-daemon@mx.x", kind: "BOUNCE", bounced: ["busy@full.co"], bounceType: "DELAYED" }),
+      mail({ fromEmail: "mailer-daemon@mx.x", kind: "BOUNCE", bounced: ["busy@full.co"], bounceType: "SOFT", bounceReason: "452 4.2.2 Mailbox full" }),
+      mail({ fromEmail: "stopme@x.co", text: "Unsubscribe me please" }),
+    ];
+    await emailReplyTick({ prisma, key: KEY, reader, now: new Date(now.getTime() + 30 * 60_000) });
+    expect(await lead("busy@full.co")).toMatchObject({ status: "ACTIVE", stepIndex: 1, softBounces: 1, reason: expect.stringContaining("Mailbox full") });
+    expect(await lead("stopme@x.co")).toMatchObject({ status: "UNSUBSCRIBED", nextAt: null });
+    expect(await prisma.emailSuppression.findFirst({ where: { workspaceId: WS, email: "stopme@x.co" } })).toMatchObject({ reason: "UNSUBSCRIBED" });
   });
 
   it("records why reading failed, and clears it once it works", async () => {

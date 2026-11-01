@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseIncoming, stripQuoted } from "../src/inbox-reader.js";
+import { classifyBounce, parseIncoming, stripQuoted } from "../src/inbox-reader.js";
 
 const msg = (headers: string, body: string) => `${headers}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}`;
 
@@ -33,5 +33,17 @@ describe("reading replies", () => {
     const m = await parseIncoming(dsn, 3);
     expect(m.kind).toBe("BOUNCE");
     expect(m.bounced).toEqual(["gone@epsilon.co"]);
+    expect(m.bounceType).toBe("HARD");
+  });
+
+  it("tells hard, soft and delayed bounces apart, with the reason", () => {
+    expect(classifyBounce("Action: failed\nStatus: 5.1.1\nDiagnostic-Code: smtp; 550 5.1.1 <a@b.co>: Recipient address rejected:\n User unknown", "")).toEqual({
+      bounceType: "HARD",
+      bounceReason: "550 5.1.1 <a@b.co>: Recipient address rejected: User unknown",
+    });
+    expect(classifyBounce("Action: failed\nStatus: 4.2.2\nDiagnostic-Code: smtp; 452 4.2.2 Mailbox full", "").bounceType).toBe("SOFT");
+    expect(classifyBounce("Action: delayed\nStatus: 4.4.7", "").bounceType).toBe("DELAYED");
+    expect(classifyBounce("", "The recipient's mailbox is full and can't accept messages now.").bounceType).toBe("SOFT");
+    expect(classifyBounce("", "Your message wasn't delivered because the address couldn't be found.").bounceType).toBe("HARD");
   });
 });

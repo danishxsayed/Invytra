@@ -35,6 +35,20 @@ export async function saveEmailSequence(prisma: PrismaClient, workspaceId: strin
   return { ok: true, value: undefined };
 }
 
+export const emailCampaignSettingsSchema = z.object({
+  unsubscribeLink: z.boolean(),
+  unsubscribeText: z.string().trim().min(5, "Write the unsubscribe line.").max(300),
+  softBounceRetries: z.number().int().min(0).max(5),
+  softRetryHours: z.number().int().min(1).max(72),
+});
+export type EmailCampaignSettings = z.infer<typeof emailCampaignSettingsSchema>;
+
+/** Unsubscribe line and soft-bounce retries; can change any time. */
+export async function saveEmailCampaignSettings(prisma: PrismaClient, workspaceId: string, id: string, s: EmailCampaignSettings): Promise<Result> {
+  const r = await prisma.emailCampaign.updateMany({ where: { id, workspaceId }, data: s });
+  return r.count ? { ok: true, value: undefined } : NOT_FOUND;
+}
+
 export async function setCampaignMailboxes(prisma: PrismaClient, workspaceId: string, id: string, mailboxIds: string[]): Promise<Result> {
   const c = await find(prisma, workspaceId, id);
   if (!c) return NOT_FOUND;
@@ -161,17 +175,19 @@ export async function deleteEmailCampaign(prisma: PrismaClient, workspaceId: str
 // ---------------------------------------------------------------- reading
 
 async function statsFor(prisma: PrismaClient, campaignIds: string[]) {
-  const [byStatus, sent, contacted] = await Promise.all([
+  const [byStatus, sent, contacted, bounceTypes] = await Promise.all([
     prisma.emailLead.groupBy({ by: ["campaignId", "status"], where: { campaignId: { in: campaignIds } }, _count: true }),
     Promise.all(campaignIds.map((id) => prisma.emailSend.count({ where: { kind: "CAMPAIGN", status: "SENT", emailLead: { campaignId: id } } }))),
     prisma.emailLead.groupBy({ by: ["campaignId"], where: { campaignId: { in: campaignIds }, lastSentAt: { not: null } }, _count: true }),
+    prisma.emailLead.groupBy({ by: ["campaignId", "bounceType"], where: { campaignId: { in: campaignIds }, status: "BOUNCED" }, _count: true }),
   ]);
   return new Map(
     campaignIds.map((id, i) => {
       const n = (s: string) => byStatus.find((b) => b.campaignId === id && b.status === s)?._count ?? 0;
-      const leads = ["ACTIVE", "COMPLETED", "REPLIED", "BOUNCED", "SKIPPED"].reduce((a, s) => a + n(s), 0);
+      const leads = ["ACTIVE", "COMPLETED", "REPLIED", "BOUNCED", "SKIPPED", "UNSUBSCRIBED"].reduce((a, s) => a + n(s), 0);
+      const bt = (t: string) => bounceTypes.find((b) => b.campaignId === id && (b.bounceType ?? "HARD") === t)?._count ?? 0;
       const reached = contacted.find((x) => x.campaignId === id)?._count ?? 0;
-      return [id, { leads, active: n("ACTIVE"), completed: n("COMPLETED"), replied: n("REPLIED"), bounced: n("BOUNCED"), skipped: n("SKIPPED"), sent: sent[i]!, contacted: reached }];
+      return [id, { leads, active: n("ACTIVE"), completed: n("COMPLETED"), replied: n("REPLIED"), bounced: n("BOUNCED"), skipped: n("SKIPPED"), unsubscribed: n("UNSUBSCRIBED"), hardBounces: bt("HARD"), softBounces: bt("SOFT"), sent: sent[i]!, contacted: reached }];
     }),
   );
 }
@@ -183,7 +199,7 @@ export async function listEmailCampaigns(prisma: PrismaClient, workspaceId: stri
   return rows.map((r) => ({ id: r.id, name: r.name, status: r.status, createdAt: r.createdAt, mailboxes: r._count.mailboxes, stats: stats.get(r.id)! }));
 }
 
-export const LEAD_FILTERS = ["ALL", "ACTIVE", "COMPLETED", "REPLIED", "BOUNCED", "SKIPPED"] as const;
+export const LEAD_FILTERS = ["ALL", "ACTIVE", "COMPLETED", "REPLIED", "BOUNCED", "UNSUBSCRIBED", "SKIPPED"] as const;
 export type LeadFilter = (typeof LEAD_FILTERS)[number];
 
 /** For a running campaign: each of its mailboxes, and why it isn't sending right now (null = it can send). */
@@ -224,6 +240,7 @@ export async function getEmailCampaign(prisma: PrismaClient, workspaceId: string
     launchedAt: c.launchedAt,
     steps: (steps.success ? steps.data : (c.steps as EmailStep[])) ?? [],
     columns: variables,
+    settings: { unsubscribeLink: c.unsubscribeLink, unsubscribeText: c.unsubscribeText, softBounceRetries: c.softBounceRetries, softRetryHours: c.softRetryHours },
     mailboxIds: c.mailboxes.map((m) => m.emailAccountId),
     stats: stats.get(id)!,
     leads,

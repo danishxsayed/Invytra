@@ -24,3 +24,5 @@ export * from "./mail-send.js";
 export * from "./warmup-content.js";
 export * from "./warmup-imap.js";
 export * from "./inbox-reader.js";
+export * from "./unsubscribe.js";
+export * from "./bounces.js";

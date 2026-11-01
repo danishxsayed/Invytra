@@ -3,6 +3,7 @@ import { emailWarmupDay } from "@invytra/shared";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, Clock, Send } from "lucide-react";
 import { notFound } from "next/navigation";
 import { CampaignActions } from "@/components/email/campaign/CampaignActions";
+import { CampaignSettings } from "@/components/email/campaign/CampaignSettings";
 import { AddLeads } from "@/components/email/campaign/AddLeads";
 import { MailboxPicker } from "@/components/email/campaign/MailboxPicker";
 import { SequenceEditor } from "@/components/email/campaign/SequenceEditor";
@@ -127,8 +128,8 @@ export default async function EmailCampaignPage({ params, searchParams }: { para
           <Stat label="Leads" value={c.stats.leads} sub={`${c.stats.active} still in sequence`} />
           <Stat label="Emails sent" value={c.stats.sent} />
           <Stat label="Replied" value={c.stats.replied} sub={`${pct(c.stats.replied, c.stats.contacted)} of contacted`} />
-          <Stat label="Bounced" value={c.stats.bounced} sub={pct(c.stats.bounced, c.stats.contacted)} />
-          <Stat label="Skipped" value={c.stats.skipped} sub="missing a variable" />
+          <Stat label="Bounced" value={c.stats.bounced} sub={`${pct(c.stats.bounced, c.stats.contacted)} · ${c.stats.hardBounces} hard, ${c.stats.softBounces} soft`} />
+          <Stat label="Unsubscribed" value={c.stats.unsubscribed} sub={pct(c.stats.unsubscribed, c.stats.contacted)} />
         </div>
       )}
 
@@ -204,6 +205,10 @@ export default async function EmailCampaignPage({ params, searchParams }: { para
           chosen={c.mailboxIds}
           mailboxes={boxes.map((b) => ({ id: b.id, email: b.email, status: b.status, dailyLimit: b.dailyLimit, warmupDay: b.warmupEnabled && b.warmupStartedAt ? emailWarmupDay(b.warmupStartedAt, now, b.timeZone) : null }))}
         />
+      </Section>
+
+      <Section title="Unsubscribe and bounces" description="Unsubscribed and hard-bounced people go on your suppression list and are never emailed again, by any campaign.">
+        <CampaignSettings id={c.id} initial={c.settings} />
       </Section>
     </div>
   );

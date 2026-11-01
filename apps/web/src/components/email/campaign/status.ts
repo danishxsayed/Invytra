@@ -11,6 +11,7 @@ export const LEAD_STATUS: Record<string, { text: string; cls: string }> = {
   REPLIED: { text: "Replied", cls: "bg-emerald-50 text-emerald-700" },
   BOUNCED: { text: "Bounced", cls: "bg-rose-50 text-rose-700" },
   SKIPPED: { text: "Skipped", cls: "bg-amber-50 text-amber-800" },
+  UNSUBSCRIBED: { text: "Unsubscribed", cls: "bg-stone-800 text-white" },
 };
 
 export const pct = (n: number, of: number) => (of ? `${Math.round((n / of) * 100)}%` : "—");

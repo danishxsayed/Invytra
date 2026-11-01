@@ -57,6 +57,7 @@ export function VariablesPanel({ variables }: { variables: Variable[] }) {
             <code key={v} className="rounded-md bg-stone-100 px-2 py-0.5 text-[13px] text-stone-700">{`{{${v}}}`}</code>
           ))}
           <code className="rounded-md bg-violet-50 px-2 py-0.5 text-[13px] text-violet-700">{"{{random:Hi|Hello}}"}</code>
+          <code className="rounded-md bg-stone-100 px-2 py-0.5 text-[13px] text-stone-700" title="Where the unsubscribe line goes (when the campaign shows it)">{"{{unsubscribe}}"}</code>
         </p>
         <p className="mt-2 text-[14px] text-stone-500">
           Add a fallback right in the email with a bar: <code className="text-stone-700">{"{{first_name|there}}"}</code> writes “there” when a contact has no first name.

@@ -663,6 +663,13 @@ model EmailCampaign {
   steps       Json                @default("[]")
   /// Variable names from the imported CSV columns (beyond the built-in ones)
   columns     String[]            @default([])
+  /// Unsubscribe: show the link in emails (the one-click header is always sent), and its text;
+  /// [brackets] mark the linked words, {{unsubscribe}} in an email places it
+  unsubscribeLink   Boolean @default(true) @map("unsubscribe_link")
+  unsubscribeText   String  @default("Don't want to receive these emails anymore? [Unsubscribe here]") @map("unsubscribe_text")
+  /// Soft bounces (mailbox full, server busy): try the same email again this many times, this many hours apart
+  softBounceRetries Int     @default(2) @map("soft_bounce_retries")
+  softRetryHours    Int     @default(24) @map("soft_retry_hours")
   launchedAt  DateTime?           @map("launched_at")
   createdAt   DateTime            @default(now()) @map("created_at")
   updatedAt   DateTime            @updatedAt @map("updated_at")
@@ -696,6 +703,7 @@ enum EmailLeadStatus {
   BOUNCED
   /// Couldn't be written (a variable with no value) or other stop; see reason
   SKIPPED
+  UNSUBSCRIBED
 }
 
 model EmailLead {
@@ -723,6 +731,9 @@ model EmailLead {
   threadMessageId String?         @map("thread_message_id")
   threadSubject   String?         @map("thread_subject")
   reason          String?
+  /// HARD | SOFT, when the lead bounced; soft bounces so far (retried up to the campaign's limit)
+  bounceType      String?         @map("bounce_type")
+  softBounces     Int             @default(0) @map("soft_bounces")
   lastSentAt      DateTime?       @map("last_sent_at")
   repliedAt       DateTime?       @map("replied_at")
   /// Inbox: marked done (until they write again)

@@ -1,4 +1,4 @@
-import { explainMailError, openSecret, realMailboxReader, type IncomingMail, type MailboxReader, type PrismaClient } from "@invytra/db";
+import { explainMailError, hardBounce, openSecret, realMailboxReader, softBounce, unsubscribeLead, type IncomingMail, type MailboxReader, type PrismaClient } from "@invytra/db";
 
 /*
  * Replies and bounces for email campaigns: every few minutes, each mailbox that has written
@@ -87,9 +87,18 @@ async function handle(prisma: PrismaClient, box: { id: string; workspaceId: stri
       .catch(() => undefined); // Already saved (same Message-ID).
 
   if (m.kind === "BOUNCE") {
-    const leads = await prisma.emailLead.findMany({ where: { emailAccountId: box.id, email: { in: m.bounced }, status: { in: ["ACTIVE", "COMPLETED"] } } });
+    if (m.bounceType === "DELAYED") return; // The sending server is still trying: nothing to do yet.
+    const leads = await prisma.emailLead.findMany({
+      where: { emailAccountId: box.id, email: { in: m.bounced }, status: { in: ["ACTIVE", "COMPLETED"] } },
+      include: { campaign: { select: { softBounceRetries: true, softRetryHours: true } } },
+    });
     for (const l of leads) {
-      await prisma.emailLead.update({ where: { id: l.id }, data: { status: "BOUNCED", nextAt: null, reason: `Bounced: ${m.text.split("\n").find((x) => x.trim())?.slice(0, 200) ?? m.subject}` } });
+      const reason = m.bounceReason ?? (m.text.split("\n").find((x) => x.trim())?.slice(0, 200) || m.subject);
+      if (m.bounceType === "SOFT") {
+        // Resend the email that bounced: the last one sent to them.
+        const last = await prisma.emailSend.findFirst({ where: { emailLeadId: l.id, kind: "CAMPAIGN", status: "SENT" }, orderBy: { createdAt: "desc" }, select: { stepIndex: true } });
+        await softBounce(prisma, l.id, last?.stepIndex ?? Math.max(0, l.stepIndex - 1), reason, { retries: l.campaign.softBounceRetries, retryHours: l.campaign.softRetryHours }, m.date);
+      } else await hardBounce(prisma, l.id, reason, m.date);
       res.bounces++;
     }
     if (leads.length) await save("BOUNCE", leads[0]!.id);
@@ -114,6 +123,11 @@ async function handle(prisma: PrismaClient, box: { id: string; workspaceId: stri
   }
   await save("REPLY", lead.id);
   res.replies++;
+  // "Unsubscribe" / "stop" / "remove me" as a reply: honoured like the link.
+  if (/^\s*(unsubscribe|stop|remove me|please remove|remove|opt[ -]?out|take me off)\b/i.test(m.text)) {
+    await unsubscribeLead(prisma, lead.id, "Asked by reply", m.date);
+    return;
+  }
   // Stop this lead's follow-ups here, and the same person in the workspace's other campaigns.
   await prisma.emailLead.updateMany({ where: { id: lead.id, status: { in: ["ACTIVE", "COMPLETED"] } }, data: { status: "REPLIED", nextAt: null, repliedAt: m.date } });
   await prisma.emailLead.updateMany({

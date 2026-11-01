@@ -22,6 +22,10 @@ export interface IncomingMail {
   kind: "REPLY" | "AUTO_REPLY" | "BOUNCE";
   /** For a bounce: the addresses that failed. */
   bounced: string[];
+  /** For a bounce: permanent (no such address) or temporary (mailbox full…); "delayed" = still being retried by the server. */
+  bounceType?: "HARD" | "SOFT" | "DELAYED";
+  /** For a bounce: the receiving server's reason, e.g. "550 5.1.1 User unknown". */
+  bounceReason?: string;
   /** Found in the spam folder (and moved back to the inbox). */
   fromSpam?: boolean;
 }
@@ -71,6 +75,20 @@ export function stripQuoted(text: string): string {
   return out.join("\n").trim().slice(0, 4000);
 }
 
+/** Hard or soft, from the delivery report's Status (5.x.x / 4.x.x) and Action, else from its words. */
+export function classifyBounce(raw: string, text: string): { bounceType: "HARD" | "SOFT" | "DELAYED"; bounceReason: string } {
+  const action = /^Action:\s*(\w+)/im.exec(raw)?.[1]?.toLowerCase();
+  const status = /^Status:\s*([245])\.\d{1,3}\.\d{1,3}/im.exec(raw)?.[1];
+  const diag = /^Diagnostic-Code:\s*(?:smtp;\s*)?(.+(?:\r?\n[ \t].+)*)/im.exec(raw)?.[1]?.replace(/\s+/g, " ").trim();
+  const words = text.replace(/\s+/g, " ");
+  const reason = (diag || /\b[45]\d\d[ -][45]\.\d+\.\d+[^.\n]*/.exec(words)?.[0] || words.split(/(?<=\.)\s/).find((x) => x.length > 20) || "Undeliverable").slice(0, 300);
+  if (action === "delayed") return { bounceType: "DELAYED", bounceReason: reason };
+  if (status === "5") return { bounceType: "HARD", bounceReason: reason };
+  if (status === "4") return { bounceType: "SOFT", bounceReason: reason };
+  if (/mailbox (is )?full|over ?quota|quota exceeded|temporar|try again later|insufficient storage|greylist/i.test(words)) return { bounceType: "SOFT", bounceReason: reason };
+  return { bounceType: "HARD", bounceReason: reason };
+}
+
 const first = (a: AddressObject | AddressObject[] | undefined) => (Array.isArray(a) ? a[0] : a)?.value[0];
 
 /** Parses one raw message and says what it is. */
@@ -96,9 +114,12 @@ export async function parseIncoming(source: Buffer | string, uid: number): Promi
       /^(automatic reply|auto(matic)?[- ]?reply|autoreply|out of (the )?office|ooo\b|abwesenheit|absence)/i.test(subject));
 
   let bounced: string[] = [];
+  let bounceType: IncomingMail["bounceType"];
+  let bounceReason: string | undefined;
   if (isBounce) {
     const finals = [...raw.matchAll(/(?:Final|Original)-Recipient:\s*rfc822;\s*<?([^\s>]+)>?/gi)].map((m) => m[1]!.toLowerCase());
     bounced = [...new Set(finals.length ? finals : (p.text ?? "").match(EMAIL_IN_TEXT)?.map((e) => e.toLowerCase()) ?? [])];
+    ({ bounceType, bounceReason } = classifyBounce(raw, p.text ?? ""));
   }
   const refs = p.references ? (Array.isArray(p.references) ? p.references : [p.references]) : [];
   return {
@@ -113,6 +134,7 @@ export async function parseIncoming(source: Buffer | string, uid: number): Promi
     references: refs,
     kind: isBounce ? "BOUNCE" : isAuto ? "AUTO_REPLY" : "REPLY",
     bounced,
+    ...(isBounce && { bounceType, bounceReason }),
   };
 }
 
