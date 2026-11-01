@@ -542,6 +542,16 @@ model EmailAccount {
   statusReason String?        @map("status_reason")
   /// Emails it may send a day (warm-up raises it over time)
   dailyLimit  Int             @default(30) @map("daily_limit")
+  /// Minutes between two emails from this mailbox
+  gapMinutes  Int             @default(6) @map("gap_minutes")
+  /// Sending hours: days (1 = Monday … 7 = Sunday) and hours in this IANA time zone
+  timeZone    String          @default("UTC") @map("time_zone")
+  sendDays    Int[]           @default([1, 2, 3, 4, 5]) @map("send_days")
+  startHour   Int             @default(9) @map("start_hour")
+  endHour     Int             @default(18) @map("end_hour")
+  /// Plain-text signature added under every email
+  signature   String          @default("")
+  lastSentAt  DateTime?       @map("last_sent_at")
   lastCheckedAt DateTime?     @map("last_checked_at")
   /// The domain's email DNS (SPF, DKIM, DMARC, MX) as last checked (DomainDns in @invytra/db)
   dns         Json?
@@ -549,7 +559,40 @@ model EmailAccount {
   updatedAt   DateTime        @updatedAt @map("updated_at")
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sends     EmailSend[]
 
   @@index([workspaceId])
   @@map("email_accounts")
+}
+
+enum EmailSendKind {
+  TEST
+  CAMPAIGN
+  WARMUP
+}
+
+enum EmailSendStatus {
+  SENT
+  FAILED
+}
+
+/// Every email a mailbox tried to send: what counts toward its daily limit, and the log.
+model EmailSend {
+  id             String          @id @default(cuid())
+  workspaceId    String          @map("workspace_id")
+  emailAccountId String          @map("email_account_id")
+  kind           EmailSendKind
+  status         EmailSendStatus
+  toEmail        String          @map("to_email")
+  subject        String
+  /// The SMTP Message-ID (to match replies later)
+  messageId      String?         @map("message_id")
+  error          String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId, createdAt])
+  @@index([workspaceId, createdAt])
+  @@map("email_sends")
 }

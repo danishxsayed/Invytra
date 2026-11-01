@@ -74,6 +74,7 @@ export function ConnectMailboxButton({ presets }: { presets: MailboxPreset[] }) 
         smtpSecure: server.smtpPort === 465,
         imapHost: server.imapHost,
         imapPort: server.imapPort,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
       if (!r.ok) return setError(r.error);
       setChecks({ smtp: r.value.smtp, imap: r.value.imap });

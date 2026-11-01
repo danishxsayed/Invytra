@@ -13,7 +13,9 @@ import {
   type MailboxTester,
   type PrismaClient,
 } from "@invytra/db";
+import { EMAIL_LIMITS, timeZoneSchema } from "@invytra/shared";
 import { z } from "zod";
+import { sentToday } from "./mailbox-sending";
 import type { Result } from "./accounts";
 
 /*
@@ -38,6 +40,8 @@ export const connectMailboxSchema = z.object({
   smtpSecure: z.boolean(),
   imapHost: host,
   imapPort: z.number().int().refine((p) => (IMAP_PORTS as readonly number[]).includes(p), `IMAP port must be one of ${IMAP_PORTS.join(", ")}.`),
+  /** The browser's time zone: the mailbox sends in it unless changed. */
+  timeZone: timeZoneSchema.optional(),
 });
 export type ConnectMailboxInput = z.infer<typeof connectMailboxSchema>;
 
@@ -101,6 +105,9 @@ export async function connectMailbox(
       status: "ACTIVE",
       lastCheckedAt: new Date(),
       dns: dnsJson(dns),
+      dailyLimit: EMAIL_LIMITS.defaultDaily,
+      gapMinutes: EMAIL_LIMITS.defaultGapMinutes,
+      ...(input.timeZone && { timeZone: input.timeZone }),
     },
     select: { id: true },
   });
@@ -132,9 +139,9 @@ export async function removeMailbox(prisma: PrismaClient, workspaceId: string, i
   return r.count ? { ok: true, value: undefined } : { ok: false, error: "Mailbox not found." };
 }
 
-/** The workspace's mailboxes, without their passwords. */
-export function listMailboxes(prisma: PrismaClient, workspaceId: string) {
-  return prisma.emailAccount.findMany({
+/** The workspace's mailboxes with today's sent count, without their passwords. */
+export async function listMailboxes(prisma: PrismaClient, workspaceId: string, now = new Date()) {
+  const rows = await prisma.emailAccount.findMany({
     where: { workspaceId },
     orderBy: { createdAt: "asc" },
     select: {
@@ -147,10 +154,19 @@ export function listMailboxes(prisma: PrismaClient, workspaceId: string) {
       status: true,
       statusReason: true,
       dailyLimit: true,
+      gapMinutes: true,
+      timeZone: true,
+      sendDays: true,
+      startHour: true,
+      endHour: true,
+      signature: true,
+      lastSentAt: true,
       lastCheckedAt: true,
       createdAt: true,
       dns: true,
     },
-  }).then((rows) => rows.map((r) => ({ ...r, dns: (r.dns ?? null) as DomainDns | null })));
+  });
+  const sent = await sentToday(prisma, rows, now);
+  return rows.map((r) => ({ ...r, dns: (r.dns ?? null) as DomainDns | null, sentToday: sent.get(r.id) ?? 0 }));
 }
 export type MailboxRow = Awaited<ReturnType<typeof listMailboxes>>[number];

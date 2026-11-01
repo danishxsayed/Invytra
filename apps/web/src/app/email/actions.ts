@@ -4,6 +4,8 @@ import { prisma } from "@invytra/db";
 import { revalidatePath } from "next/cache";
 import type { Result } from "@/lib/accounts";
 import { requireChannel } from "@/lib/auth";
+import { mailboxSettingsSchema } from "@invytra/shared";
+import { sendTestEmail, setMailboxPaused, testEmailSchema, updateMailboxSettings } from "@/lib/mailbox-sending";
 import { connectMailbox, connectMailboxSchema, recheckMailbox, removeMailbox, type ConnectResult } from "@/lib/mailboxes";
 
 /* Email Outreach actions: each checks the signed-in user may use the Email channel, and only touches their workspace. */
@@ -27,6 +29,31 @@ export async function recheckMailboxAction(id: string): Promise<Result<ConnectRe
 export async function removeMailboxAction(id: string): Promise<Result> {
   const me = await requireChannel("email");
   const r = await removeMailbox(prisma, me.workspace.id, String(id));
+  revalidatePath("/email", "layout");
+  return r;
+}
+
+export async function saveMailboxSettingsAction(id: string, input: unknown): Promise<Result> {
+  const me = await requireChannel("email");
+  const parsed = mailboxSettingsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
+  const r = await updateMailboxSettings(prisma, me.workspace.id, String(id), parsed.data);
+  revalidatePath("/email", "layout");
+  return r;
+}
+
+export async function pauseMailboxAction(id: string, paused: boolean): Promise<Result> {
+  const me = await requireChannel("email");
+  const r = await setMailboxPaused(prisma, me.workspace.id, String(id), paused === true);
+  revalidatePath("/email", "layout");
+  return r;
+}
+
+export async function sendTestEmailAction(id: string, input: unknown): Promise<Result<{ messageId: string }>> {
+  const me = await requireChannel("email");
+  const parsed = testEmailSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
+  const r = await sendTestEmail(prisma, me.workspace.id, String(id), parsed.data.to);
   revalidatePath("/email", "layout");
   return r;
 }

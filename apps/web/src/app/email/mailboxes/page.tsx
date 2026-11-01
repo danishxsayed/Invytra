@@ -4,6 +4,7 @@ import { MailboxList } from "@/components/email/MailboxList";
 import { PageHeader } from "@/components/ui";
 import { requireChannel } from "@/lib/auth";
 import { listMailboxes } from "@/lib/mailboxes";
+import { allTimeZones } from "@/lib/timezones";
 
 export const metadata = { title: "Mailboxes" };
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export default async function MailboxesPage() {
         description="Mailboxes on your own domains that send your emails. Use a few per domain and keep each one's daily volume low: that's what keeps you out of spam."
         action={<ConnectMailboxButton presets={presets} />}
       />
-      <MailboxList mailboxes={mailboxes} presets={presets} />
+      <MailboxList mailboxes={mailboxes} presets={presets} zones={allTimeZones()} me={me.user.email} />
     </div>
   );
 }

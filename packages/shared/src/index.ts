@@ -14,3 +14,4 @@ export * from "./pricing.js";
 export * from "./audience.js";
 export * from "./ai.js";
 export * from "./channels.js";
+export * from "./email-sending.js";
