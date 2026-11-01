@@ -25,13 +25,14 @@ model Workspace {
   channels  String[] @default(["linkedin", "email"])
   createdAt DateTime @default(now()) @map("created_at")
 
-  members   Membership[]
-  accounts  LinkedinAccount[]
-  leadLists LeadList[]
-  imports   LeadImport[]
-  leads     Lead[]
-  campaigns Campaign[]
-  mailboxes EmailAccount[]
+  members        Membership[]
+  accounts       LinkedinAccount[]
+  leadLists      LeadList[]
+  imports        LeadImport[]
+  leads          Lead[]
+  campaigns      Campaign[]
+  mailboxes      EmailAccount[]
+  emailCampaigns EmailCampaign[]
 
   @@map("workspaces")
 }
@@ -125,46 +126,46 @@ enum ConnectionEngine {
 }
 
 model LinkedinAccount {
-  id               String        @id @default(cuid())
+  id               String           @id @default(cuid())
   /// Accounts from .env (Phase 0 CLI) live in the "default" workspace.
-  workspaceId      String        @default("default") @map("workspace_id")
+  workspaceId      String           @default("default") @map("workspace_id")
   label            String
   email            String?
-  proxyUrl         String        @map("proxy_url")
-  timezone         String        @default("Asia/Kolkata")
-  status           AccountStatus @default(ACTIVE)
+  proxyUrl         String           @map("proxy_url")
+  timezone         String           @default("Asia/Kolkata")
+  status           AccountStatus    @default(ACTIVE)
   /// AES-256-GCM encrypted Playwright storage state. Never log this.
-  encryptedSession Bytes?        @map("encrypted_session")
-  sessionUpdatedAt DateTime?     @map("session_updated_at")
+  encryptedSession Bytes?           @map("encrypted_session")
+  sessionUpdatedAt DateTime?        @map("session_updated_at")
   /// { days: number[], startHour: number, endHour: number } — validated by @invytra/shared
-  workingHours     Json          @map("working_hours")
+  workingHours     Json             @map("working_hours")
   /// Limits object — validated by @invytra/shared limitsSchema
   limits           Json
-  statusReason     String?       @map("status_reason")
-  lastActiveAt     DateTime?     @map("last_active_at")
+  statusReason     String?          @map("status_reason")
+  lastActiveAt     DateTime?        @map("last_active_at")
   /// Read from LinkedIn after connecting (the person's display name and profile link)
-  profileName      String?       @map("profile_name")
-  profileUrl       String?       @map("profile_url")
+  profileName      String?          @map("profile_name")
+  profileUrl       String?          @map("profile_url")
   /// Whether this LinkedIn account has Premium, as last detected (null = not known yet)
   premium          Boolean?
-  premiumCheckedAt DateTime?     @map("premium_checked_at")
+  premiumCheckedAt DateTime?        @map("premium_checked_at")
   /// The account's own LinkedIn profile photo (small image, read when it connects and about weekly)
   avatar           Bytes?
-  avatarType       String?       @map("avatar_type")
-  avatarUpdatedAt  DateTime?     @map("avatar_updated_at")
+  avatarType       String?          @map("avatar_type")
+  avatarUpdatedAt  DateTime?        @map("avatar_updated_at")
   engine           ConnectionEngine @default(BROWSER)
   /// The account's id at Unipile (engine UNIPILE)
-  unipileAccountId String?       @unique @map("unipile_account_id")
+  unipileAccountId String?          @unique @map("unipile_account_id")
   /// When the latest Unipile login was opened (to recognise the account it creates)
-  unipileLinkAt    DateTime?     @map("unipile_link_at")
+  unipileLinkAt    DateTime?        @map("unipile_link_at")
   /// Not used (the plan is always detected); kept so older data still loads
-  premiumOverride  Boolean?      @map("premium_override")
+  premiumOverride  Boolean?         @map("premium_override")
   /// First successful connection through the dashboard or CLI
-  connectedAt      DateTime?     @map("connected_at")
+  connectedAt      DateTime?        @map("connected_at")
   /// Daily limits ramp up until this time (new accounts); null = no warm-up
-  warmupUntil      DateTime?     @map("warmup_until")
-  createdAt        DateTime      @default(now()) @map("created_at")
-  updatedAt        DateTime      @updatedAt @map("updated_at")
+  warmupUntil      DateTime?        @map("warmup_until")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
 
   workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   actions         Action[]
@@ -521,53 +522,62 @@ enum MailboxStatus {
 /// A sending mailbox on the customer's own domain (Email Outreach), connected with SMTP to
 /// send and IMAP to read replies. One mailbox is on Invytra once.
 model EmailAccount {
-  id          String          @id @default(cuid())
-  workspaceId String          @map("workspace_id")
+  id               String          @id @default(cuid())
+  workspaceId      String          @map("workspace_id")
   /// Lower-case address, e.g. tahur@getcrawlers.com
-  email       String          @unique
-  fromName    String          @map("from_name")
-  provider    MailboxProvider
-  smtpHost    String          @map("smtp_host")
-  smtpPort    Int             @map("smtp_port")
+  email            String          @unique
+  fromName         String          @map("from_name")
+  provider         MailboxProvider
+  smtpHost         String          @map("smtp_host")
+  smtpPort         Int             @map("smtp_port")
   /// true = TLS from the start (465); false = STARTTLS (587)
-  smtpSecure  Boolean         @map("smtp_secure")
-  imapHost    String          @map("imap_host")
-  imapPort    Int             @map("imap_port")
+  smtpSecure       Boolean         @map("smtp_secure")
+  imapHost         String          @map("imap_host")
+  imapPort         Int             @map("imap_port")
   /// Login name (usually the address itself)
-  username    String
+  username         String
   /// The (app) password, AES-256-GCM encrypted with SESSION_ENCRYPTION_KEY. Never logged.
-  secret      String
-  status      MailboxStatus   @default(ACTIVE)
+  secret           String
+  status           MailboxStatus   @default(ACTIVE)
   /// Why it stopped working (a short, plain message)
-  statusReason String?        @map("status_reason")
+  statusReason     String?         @map("status_reason")
   /// Emails it may send a day (warm-up raises it over time)
-  dailyLimit  Int             @default(30) @map("daily_limit")
+  dailyLimit       Int             @default(30) @map("daily_limit")
   /// Minutes between two emails from this mailbox
-  gapMinutes  Int             @default(6) @map("gap_minutes")
+  gapMinutes       Int             @default(6) @map("gap_minutes")
   /// Sending hours: days (1 = Monday … 7 = Sunday) and hours in this IANA time zone
-  timeZone    String          @default("UTC") @map("time_zone")
-  sendDays    Int[]           @default([1, 2, 3, 4, 5]) @map("send_days")
-  startHour   Int             @default(9) @map("start_hour")
-  endHour     Int             @default(18) @map("end_hour")
+  timeZone         String          @default("UTC") @map("time_zone")
+  sendDays         Int[]           @default([1, 2, 3, 4, 5]) @map("send_days")
+  startHour        Int             @default(9) @map("start_hour")
+  endHour          Int             @default(18) @map("end_hour")
   /// Plain-text signature added under every email
-  signature   String          @default("")
-  lastSentAt  DateTime?       @map("last_sent_at")
+  signature        String          @default("")
+  lastSentAt       DateTime?       @map("last_sent_at")
   /// Warm-up: in the pool, since when (the ramp counts from here), up to how many a day,
   /// and the % of received warm-up emails it replies to
-  warmupEnabled   Boolean   @default(false) @map("warmup_enabled")
-  warmupStartedAt DateTime? @map("warmup_started_at")
-  warmupMaxDaily  Int       @default(20) @map("warmup_max_daily")
-  warmupReplyRate Int       @default(30) @map("warmup_reply_rate")
-  lastWarmupAt    DateTime? @map("last_warmup_at")
-  lastCheckedAt DateTime?     @map("last_checked_at")
+  warmupEnabled    Boolean         @default(false) @map("warmup_enabled")
+  warmupStartedAt  DateTime?       @map("warmup_started_at")
+  warmupMaxDaily   Int             @default(20) @map("warmup_max_daily")
+  warmupReplyRate  Int             @default(30) @map("warmup_reply_rate")
+  lastWarmupAt     DateTime?       @map("last_warmup_at")
+  /// Campaign sending waits until then (the gap plus a random extra)
+  nextSendAt       DateTime?       @map("next_send_at")
+  /// Reply reading: the IMAP inbox's UIDVALIDITY and the next UID not yet read
+  replyUidValidity BigInt?         @map("reply_uid_validity")
+  replyUidNext     Int?            @map("reply_uid_next")
+  lastReplyCheckAt DateTime?       @map("last_reply_check_at")
+  lastCheckedAt    DateTime?       @map("last_checked_at")
   /// The domain's email DNS (SPF, DKIM, DMARC, MX) as last checked (DomainDns in @invytra/db)
-  dns         Json?
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
+  dns              Json?
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   sends     EmailSend[]
-  received  EmailSend[] @relation("WarmupReceived")
+  received  EmailSend[]            @relation("WarmupReceived")
+  campaigns EmailCampaignMailbox[]
+  leads     EmailLead[]
+  replies   EmailReply[]
 
   @@index([workspaceId])
   @@map("email_accounts")
@@ -605,6 +615,9 @@ model EmailSend {
   error          String?
   /// Warm-up only: the pool mailbox it went to, the code that finds it there, whether it is
   /// a reply (replies get no reply), where it landed and when that was checked
+  /// Campaign only: the lead and which email of the sequence (0 = the first)
+  emailLeadId    String?         @map("email_lead_id")
+  stepIndex      Int?            @map("step_index")
   toAccountId    String?         @map("to_account_id")
   warmupCode     String?         @unique @map("warmup_code")
   isReply        Boolean         @default(false) @map("is_reply")
@@ -614,9 +627,127 @@ model EmailSend {
 
   emailAccount EmailAccount  @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   toAccount    EmailAccount? @relation("WarmupReceived", fields: [toAccountId], references: [id], onDelete: Cascade)
+  emailLead    EmailLead?    @relation(fields: [emailLeadId], references: [id], onDelete: SetNull)
 
   @@index([emailAccountId, createdAt])
   @@index([workspaceId, createdAt])
   @@index([kind, landedIn, createdAt])
+  @@index([emailLeadId])
   @@map("email_sends")
+}
+
+enum EmailCampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+/// An email campaign: leads, a sequence of emails (steps JSON, EmailStep[] in @invytra/shared)
+/// and the mailboxes that send it.
+model EmailCampaign {
+  id          String              @id @default(cuid())
+  workspaceId String              @map("workspace_id")
+  name        String
+  status      EmailCampaignStatus @default(DRAFT)
+  steps       Json                @default("[]")
+  /// Variable names from the imported CSV columns (beyond the built-in ones)
+  columns     String[]            @default([])
+  launchedAt  DateTime?           @map("launched_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  workspace Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  mailboxes EmailCampaignMailbox[]
+  leads     EmailLead[]
+
+  @@index([workspaceId])
+  @@index([status])
+  @@map("email_campaigns")
+}
+
+model EmailCampaignMailbox {
+  campaignId     String @map("campaign_id")
+  emailAccountId String @map("email_account_id")
+
+  campaign     EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  emailAccount EmailAccount  @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, emailAccountId])
+  @@map("email_campaign_mailboxes")
+}
+
+enum EmailLeadStatus {
+  /// Still has emails to send
+  ACTIVE
+  /// Every email was sent, no reply
+  COMPLETED
+  REPLIED
+  BOUNCED
+  /// Couldn't be written (a variable with no value) or other stop; see reason
+  SKIPPED
+}
+
+model EmailLead {
+  id              String          @id @default(cuid())
+  workspaceId     String          @map("workspace_id")
+  campaignId      String          @map("campaign_id")
+  email           String
+  firstName       String?         @map("first_name")
+  lastName        String?         @map("last_name")
+  company         String?
+  title           String?
+  /// Other CSV columns: { variableName: value }
+  vars            Json            @default("{}")
+  status          EmailLeadStatus @default(ACTIVE)
+  /// The next email of the sequence to send (0 = the first)
+  stepIndex       Int             @default(0) @map("step_index")
+  /// When the next email is due (null = not scheduled: draft, or done)
+  nextAt          DateTime?       @map("next_at")
+  /// The mailbox that writes to this lead (all its emails come from the same one)
+  emailAccountId  String?         @map("email_account_id")
+  /// The first email's Message-ID and subject, so follow-ups thread under it
+  threadMessageId String?         @map("thread_message_id")
+  threadSubject   String?         @map("thread_subject")
+  reason          String?
+  lastSentAt      DateTime?       @map("last_sent_at")
+  repliedAt       DateTime?       @map("replied_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  campaign     EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  emailAccount EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: SetNull)
+  sends        EmailSend[]
+  replies      EmailReply[]
+
+  @@unique([campaignId, email])
+  @@index([campaignId, status, nextAt])
+  @@index([workspaceId, email])
+  @@map("email_leads")
+}
+
+/// A message that arrived in a campaign mailbox from a lead: a reply, auto-reply or bounce.
+model EmailReply {
+  id             String    @id @default(cuid())
+  workspaceId    String    @map("workspace_id")
+  emailAccountId String    @map("email_account_id")
+  emailLeadId    String?   @map("email_lead_id")
+  /// REPLY | AUTO_REPLY | BOUNCE
+  kind           String
+  fromEmail      String    @map("from_email")
+  fromName       String?   @map("from_name")
+  subject        String
+  /// The text of the message (quoted history trimmed), at most a few thousand characters
+  text           String
+  messageId      String?   @map("message_id")
+  receivedAt     DateTime  @map("received_at")
+  /// Seen in the dashboard
+  readAt         DateTime? @map("read_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailLead    EmailLead?   @relation(fields: [emailLeadId], references: [id], onDelete: SetNull)
+
+  @@unique([emailAccountId, messageId])
+  @@index([workspaceId, receivedAt])
+  @@map("email_replies")
 }

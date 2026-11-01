@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMAIL_LIMITS, localDayStart, mailboxReadiness, mailboxSettingsSchema, pickMailbox, type MailboxSendState } from "../src/email-sending.js";
+import { EMAIL_LIMITS, localDayStart, nextSendAfter, mailboxReadiness, mailboxSettingsSchema, pickMailbox, type MailboxSendState } from "../src/email-sending.js";
 
 // Monday 2 Nov 2026, 11:00 in Kolkata (05:30 UTC).
 const now = new Date("2026-11-02T05:30:00Z");
@@ -33,6 +33,11 @@ describe("email sending rules", () => {
     expect(mailboxReadiness(box({ days: [6, 7] }), now)).toMatchObject({ reason: "OUTSIDE_HOURS" });
     const r = mailboxReadiness(box({ lastSentAt: new Date(now.getTime() - 2 * 60_000) }), now);
     expect(r).toEqual({ ok: false, reason: "TOO_SOON", until: new Date(now.getTime() + 4 * 60_000) });
+  });
+
+  it("waits for the randomised next send time", () => {
+    expect(mailboxReadiness(box({ nextSendAt: new Date(now.getTime() + 60_000) }), now)).toMatchObject({ reason: "TOO_SOON" });
+    expect(nextSendAfter(10, now, () => 1).getTime() - now.getTime()).toBe(15 * 60_000);
   });
 
   it("rotates to the ready mailbox that has sent the least", () => {

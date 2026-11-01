@@ -14,6 +14,8 @@ import { createConnectServer } from "./connect/server.js";
 import { campaignTick } from "./campaigns/engine.js";
 import { importTick } from "./imports/importer.js";
 import { warmupTick } from "./email/warmup.js";
+import { emailCampaignTick } from "./email/campaigns.js";
+import { emailReplyTick } from "./email/replies.js";
 import { createRuntime } from "./runtime.js";
 import { unipileFromEnv } from "@invytra/db";
 
@@ -127,22 +129,30 @@ async function main() {
   await runCampaigns();
   const campaignTimer = setInterval(runCampaigns, Number(process.env.CAMPAIGN_TICK_SECONDS ?? 60) * 1000);
 
-  // Email warm-up: pool mailboxes email each other; the receiving side files them and replies.
+  // Email Outreach, every minute: campaign emails, then replies/bounces, then warm-up.
   let warming = false;
   const runWarmup = async () => {
     if (warming) return;
     warming = true;
     try {
-      const w = await warmupTick({ prisma: rt.prisma, key: rt.env.SESSION_ENCRYPTION_KEY });
+      const key = rt.env.SESSION_ENCRYPTION_KEY;
+      const c = await emailCampaignTick({ prisma: rt.prisma, key });
+      if (c.sent || c.bounced || c.skipped || c.failed || c.completed) {
+        log(`Email campaigns: ${c.sent} sent${c.bounced ? `, ${c.bounced} bounced` : ""}${c.skipped ? `, ${c.skipped} skipped` : ""}${c.failed ? `, ${c.failed} failed` : ""}${c.completed ? `, ${c.completed} campaign(s) finished` : ""}`);
+      }
+      const r = await emailReplyTick({ prisma: rt.prisma, key });
+      if (r.replies || r.bounces || r.autoReplies) log(`Email inbox: ${r.replies} repl${r.replies === 1 ? "y" : "ies"}, ${r.autoReplies} auto-repl${r.autoReplies === 1 ? "y" : "ies"}, ${r.bounces} bounce(s)`);
+      const w = await warmupTick({ prisma: rt.prisma, key });
       if (w.sent || w.checked || w.failed) {
         log(`Email warm-up: ${w.sent} sent, ${w.checked} checked${w.spam ? ` (${w.spam} rescued from spam)` : ""}, ${w.replied} replied${w.failed ? `, ${w.failed} failed` : ""}`);
       }
     } catch (e) {
-      log(`Email warm-up error: ${e instanceof Error ? e.message : e}`);
+      log(`Email engine error: ${e instanceof Error ? e.message : e}`);
     } finally {
       warming = false;
     }
   };
+  await runWarmup();
   const warmupTimer = setInterval(runWarmup, 60_000);
 
   // Replies typed in the dashboard's inbox, and inbox checks it asks for while open: the web

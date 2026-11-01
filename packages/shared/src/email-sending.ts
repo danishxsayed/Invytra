@@ -51,6 +51,8 @@ export interface MailboxSendState {
   startHour: number;
   endHour: number;
   lastSentAt: Date | null;
+  /** Campaign sending waits until this moment (the gap plus a random extra). */
+  nextSendAt?: Date | null;
   /** Emails sent since the start of today in the mailbox's time zone. */
   sentToday: number;
 }
@@ -95,6 +97,7 @@ export function mailboxReadiness(m: MailboxSendState, now: Date): Readiness {
   if (m.sentToday >= m.dailyLimit) return { ok: false, reason: "DAILY_LIMIT" };
   const { weekday, hour } = localTime(now, m.timeZone);
   if (!m.days.includes(weekday) || hour < m.startHour || hour >= m.endHour) return { ok: false, reason: "OUTSIDE_HOURS" };
+  if (m.nextSendAt && m.nextSendAt > now) return { ok: false, reason: "TOO_SOON", until: m.nextSendAt };
   if (m.lastSentAt) {
     const next = new Date(m.lastSentAt.getTime() + m.gapMinutes * 60_000);
     if (next > now) return { ok: false, reason: "TOO_SOON", until: next };
@@ -106,6 +109,11 @@ export function mailboxReadiness(m: MailboxSendState, now: Date): Readiness {
  * Rotation: of the mailboxes ready now, the one that has sent the least today (then the
  * one that sent longest ago), so volume spreads evenly across a campaign's mailboxes.
  */
+/** When a mailbox may send its next campaign email: the gap plus up to 50% at random, so sends never look clockwork. */
+export function nextSendAfter(gapMinutes: number, now: Date, rand: () => number = Math.random): Date {
+  return new Date(now.getTime() + gapMinutes * 60_000 * (1 + 0.5 * rand()));
+}
+
 export function pickMailbox<T extends MailboxSendState>(mailboxes: readonly T[], now: Date): T | null {
   const ready = mailboxes.filter((m) => mailboxReadiness(m, now).ok);
   ready.sort((a, b) => a.sentToday / a.dailyLimit - b.sentToday / b.dailyLimit || (a.lastSentAt?.getTime() ?? 0) - (b.lastSentAt?.getTime() ?? 0));

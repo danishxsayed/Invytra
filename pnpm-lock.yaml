@@ -136,10 +136,16 @@ importers:
       jose:
         specifier: 5.9.6
         version: 5.9.6
+      mailparser:
+        specifier: 3.7.1
+        version: 3.7.1
       nodemailer:
         specifier: 6.9.16
         version: 6.9.16
     devDependencies:
+      '@types/mailparser':
+        specifier: 3.4.5
+        version: 3.4.5
       '@types/node':
         specifier: 22.10.2
         version: 22.10.2
@@ -829,6 +835,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@selderee/plugin-htmlparser2@0.11.0':
+    resolution: {integrity: sha512-P33hHGdldxGabLFjPPpaTxVolMrzrcegejx+0GxjrIb9Zv48D8yAIA/QTDR2dFl7Uz7urX8aX6+5bCZslr+gWQ==}
+
   '@swc/counter@0.1.3':
     resolution: {integrity: sha512-e2BR4lsJkkRlKZ/qCHPw9ZaSxc0MVUd7gtbtaB7aMvHeJVYe8sOB8DBZkP2DtISHGSku9sCK6T6cnY0CtXrOCQ==}
 
@@ -840,6 +849,9 @@ packages:
 
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
+
+  '@types/mailparser@3.4.5':
+    resolution: {integrity: sha512-EPERBp7fLeFZh7tS2X36MF7jawUx3Y6/0rXciZah3CTYgwLi3e0kpGUJ6FOmUabgzis/U1g+3/JzrVWbWIOGjg==}
 
   '@types/node@22.10.2':
     resolution: {integrity: sha512-Xxr6BBRCAOQixvonOye19wnzyDiUtTeqldOOmj3CkeblonbccA12PFwlufvRdrpjXxqnmUaeiU5EOA+7s5diUQ==}
@@ -1017,6 +1029,10 @@ packages:
     resolution: {integrity: sha512-h5k/5U50IJJFpzfL6nO9jaaumfjO/f2NjK/oYB2Djzm4p9L+3T9qWpZqZ2hAbLPuuYq9wrU08WQyBTL5GbPk5Q==}
     engines: {node: '>=6'}
 
+  deepmerge@4.3.1:
+    resolution: {integrity: sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==}
+    engines: {node: '>=0.10.0'}
+
   denque@2.1.0:
     resolution: {integrity: sha512-HVQE3AAb/pxF8fQAoiqpvg9i3evqug3hoiwakOyZAwJm+6vZehbkYXZ0l4JxS+I3QxM97v5aaRNhj8v5oBhekw==}
     engines: {node: '>=0.10'}
@@ -1031,6 +1047,19 @@ packages:
   dlv@1.1.3:
     resolution: {integrity: sha512-+HlytyjlPKnIG8XuRG8WvmBP8xs8P71y+SKKS6ZXWoEgLuePxtDoUEiH7WkdePWrQ5JBpE6aoVqfZfJUQkjXwA==}
 
+  dom-serializer@2.0.0:
+    resolution: {integrity: sha512-wIkAryiqt/nV5EQKqQpo3SToSOV9J0DnbJqwK7Wv/Trc92zIAYZ4FlMu+JPFW1DfGFt81ZTCGgDEabffXeLyJg==}
+
+  domelementtype@2.3.0:
+    resolution: {integrity: sha512-OLETBj6w0OsagBwdXnPdN0cnMfF9opN69co+7ZrbfPGrdpPVNBUj02spi6B1N7wChLQiPn4CSH/zJvXw56gmHw==}
+
+  domhandler@5.0.3:
+    resolution: {integrity: sha512-cgwlv/1iFQiFnU96XXgROh8xTeetsnJiDsTc7TYCLFd9+/WNkIqPTxiM/8pSd8VIrhXGTf1Ny1q1hquVqDJB5w==}
+    engines: {node: '>= 4'}
+
+  domutils@3.2.2:
+    resolution: {integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==}
+
   dotenv@16.4.7:
     resolution: {integrity: sha512-47qPchRCykZC03FhkYAhrvwU4xDBFIj1QPqaarj6mdM/hgUzfPHcpkHJOn3mJAufFeeAxAzeGsr5X0M4k6fLZQ==}
     engines: {node: '>=12'}
@@ -1038,9 +1067,21 @@ packages:
   electron-to-chromium@1.5.463:
     resolution: {integrity: sha512-nVWNU6ltFjopvOdD44J4zoBkgO0M+WZiFKKFV7EjebOH9z0KNphk6bCEjplXtJofL21ARIuuwWOCsFkBVklm6w==}
 
+  encoding-japanese@2.0.0:
+    resolution: {integrity: sha512-++P0RhebUC8MJAwJOsT93dT+5oc5oPImp1HubZpAuCZ5kTLnhuuBhKHj2jJeO/Gj93idPBWmIuQ9QWMe5rX3pQ==}
+    engines: {node: '>=8.10.0'}
+
+  encoding-japanese@2.1.0:
+    resolution: {integrity: sha512-58XySVxUgVlBikBTbQ8WdDxBDHIdXucB16LO5PBHR8t75D54wQrNo4cg+58+R1CtJfKnsVsvt9XlteRaR8xw1w==}
+    engines: {node: '>=8.10.0'}
+
   encoding-japanese@2.2.0:
     resolution: {integrity: sha512-EuJWwlHPZ1LbADuKTClvHtwbaFn4rOD+dRAbWysqEOXRc2Uui0hJInNJrsdH0c+OhJA4nrCBdSkW4DD5YxAo6A==}
     engines: {node: '>=8.10.0'}
+
+  entities@4.5.0:
+    resolution: {integrity: sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw==}
+    engines: {node: '>=0.12'}
 
   es-errors@1.3.0:
     resolution: {integrity: sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw==}
@@ -1130,6 +1171,17 @@ packages:
     resolution: {integrity: sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A==}
     engines: {node: '>= 0.4'}
 
+  he@1.2.0:
+    resolution: {integrity: sha512-F/1DnUGPopORZi0ni+CvrCgHQ5FyEAHRLSApuYWMmrbSwoN2Mn/7k+Gl38gJnR7yyDZk6WLXwiGod1JOWNDKGw==}
+    hasBin: true
+
+  html-to-text@9.0.5:
+    resolution: {integrity: sha512-qY60FjREgVZL03vJU6IfMV4GDjGBIoOyvuFdpBDIX9yTlDw0TjxVBQp+P8NvpdIXNJvfWBTNul7fsAQJq2FNpg==}
+    engines: {node: '>=14'}
+
+  htmlparser2@8.0.2:
+    resolution: {integrity: sha512-GYdjWKDkbRLkZ5geuHs5NY1puJ+PXwP7+fHPRz06Eirsb9ugf6d8kkXav6ADhcODhFFPMIXyxkxSuMf3D6NCFA==}
+
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
@@ -1178,11 +1230,29 @@ packages:
   jsbn@1.1.0:
     resolution: {integrity: sha512-4bYVV3aAMtDTTu4+xsDYa6sy9GyJ69/amsu9sYF2zqjiEoZA5xJi3BrfX3uY+/IekIu7MwdObdbDWpoZdBv3/A==}
 
+  leac@0.6.0:
+    resolution: {integrity: sha512-y+SqErxb8h7nE/fiEX07jsbuhrpO9lL8eca7/Y1nuWV2moNlXhyd59iDGcRf6moVyDMbmTNzL40SUyrFU/yDpg==}
+
+  libbase64@1.2.1:
+    resolution: {integrity: sha512-l+nePcPbIG1fNlqMzrh68MLkX/gTxk/+vdvAb388Ssi7UuUN31MI44w4Yf33mM3Cm4xDfw48mdf3rkdHszLNew==}
+
   libbase64@1.3.0:
     resolution: {integrity: sha512-GgOXd0Eo6phYgh0DJtjQ2tO8dc0IVINtZJeARPeiIJqge+HdsWSuaDTe8ztQ7j/cONByDZ3zeB325AHiv5O0dg==}
 
+  libmime@5.2.0:
+    resolution: {integrity: sha512-X2U5Wx0YmK0rXFbk67ASMeqYIkZ6E5vY7pNWRKtnNzqjvdYYG8xtPDpCnuUEnPU9vlgNev+JoSrcaKSUaNvfsw==}
+
+  libmime@5.3.5:
+    resolution: {integrity: sha512-nSlR1yRZ43L3cZCiWEw7ali3jY29Hz9CQQ96Oy+sSspYnIP5N54ucOPHqooBsXzwrX1pwn13VUE05q4WmzfaLg==}
+
   libmime@5.3.6:
     resolution: {integrity: sha512-j9mBC7eiqi6fgBPAGvKCXJKJSIASanYF4EeA4iBzSG0HxQxmXnR3KbyWqTn4CwsKSebqCv2f5XZfAO6sKzgvwA==}
+
+  libqp@2.0.1:
+    resolution: {integrity: sha512-Ka0eC5LkF3IPNQHJmYBWljJsw0UvM6j+QdKRbWyCdTmYwvIDE6a7bCm0UkTAL/K+3KXK5qXT/ClcInU01OpdLg==}
+
+  libqp@2.1.0:
+    resolution: {integrity: sha512-O6O6/fsG5jiUVbvdgT7YX3xY3uIadR6wEZ7+vy9u7PKHAlSEB6blvC1o5pHBjgsi95Uo0aiBBdkyFecj6jtb7A==}
 
   libqp@2.1.1:
     resolution: {integrity: sha512-0Wd+GPz1O134cP62YU2GTOPNA7Qgl09XwCqM5zpBv87ERCXdfDtyKXvV7c9U22yWJh44QZqBocFnXN11K96qow==}
@@ -1193,6 +1263,9 @@ packages:
 
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
+
+  linkify-it@5.0.0:
+    resolution: {integrity: sha512-5aHCbzQRADcdP+ATqnDuhhJ/MRIqDkZX5pyjFHRRysS8vZ5AbqGEoFIb6pYHPZ+L/OC2Lc+xT8uHVVR5CAK/wQ==}
 
   lodash.defaults@4.2.0:
     resolution: {integrity: sha512-qjxPLHd3r5DnsdGacqOMU6pb/avJzdh9tFX2ymgoZE27BmjXrNy/y4LoaiTeAb+O3gL8AfpJGtqfX/ae2leYYQ==}
@@ -1214,6 +1287,13 @@ packages:
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
+
+  mailparser@3.7.1:
+    resolution: {integrity: sha512-RCnBhy5q8XtB3mXzxcAfT1huNqN93HTYYyL6XawlIKycfxM/rXPg9tXoZ7D46+SgCS1zxKzw+BayDQSvncSTTw==}
+
+  mailsplit@5.4.0:
+    resolution: {integrity: sha512-wnYxX5D5qymGIPYLwnp6h8n1+6P6vz/MJn5AzGjZ8pwICWssL+CCQjWBIToOVHASmATot4ktvlLo6CyLfOXWYA==}
+    deprecated: This package has been renamed to @zone-eu/mailsplit. Please update your dependencies.
 
   mailsplit@5.4.2:
     resolution: {integrity: sha512-4cczG/3Iu3pyl8JgQ76dKkisurZTmxMrA4dj/e8d2jKYcFTZ7MxOzg1gTioTDMPuFXwTrVuN/gxhkrO7wLg7qA==}
@@ -1278,6 +1358,10 @@ packages:
     resolution: {integrity: sha512-5qr2okC4ItAI0hG5SaV0HoYMpnM/Y6+Oqr7AmPYy/2uEoGvS+GbSKLeRxSS1uAdu59yz0ouzcuXievSgg///WA==}
     engines: {node: '>=18'}
 
+  nodemailer@6.9.13:
+    resolution: {integrity: sha512-7o38Yogx6krdoBf3jCAqnIN4oSQFx+fMa0I7dK1D+me9kBxx12D+/33wSb+fhOCtIxvYJ+4x4IMEhmhCKfAiOA==}
+    engines: {node: '>=6.0.0'}
+
   nodemailer@6.9.16:
     resolution: {integrity: sha512-psAuZdTIRN08HKVd/E8ObdV6NO7NTBY3KsC30F7M4H1OnmLCUNaS56FpYxyb26zWLSyYF9Ozch9KYHhHegsiOQ==}
     engines: {node: '>=6.0.0'}
@@ -1302,6 +1386,9 @@ packages:
     resolution: {integrity: sha512-0eJJY6hXLGf1udHwfNftBqH+g73EU4B504nZeKpz1sYRKafAghwxEJunB2O7rDZkL4PGfsMVnTXZ2EjibbqcsA==}
     engines: {node: '>=14.0.0'}
 
+  parseley@0.12.1:
+    resolution: {integrity: sha512-e6qHKe3a9HWr0oMRVDTRhKce+bRO8VGQR3NyVwcjwrbhMmFCX9KszEV35+rn4AdilFAq9VPxP/Fe1wC9Qjd2lw==}
+
   path-parse@1.0.7:
     resolution: {integrity: sha512-LDJzPVEEEPR+y48z93A0Ed0yXb8pAByGWo/k5YYdYgpY2/2EsOsksJrq7lOHxryrVOn1ejG6oAp8ahvOIQD8sw==}
 
@@ -1311,6 +1398,9 @@ packages:
   pathval@2.0.1:
     resolution: {integrity: sha512-//nshmD55c46FuFw26xV/xFAaB5HF9Xdap7HJBBnrKdAd6/GxDBaNA1870O79+9ueg61cZLSVc+OaFlfmObYVQ==}
     engines: {node: '>= 14.16'}
+
+  peberminta@0.9.0:
+    resolution: {integrity: sha512-XIxfHpEuSJbITd1H3EeQwpcZbTLHc+VVr8ANI9t5sit565tsI4/xK3KWTUFE2e6QiangUkh3B0jihzmGnNrRsQ==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -1400,6 +1490,10 @@ packages:
   process-warning@4.0.1:
     resolution: {integrity: sha512-3c2LzQ3rY9d0hc1emcsHhfT9Jwz0cChib/QN89oME2R451w5fy3f0afAhERFZAwrbDU43wk12d0ORBpDVME50Q==}
 
+  punycode.js@2.3.1:
+    resolution: {integrity: sha512-uxFIHU0YlHYhDQtV4R9J6a52SLx28BCjT+4ieh7IGbgwVJWO+km431c4yRlREUAsAmt/uMjQUyQHNEPf0M39CA==}
+    engines: {node: '>=6'}
+
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
 
@@ -1463,6 +1557,9 @@ packages:
 
   scheduler@0.25.0:
     resolution: {integrity: sha512-xFVuu11jh+xcO7JOAGJNOXld8/TcEHK/4CituBUeUb5hqxJLj9YuemAEuvm9gQ/+pgXYfbQuqAkiYu+u7YEsNA==}
+
+  selderee@0.11.0:
+    resolution: {integrity: sha512-5TF+l7p4+OsnP8BCCvSyZiSPc4x4//p5uPwK8TCnVPJYRmU2aYKMpOXvw8zM5a5JvuuCGN1jmsMwuU2W02ukfA==}
 
   semver@7.8.5:
     resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
@@ -1576,6 +1673,10 @@ packages:
     resolution: {integrity: sha512-n1cw8k1k0x4pgA2+9XrOkFydTerNcJ1zWCO5Nn9scWHTD+5tp8dghT2x1uduQePZTZgd3Tupf+x9BxJjeJi77Q==}
     engines: {node: '>=14.0.0'}
 
+  tlds@1.252.0:
+    resolution: {integrity: sha512-GA16+8HXvqtfEnw/DTcwB0UU354QE1n3+wh08oFjr6Znl7ZLAeUgYzCcK+/CCrOyE0vnHR8/pu3XXG3vDijXpQ==}
+    hasBin: true
+
   to-regex-range@5.0.1:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
@@ -1629,6 +1730,9 @@ packages:
     resolution: {integrity: sha512-i5t66RHxDvVN40HfDd1PsEThGNnlMCMT3jMUuoh9/0TaqWevNontacunWyN02LA9/fIbEWlcHZcgTKb9QoaLfg==}
     engines: {node: '>=14.17'}
     hasBin: true
+
+  uc.micro@2.1.0:
+    resolution: {integrity: sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A==}
 
   undici-types@6.20.0:
     resolution: {integrity: sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg==}
@@ -2133,6 +2237,11 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.64.9':
     optional: true
 
+  '@selderee/plugin-htmlparser2@0.11.0':
+    dependencies:
+      domhandler: 5.0.3
+      selderee: 0.11.0
+
   '@swc/counter@0.1.3': {}
 
   '@swc/helpers@0.5.15':
@@ -2142,6 +2251,11 @@ snapshots:
   '@types/bcryptjs@2.4.6': {}
 
   '@types/estree@1.0.9': {}
+
+  '@types/mailparser@3.4.5':
+    dependencies:
+      '@types/node': 22.10.2
+      iconv-lite: 0.6.3
 
   '@types/node@22.10.2':
     dependencies:
@@ -2332,6 +2446,8 @@ snapshots:
 
   deep-eql@5.0.2: {}
 
+  deepmerge@4.3.1: {}
+
   denque@2.1.0: {}
 
   detect-libc@2.1.2:
@@ -2341,11 +2457,35 @@ snapshots:
 
   dlv@1.1.3: {}
 
+  dom-serializer@2.0.0:
+    dependencies:
+      domelementtype: 2.3.0
+      domhandler: 5.0.3
+      entities: 4.5.0
+
+  domelementtype@2.3.0: {}
+
+  domhandler@5.0.3:
+    dependencies:
+      domelementtype: 2.3.0
+
+  domutils@3.2.2:
+    dependencies:
+      dom-serializer: 2.0.0
+      domelementtype: 2.3.0
+      domhandler: 5.0.3
+
   dotenv@16.4.7: {}
 
   electron-to-chromium@1.5.463: {}
 
+  encoding-japanese@2.0.0: {}
+
+  encoding-japanese@2.1.0: {}
+
   encoding-japanese@2.2.0: {}
+
+  entities@4.5.0: {}
 
   es-errors@1.3.0: {}
 
@@ -2464,6 +2604,23 @@ snapshots:
     dependencies:
       function-bind: 1.1.2
 
+  he@1.2.0: {}
+
+  html-to-text@9.0.5:
+    dependencies:
+      '@selderee/plugin-htmlparser2': 0.11.0
+      deepmerge: 4.3.1
+      dom-serializer: 2.0.0
+      htmlparser2: 8.0.2
+      selderee: 0.11.0
+
+  htmlparser2@8.0.2:
+    dependencies:
+      domelementtype: 2.3.0
+      domhandler: 5.0.3
+      domutils: 3.2.2
+      entities: 4.5.0
+
   iconv-lite@0.6.3:
     dependencies:
       safer-buffer: 2.1.2
@@ -2524,7 +2681,25 @@ snapshots:
 
   jsbn@1.1.0: {}
 
+  leac@0.6.0: {}
+
+  libbase64@1.2.1: {}
+
   libbase64@1.3.0: {}
+
+  libmime@5.2.0:
+    dependencies:
+      encoding-japanese: 2.0.0
+      iconv-lite: 0.6.3
+      libbase64: 1.2.1
+      libqp: 2.0.1
+
+  libmime@5.3.5:
+    dependencies:
+      encoding-japanese: 2.1.0
+      iconv-lite: 0.6.3
+      libbase64: 1.3.0
+      libqp: 2.1.0
 
   libmime@5.3.6:
     dependencies:
@@ -2533,11 +2708,19 @@ snapshots:
       libbase64: 1.3.0
       libqp: 2.1.1
 
+  libqp@2.0.1: {}
+
+  libqp@2.1.0: {}
+
   libqp@2.1.1: {}
 
   lilconfig@3.1.4: {}
 
   lines-and-columns@1.2.4: {}
+
+  linkify-it@5.0.0:
+    dependencies:
+      uc.micro: 2.1.0
 
   lodash.defaults@4.2.0: {}
 
@@ -2554,6 +2737,25 @@ snapshots:
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  mailparser@3.7.1:
+    dependencies:
+      encoding-japanese: 2.1.0
+      he: 1.2.0
+      html-to-text: 9.0.5
+      iconv-lite: 0.6.3
+      libmime: 5.3.5
+      linkify-it: 5.0.0
+      mailsplit: 5.4.0
+      nodemailer: 6.9.13
+      punycode.js: 2.3.1
+      tlds: 1.252.0
+
+  mailsplit@5.4.0:
+    dependencies:
+      libbase64: 1.2.1
+      libmime: 5.2.0
+      libqp: 2.0.1
 
   mailsplit@5.4.2:
     dependencies:
@@ -2628,6 +2830,8 @@ snapshots:
 
   node-releases@2.0.59: {}
 
+  nodemailer@6.9.13: {}
+
   nodemailer@6.9.16: {}
 
   normalize-path@3.0.0: {}
@@ -2640,11 +2844,18 @@ snapshots:
 
   on-exit-leak-free@2.1.2: {}
 
+  parseley@0.12.1:
+    dependencies:
+      leac: 0.6.0
+      peberminta: 0.9.0
+
   path-parse@1.0.7: {}
 
   pathe@1.1.2: {}
 
   pathval@2.0.1: {}
+
+  peberminta@0.9.0: {}
 
   picocolors@1.1.1: {}
 
@@ -2733,6 +2944,8 @@ snapshots:
 
   process-warning@4.0.1: {}
 
+  punycode.js@2.3.1: {}
+
   queue-microtask@1.2.3: {}
 
   quick-format-unescaped@4.0.4: {}
@@ -2810,6 +3023,10 @@ snapshots:
   safer-buffer@2.1.2: {}
 
   scheduler@0.25.0: {}
+
+  selderee@0.11.0:
+    dependencies:
+      parseley: 0.12.1
 
   semver@7.8.5: {}
 
@@ -2945,6 +3162,8 @@ snapshots:
 
   tinyspy@3.0.2: {}
 
+  tlds@1.252.0: {}
+
   to-regex-range@5.0.1:
     dependencies:
       is-number: 7.0.0
@@ -2988,6 +3207,8 @@ snapshots:
       turbo-windows-arm64: 2.3.3
 
   typescript@5.7.2: {}
+
+  uc.micro@2.1.0: {}
 
   undici-types@6.20.0: {}
 

@@ -25,7 +25,7 @@ describe("sendEmail", () => {
     expect(await sendEmail(login, mail, auth)).toMatchObject({ ok: false, error: expect.stringContaining("didn't accept") });
 
     const refused: MailSender = { send: async () => Promise.reject(Object.assign(new Error("x"), { responseCode: 550, response: "550 5.1.1 User unknown" })) };
-    expect(await sendEmail(login, mail, refused)).toEqual({ ok: false, error: "The receiving server refused this address. (Server said: 550 5.1.1 User unknown)" });
+    expect(await sendEmail(login, mail, refused)).toEqual({ ok: false, refused: true, error: "The receiving server refused this address. (Server said: 550 5.1.1 User unknown)" });
     delete process.env.ALLOW_PRIVATE_MAIL_HOSTS;
   });
 });

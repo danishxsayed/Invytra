@@ -1,14 +1,15 @@
 "use client";
 
-import { Flame, Mail } from "lucide-react";
+import { Flame, Mail, Send } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cx } from "../ui";
 
 const LIVE = [
   { href: "/email/mailboxes", end: "/mailboxes", label: "Mailboxes", Icon: Mail },
   { href: "/email/warmup", end: "/warmup", label: "Warm-up", Icon: Flame },
+  { href: "/email/campaigns", end: "/campaigns", label: "Campaigns", Icon: Send },
 ];
-const SOON = ["Campaigns", "Inbox"];
+const SOON = ["Inbox"];
 
 /** The Email Outreach tabs; works on its own subdomain (/warmup) and on one host (/email/warmup). */
 export function EmailNav() {
@@ -16,7 +17,7 @@ export function EmailNav() {
   return (
     <nav aria-label="Email" className="flex flex-wrap items-center gap-1">
       {LIVE.map(({ href, end, label, Icon }) => {
-        const on = path.endsWith(end);
+        const on = path.endsWith(end) || path.includes(`${end}/`);
         return (
           <a
             key={href}

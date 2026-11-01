@@ -21,7 +21,8 @@ export interface MailSender {
   send(login: MailboxLogin, mail: OutgoingEmail & { html: string }): Promise<{ messageId: string }>;
 }
 
-export type SendResult = { ok: true; messageId: string } | { ok: false; error: string };
+/** refused: the receiving server rejected the address itself (a bounce), not our login. */
+export type SendResult = { ok: true; messageId: string } | { ok: false; error: string; refused?: boolean };
 
 const TIMEOUT_MS = 20_000;
 
@@ -80,7 +81,7 @@ export async function sendEmail(
     if (e instanceof MailHostError) return { ok: false, error: e.message };
     const err = e as { responseCode?: number; response?: string };
     if (err?.responseCode && err.responseCode >= 550 && err.responseCode < 560 && !/auth/i.test(String(err.response))) {
-      return { ok: false, error: `The receiving server refused this address. (Server said: ${String(err.response ?? "").replace(/\s+/g, " ").slice(0, 140)})` };
+      return { ok: false, refused: true, error: `The receiving server refused this address. (Server said: ${String(err.response ?? "").replace(/\s+/g, " ").slice(0, 140)})` };
     }
     return { ok: false, error: explainMailError(e, "SMTP", login.provider) };
   }
