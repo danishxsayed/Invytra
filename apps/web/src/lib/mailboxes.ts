@@ -162,6 +162,8 @@ export async function listMailboxes(prisma: PrismaClient, workspaceId: string, n
       signature: true,
       lastSentAt: true,
       lastCheckedAt: true,
+      replyError: true,
+      lastReplyCheckAt: true,
       createdAt: true,
       dns: true,
     },

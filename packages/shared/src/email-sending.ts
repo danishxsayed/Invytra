@@ -119,3 +119,44 @@ export function pickMailbox<T extends MailboxSendState>(mailboxes: readonly T[],
   ready.sort((a, b) => a.sentToday / a.dailyLimit - b.sentToday / b.dailyLimit || (a.lastSentAt?.getTime() ?? 0) - (b.lastSentAt?.getTime() ?? 0));
   return ready[0] ?? null;
 }
+
+/** When the mailbox's sending hours next open (now if open), in its time zone, looking up to 8 days ahead. */
+export function nextSendingWindow(m: Pick<MailboxSendState, "timeZone" | "days" | "startHour" | "endHour">, now: Date): Date | null {
+  // Step hour by hour (whole hours in the zone), so daylight-saving changes are handled by Intl.
+  const start = new Date(Math.ceil(now.getTime() / 3_600_000) * 3_600_000);
+  const { weekday, hour } = localTime(now, m.timeZone);
+  if (m.days.includes(weekday) && hour >= m.startHour && hour < m.endHour) return now;
+  for (let t = start.getTime(); t < now.getTime() + 8 * 86_400_000; t += 3_600_000) {
+    const at = new Date(t);
+    const l = localTime(at, m.timeZone);
+    if (m.days.includes(l.weekday) && l.hour >= m.startHour && l.hour < m.endHour) {
+      // Back to the exact local hour start (zones with :30 offsets put it mid-UTC-hour).
+      const mins = new Intl.DateTimeFormat("en-US", { timeZone: m.timeZone, minute: "numeric" }).format(at);
+      return new Date(t - Number(mins) * 60_000);
+    }
+  }
+  return null;
+}
+
+/** Why a running campaign's mailbox isn't sending right now, in plain words, and when it will. */
+export function waitingText(m: MailboxSendState, now: Date): { reason: NotReady; text: string; until: Date | null } | null {
+  const r = mailboxReadiness(m, now);
+  if (r.ok) return null;
+  const fmt = (d: Date) => d.toLocaleString("en-GB", { timeZone: m.timeZone, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  switch (r.reason) {
+    case "OUTSIDE_HOURS": {
+      const next = nextSendingWindow(m, now);
+      return { reason: r.reason, until: next, text: `outside its sending hours${next ? `; starts again ${fmt(next)} (${m.timeZone.replace(/_/g, " ")})` : ""}` };
+    }
+    case "DAILY_LIMIT": {
+      const next = nextSendingWindow({ ...m }, new Date(localDayStart(new Date(now.getTime() + 86_400_000), m.timeZone).getTime()));
+      return { reason: r.reason, until: next, text: `sent its ${m.dailyLimit} emails for today${next ? `; continues ${fmt(next)}` : ""}` };
+    }
+    case "TOO_SOON":
+      return { reason: r.reason, until: r.until ?? null, text: `waiting between emails; next at ${fmt(r.until!)}` };
+    case "PAUSED":
+      return { reason: r.reason, until: null, text: "paused (resume it on the Mailboxes tab)" };
+    case "ERROR":
+      return { reason: r.reason, until: null, text: "needs attention (check it on the Mailboxes tab)" };
+  }
+}

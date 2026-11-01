@@ -1,6 +1,6 @@
 import { prisma } from "@invytra/db";
 import { emailWarmupDay } from "@invytra/shared";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Circle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, Clock, Send } from "lucide-react";
 import { notFound } from "next/navigation";
 import { CampaignActions } from "@/components/email/campaign/CampaignActions";
 import { LeadsImport } from "@/components/email/campaign/LeadsImport";
@@ -39,6 +39,48 @@ function Stat({ label, value, sub }: { label: string; value: React.ReactNode; su
       <p className="text-[13px] font-medium text-stone-500">{label}</p>
       <p className="mt-0.5 text-[22px] font-semibold tracking-tight text-stone-900">{value}</p>
       {sub && <p className="text-[12px] text-stone-500">{sub}</p>}
+    </div>
+  );
+}
+
+/** Why a running campaign is or isn't sending right now. */
+function SendingNote({ c, now }: { c: Awaited<ReturnType<typeof getEmailCampaign>> & object; now: Date }) {
+  const ready = c.sending.filter((m) => !m.waiting);
+  if (c.stats.active === 0) return null;
+  if (!ready.length) {
+    return (
+      <div className="rounded-xl bg-amber-50 px-4 py-3 text-[14.5px] text-amber-900 ring-1 ring-amber-200">
+        <p className="flex items-center gap-2 font-semibold">
+          <Clock className="h-4 w-4" aria-hidden /> Not sending right now
+        </p>
+        <ul className="mt-1 space-y-0.5">
+          {c.sending.map((m) => (
+            <li key={m.email}>
+              {m.email} is {m.waiting!.text}.
+            </li>
+          ))}
+        </ul>
+        <p className="mt-1 text-[13.5px] text-amber-800">To change sending days or hours: Mailboxes → Settings.</p>
+      </div>
+    );
+  }
+  // Ready with emails due, but nothing went out for a few minutes: the worker is probably not running.
+  const quiet = c.due > 0 && (!c.lastSendAt || now.getTime() - c.lastSendAt.getTime() > 5 * 60_000) && (!c.launchedAt || now.getTime() - c.launchedAt.getTime() > 3 * 60_000);
+  return (
+    <div className={cx("rounded-xl px-4 py-3 text-[14.5px] ring-1", quiet ? "bg-amber-50 text-amber-900 ring-amber-200" : "bg-emerald-50 text-emerald-900 ring-emerald-200")}>
+      <p className="flex items-center gap-2 font-semibold">
+        <Send className="h-4 w-4" aria-hidden /> Sending from {ready.map((m) => m.email).join(", ")}
+        {c.due > 0 ? ` · ${c.due} email${c.due === 1 ? "" : "s"} due now` : " · next emails are scheduled"}
+      </p>
+      {quiet && <p className="mt-1">Nothing has gone out for a few minutes. Check that the worker is running (pnpm worker); emails go out within a minute of it starting.</p>}
+      {c.sending.some((m) => m.waiting) && (
+        <p className="mt-1 text-[13.5px] opacity-80">
+          {c.sending
+            .filter((m) => m.waiting)
+            .map((m) => `${m.email} is ${m.waiting!.text}.`)
+            .join(" ")}
+        </p>
+      )}
     </div>
   );
 }
@@ -87,6 +129,8 @@ export default async function EmailCampaignPage({ params, searchParams }: { para
           <Stat label="Skipped" value={c.stats.skipped} sub="missing a variable" />
         </div>
       )}
+
+      {c.status === "ACTIVE" && <SendingNote c={c} now={now} />}
 
       {draft && c.problems.length > 0 && (
         <p className="flex items-start gap-2 rounded-lg bg-stone-100 px-3 py-2 text-[14px] text-stone-700">

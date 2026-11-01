@@ -23,6 +23,10 @@ declare module "imapflow" {
     messageFlagsAdd(range: number[], flags: string[], opts?: { uid?: boolean }): Promise<boolean>;
     messageMove(range: number[], destination: string, opts?: { uid?: boolean }): Promise<unknown>;
     mailbox: false | { path: string; uidValidity: bigint; uidNext: number; exists: number };
-    fetch(range: number[] | string, query: { uid?: boolean; source?: boolean; envelope?: boolean }, opts?: { uid?: boolean }): AsyncIterable<{ uid: number; source: Buffer }>;
+    fetch(
+      range: number[] | string,
+      query: { uid?: boolean; source?: boolean; envelope?: boolean },
+      opts?: { uid?: boolean },
+    ): AsyncIterable<{ uid: number; source: Buffer; envelope?: { messageId?: string; inReplyTo?: string; from?: { address?: string; name?: string }[] } }>;
   }
 }

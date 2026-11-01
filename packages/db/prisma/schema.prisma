@@ -565,6 +565,8 @@ model EmailAccount {
   /// Reply reading: the IMAP inbox's UIDVALIDITY and the next UID not yet read
   replyUidValidity BigInt?         @map("reply_uid_validity")
   replyUidNext     Int?            @map("reply_uid_next")
+  /// Why reading the inbox last failed (null = it worked)
+  replyError       String?         @map("reply_error")
   lastReplyCheckAt DateTime?       @map("last_reply_check_at")
   lastCheckedAt    DateTime?       @map("last_checked_at")
   /// The domain's email DNS (SPF, DKIM, DMARC, MX) as last checked (DomainDns in @invytra/db)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMAIL_LIMITS, localDayStart, nextSendAfter, mailboxReadiness, mailboxSettingsSchema, pickMailbox, type MailboxSendState } from "../src/email-sending.js";
+import { EMAIL_LIMITS, localDayStart, nextSendAfter, nextSendingWindow, waitingText, mailboxReadiness, mailboxSettingsSchema, pickMailbox, type MailboxSendState } from "../src/email-sending.js";
 
 // Monday 2 Nov 2026, 11:00 in Kolkata (05:30 UTC).
 const now = new Date("2026-11-02T05:30:00Z");
@@ -38,6 +38,15 @@ describe("email sending rules", () => {
   it("waits for the randomised next send time", () => {
     expect(mailboxReadiness(box({ nextSendAt: new Date(now.getTime() + 60_000) }), now)).toMatchObject({ reason: "TOO_SOON" });
     expect(nextSendAfter(10, now, () => 1).getTime() - now.getTime()).toBe(15 * 60_000);
+  });
+
+  it("says when sending hours open next, and why a mailbox waits", () => {
+    const sunday = new Date("2026-11-01T10:30:00Z"); // Sun 16:00 Kolkata
+    expect(nextSendingWindow(box(), sunday)?.toISOString()).toBe("2026-11-02T03:30:00.000Z"); // Mon 09:00
+    expect(nextSendingWindow(box(), now)).toEqual(now);
+    expect(waitingText(box(), sunday)).toMatchObject({ reason: "OUTSIDE_HOURS", text: "outside its sending hours; starts again Mon 2 Nov, 09:00 (Asia/Kolkata)" });
+    expect(waitingText(box({ sentToday: 30 }), now)).toMatchObject({ reason: "DAILY_LIMIT", text: "sent its 30 emails for today; continues Tue 3 Nov, 09:00" });
+    expect(waitingText(box(), now)).toBeNull();
   });
 
   it("rotates to the ready mailbox that has sent the least", () => {

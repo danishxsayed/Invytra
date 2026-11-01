@@ -130,6 +130,11 @@ function Row({ m, providerName, zones, me }: { m: MailboxRow; providerName: stri
           <CheckLine label="Reading replies (IMAP)" r={checks.imap} />
         </ul>
       )}
+      {m.replyError && (
+        <p className="mt-2 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[14px] text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Couldn't read this mailbox's replies: {m.replyError}
+        </p>
+      )}
       {m.dns ? <DomainHealth dns={m.dns} /> : <p className="mt-2 text-[14px] text-stone-500">Press “Check again” to check this domain's SPF, DKIM and DMARC.</p>}
       {error && <p role="alert" className="mt-2 text-[14px] text-rose-700">{error}</p>}
       {modal === "settings" && <MailboxSettingsModal m={m} zones={zones} onClose={() => setModal(null)} />}

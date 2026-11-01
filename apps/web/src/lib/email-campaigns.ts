@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@invytra/db";
-import { DEFAULT_EMAIL_SEQUENCE, emailLeadsFromCsv, emailSequenceSchema, unknownVars, type EmailStep } from "@invytra/shared";
+import { DEFAULT_EMAIL_SEQUENCE, emailLeadsFromCsv, emailSequenceSchema, localDayStart, unknownVars, waitingText, type EmailStep } from "@invytra/shared";
 import { z } from "zod";
 import type { Result } from "./accounts";
 
@@ -157,7 +157,18 @@ export async function listEmailCampaigns(prisma: PrismaClient, workspaceId: stri
 export const LEAD_FILTERS = ["ALL", "ACTIVE", "COMPLETED", "REPLIED", "BOUNCED", "SKIPPED"] as const;
 export type LeadFilter = (typeof LEAD_FILTERS)[number];
 
-export async function getEmailCampaign(prisma: PrismaClient, workspaceId: string, id: string, filter: LeadFilter = "ALL") {
+/** For a running campaign: each of its mailboxes, and why it isn't sending right now (null = it can send). */
+async function sendingStatus(prisma: PrismaClient, campaignId: string, now: Date) {
+  const boxes = await prisma.emailCampaignMailbox.findMany({ where: { campaignId }, include: { emailAccount: true } });
+  return Promise.all(
+    boxes.map(async ({ emailAccount: m }) => {
+      const sentToday = await prisma.emailSend.count({ where: { emailAccountId: m.id, status: "SENT", kind: { not: "WARMUP" }, createdAt: { gte: localDayStart(now, m.timeZone) } } });
+      return { email: m.email, waiting: waitingText({ ...m, days: m.sendDays, sentToday }, now) };
+    }),
+  );
+}
+
+export async function getEmailCampaign(prisma: PrismaClient, workspaceId: string, id: string, filter: LeadFilter = "ALL", now = new Date()) {
   const c = await prisma.emailCampaign.findFirst({ where: { id, workspaceId }, include: { mailboxes: { select: { emailAccountId: true } } } });
   if (!c) return null;
   const [stats, leads, sample, problems] = await Promise.all([
@@ -171,6 +182,9 @@ export async function getEmailCampaign(prisma: PrismaClient, workspaceId: string
     prisma.emailLead.findMany({ where: { campaignId: id }, orderBy: { createdAt: "asc" }, take: 5, select: { email: true, firstName: true, lastName: true, company: true, title: true, vars: true } }),
     c.status === "DRAFT" ? launchProblems(prisma, c) : Promise.resolve([] as string[]),
   ]);
+  const sending = c.status === "ACTIVE" ? await sendingStatus(prisma, id, now) : [];
+  const due = c.status === "ACTIVE" ? await prisma.emailLead.count({ where: { campaignId: id, status: "ACTIVE", nextAt: { lte: now } } }) : 0;
+  const lastSend = await prisma.emailSend.findFirst({ where: { kind: "CAMPAIGN", emailLead: { campaignId: id } }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
   const steps = emailSequenceSchema.safeParse(c.steps);
   return {
     id: c.id,
@@ -185,6 +199,9 @@ export async function getEmailCampaign(prisma: PrismaClient, workspaceId: string
     sample: sample.map((s) => ({ ...s, vars: (s.vars ?? {}) as Record<string, string> })),
     problems,
     sequenceOk: steps.success && unknownVars(steps.data, c.columns).length === 0,
+    sending,
+    due,
+    lastSendAt: lastSend?.createdAt ?? null,
   };
 }
 export type EmailCampaignView = NonNullable<Awaited<ReturnType<typeof getEmailCampaign>>>;

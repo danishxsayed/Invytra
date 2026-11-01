@@ -141,7 +141,7 @@ async function main() {
         log(`Email campaigns: ${c.sent} sent${c.bounced ? `, ${c.bounced} bounced` : ""}${c.skipped ? `, ${c.skipped} skipped` : ""}${c.failed ? `, ${c.failed} failed` : ""}${c.completed ? `, ${c.completed} campaign(s) finished` : ""}`);
       }
       const r = await emailReplyTick({ prisma: rt.prisma, key });
-      if (r.replies || r.bounces || r.autoReplies) log(`Email inbox: ${r.replies} repl${r.replies === 1 ? "y" : "ies"}, ${r.autoReplies} auto-repl${r.autoReplies === 1 ? "y" : "ies"}, ${r.bounces} bounce(s)`);
+      if (r.replies || r.bounces || r.autoReplies) log(`Email inbox: ${r.replies} repl${r.replies === 1 ? "y" : "ies"}, ${r.autoReplies} auto-repl${r.autoReplies === 1 ? "y" : "ies"}, ${r.bounces} bounce(s)${r.fromSpam ? ` (${r.fromSpam} found in spam, moved to the inbox)` : ""}`);
       const w = await warmupTick({ prisma: rt.prisma, key });
       if (w.sent || w.checked || w.failed) {
         log(`Email warm-up: ${w.sent} sent, ${w.checked} checked${w.spam ? ` (${w.spam} rescued from spam)` : ""}, ${w.replied} replied${w.failed ? `, ${w.failed} failed` : ""}`);

@@ -12,12 +12,17 @@ d("email replies and bounces", () => {
   const WS = "ws-erep";
   const now = new Date("2026-11-03T06:00:00Z");
   let inbox: IncomingMail[] = [];
+  let spam: IncomingMail[] = [];
+  let failWith: Error | null = null;
   const cursors: unknown[] = [];
   const reader: MailboxReader = {
-    read: async (_l, cursor) => {
+    read: async (_l, cursor, _since, fromLead) => {
+      if (failWith) throw failWith;
       cursors.push(cursor);
       const messages = inbox;
       inbox = [];
+      // The real reader keeps only the spam-folder messages fromLead accepts (and moves them).
+      for (const m of spam) if (fromLead && (await fromLead({ messageId: m.messageId, fromEmail: m.fromEmail, inReplyTo: m.inReplyTo }))) messages.push({ ...m, fromSpam: true });
       return { uidValidity: 77n, uidNext: 100 + cursors.length, messages };
     },
   };
@@ -53,7 +58,7 @@ d("email replies and bounces", () => {
       mail({ fromEmail: "ann.home@gmail.com", inReplyTo: "<ann1@x>" }),
       mail({ fromEmail: "stranger@nowhere.io" }),
     ];
-    expect(await emailReplyTick({ prisma, key: KEY, reader, now })).toEqual({ mailboxes: 1, replies: 2, autoReplies: 1, bounces: 1 });
+    expect(await emailReplyTick({ prisma, key: KEY, reader, now })).toEqual({ mailboxes: 1, replies: 2, autoReplies: 1, bounces: 1, fromSpam: 0 });
     expect(await lead("priya@acme.io")).toMatchObject({ status: "REPLIED", nextAt: null, repliedAt: now });
     expect(await lead("priya@acme.io", "er2")).toMatchObject({ status: "REPLIED", reason: "Replied to another campaign" });
     expect(await lead("ann@gamma.co")).toMatchObject({ status: "REPLIED" });
@@ -65,9 +70,32 @@ d("email replies and bounces", () => {
     expect(await prisma.emailAccount.findUniqueOrThrow({ where: { id: "erm" } })).toMatchObject({ replyUidValidity: 77n, replyUidNext: 101, lastReplyCheckAt: now });
   });
 
+  it("finds a lead's reply in the spam folder once, and ignores other spam", async () => {
+    spam = [mail({ fromEmail: "sam@beta.com", text: "Yes, interested", messageId: "<sam1@beta>" }), mail({ fromEmail: "promo@shop.com", messageId: "<ad@shop>" })];
+    const at = new Date(now.getTime() + 10 * 60_000);
+    expect(await emailReplyTick({ prisma, key: KEY, reader, now: at })).toMatchObject({ replies: 1, fromSpam: 1 });
+    expect(await lead("sam@beta.com")).toMatchObject({ status: "REPLIED" });
+    // Still in the spam list on the next read (say the move failed): not counted twice.
+    expect(await emailReplyTick({ prisma, key: KEY, reader, now: new Date(at.getTime() + 10 * 60_000) })).toMatchObject({ replies: 0, fromSpam: 0 });
+    expect(await prisma.emailReply.count({ where: { fromEmail: "sam@beta.com" } })).toBe(1);
+    spam = [];
+  });
+
+  it("records why reading failed, and clears it once it works", async () => {
+    failWith = Object.assign(new Error("Invalid credentials"), { authenticationFailed: true });
+    await emailReplyTick({ prisma, key: KEY, reader, now: new Date(now.getTime() + 60 * 60_000) });
+    expect((await prisma.emailAccount.findUniqueOrThrow({ where: { id: "erm" } })).replyError).toMatch(/didn't accept/);
+    failWith = null;
+    await emailReplyTick({ prisma, key: KEY, reader, now: new Date(now.getTime() + 70 * 60_000) });
+    expect((await prisma.emailAccount.findUniqueOrThrow({ where: { id: "erm" } })).replyError).toBeNull();
+  });
+
   it("reads each mailbox every few minutes, from where it stopped", async () => {
-    expect((await emailReplyTick({ prisma, key: KEY, reader, now: new Date(now.getTime() + 60_000) })).mailboxes).toBe(0);
-    await emailReplyTick({ prisma, key: KEY, reader, now: new Date(now.getTime() + 4 * 60_000) });
-    expect(cursors.at(-1)).toEqual({ uidValidity: 77n, uidNext: 101 });
+    const base = new Date(now.getTime() + 70 * 60_000);
+    const before = cursors.length;
+    expect((await emailReplyTick({ prisma, key: KEY, reader, now: new Date(base.getTime() + 60_000) })).mailboxes).toBe(0);
+    await emailReplyTick({ prisma, key: KEY, reader, now: new Date(base.getTime() + 4 * 60_000) });
+    expect(cursors.length).toBe(before + 1);
+    expect(cursors.at(-1)).toEqual({ uidValidity: 77n, uidNext: 100 + before });
   });
 });

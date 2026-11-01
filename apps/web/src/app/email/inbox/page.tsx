@@ -51,6 +51,7 @@ export default async function EmailInboxPage({ searchParams }: { searchParams: P
   if (!convo && rows[0]) convo = await getConversation(prisma, me.workspace.id, rows[0].leadId);
   const openId = convo?.lead.id;
   for (const r of rows) if (r.leadId === openId) r.unread = 0;
+  const unreadable = await prisma.emailAccount.findMany({ where: { workspaceId: me.workspace.id, replyError: { not: null } }, select: { email: true, replyError: true } });
   const href = (o: { v?: string; c?: string }) => `/email/inbox?${new URLSearchParams({ v: o.v ?? view, ...(o.c && { c: o.c }) })}`;
 
   return (
@@ -58,10 +59,15 @@ export default async function EmailInboxPage({ searchParams }: { searchParams: P
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight text-stone-900">Inbox</h1>
-          <p className="text-[15px] text-stone-500">Replies to your campaigns, from every mailbox. Answer here and it goes out from the same mailbox, in the same thread.</p>
+          <p className="text-[15px] text-stone-500">Replies to your campaigns, from every mailbox (including any that landed in its spam folder). Answer here and it goes out from the same mailbox, in the same thread.</p>
         </div>
         <EmailInboxLive />
       </div>
+      {unreadable.map((m) => (
+        <p key={m.email} className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[14px] text-amber-900 ring-1 ring-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Couldn't read replies in {m.email}: {m.replyError}
+        </p>
+      ))}
       <nav className="flex flex-wrap gap-1" aria-label="Inbox views">
         {INBOX_VIEWS.map((v) => (
           <a key={v} href={href({ v })} aria-current={v === view ? "page" : undefined} className={cx("rounded-lg px-3 py-1.5 text-[14px] font-medium", v === view ? "bg-stone-900 text-white" : "text-stone-600 hover:bg-stone-100")}>

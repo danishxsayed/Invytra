@@ -1,6 +1,7 @@
 import { ImapFlow } from "imapflow";
 import { simpleParser, type AddressObject } from "mailparser";
 import { checkMailHost, type MailboxLogin } from "./mailbox.js";
+import { warmupFolders } from "./warmup-imap.js";
 
 /*
  * Reading a campaign mailbox's inbox for replies and bounces: only messages that arrived
@@ -21,6 +22,15 @@ export interface IncomingMail {
   kind: "REPLY" | "AUTO_REPLY" | "BOUNCE";
   /** For a bounce: the addresses that failed. */
   bounced: string[];
+  /** Found in the spam folder (and moved back to the inbox). */
+  fromSpam?: boolean;
+}
+
+/** A spam-folder message's envelope, to decide whether it's from a lead before downloading it. */
+export interface SpamEnvelope {
+  messageId: string | null;
+  fromEmail: string;
+  inReplyTo: string | null;
 }
 
 export interface ReadCursor {
@@ -29,8 +39,17 @@ export interface ReadCursor {
 }
 
 export interface MailboxReader {
-  /** New INBOX messages after the cursor (or since `since` when there is none / it's stale). */
-  read(login: MailboxLogin, cursor: ReadCursor, since: Date): Promise<{ uidValidity: bigint; uidNext: number; messages: IncomingMail[] }>;
+  /**
+   * New INBOX messages after the cursor (or since `since` when there is none / it's stale).
+   * With `fromLead`, the last days of the spam folder are checked too: messages it accepts
+   * are read and moved back to the inbox (teaching the provider they aren't spam).
+   */
+  read(
+    login: MailboxLogin,
+    cursor: ReadCursor,
+    since: Date,
+    fromLead?: (e: SpamEnvelope) => boolean | Promise<boolean>,
+  ): Promise<{ uidValidity: bigint; uidNext: number; messages: IncomingMail[] }>;
 }
 
 const MAX_PER_READ = 200;
@@ -97,8 +116,10 @@ export async function parseIncoming(source: Buffer | string, uid: number): Promi
   };
 }
 
+const SPAM_DAYS = 3;
+
 export const realMailboxReader: MailboxReader = {
-  async read(l, cursor, since) {
+  async read(l, cursor, since, fromLead) {
     await checkMailHost(l.imapHost);
     const c = new ImapFlow({
       host: l.imapHost,
@@ -113,6 +134,7 @@ export const realMailboxReader: MailboxReader = {
     c.on("error", () => undefined);
     await c.connect();
     try {
+      let result: { uidValidity: bigint; uidNext: number; messages: IncomingMail[] };
       const lock = await c.getMailboxLock("INBOX");
       try {
         const box = c.mailbox as { uidValidity: bigint; uidNext: number };
@@ -136,12 +158,44 @@ export const realMailboxReader: MailboxReader = {
           }
         }
         const last = uids.length ? uids[uids.length - 1]! + 1 : box.uidNext;
-        return { uidValidity: BigInt(box.uidValidity), uidNext: uids.length === MAX_PER_READ ? last : Math.max(last, box.uidNext), messages };
+        result = { uidValidity: BigInt(box.uidValidity), uidNext: uids.length === MAX_PER_READ ? last : Math.max(last, box.uidNext), messages };
       } finally {
         lock.release();
       }
+      if (fromLead) result.messages.push(...(await readSpam(c, fromLead)));
+      return result;
     } finally {
       await c.logout().catch(() => c.close());
     }
   },
 };
+
+/** Leads' messages that landed in the spam folder in the last few days: read them and move them to the inbox. */
+async function readSpam(c: ImapFlow, fromLead: (e: SpamEnvelope) => boolean | Promise<boolean>): Promise<IncomingMail[]> {
+  const { junk } = warmupFolders(await c.list());
+  if (!junk) return [];
+  const lock = await c.getMailboxLock(junk);
+  const out: IncomingMail[] = [];
+  try {
+    const recent = ((await c.search({ since: new Date(Date.now() - SPAM_DAYS * 86_400_000) }, { uid: true })) || []).sort((a, b) => b - a).slice(0, MAX_PER_READ);
+    if (!recent.length) return [];
+    const wanted: number[] = [];
+    for await (const m of c.fetch(recent, { uid: true, envelope: true }, { uid: true })) {
+      const env = m.envelope;
+      const e: SpamEnvelope = { messageId: env?.messageId ?? null, fromEmail: (env?.from?.[0]?.address ?? "").toLowerCase(), inReplyTo: env?.inReplyTo ?? null };
+      if (await fromLead(e)) wanted.push(m.uid);
+    }
+    if (!wanted.length) return [];
+    for await (const m of c.fetch(wanted, { uid: true, source: true }, { uid: true })) {
+      try {
+        out.push({ ...(await parseIncoming(m.source, m.uid)), fromSpam: true });
+      } catch {
+        // skip unreadable
+      }
+    }
+    await c.messageMove(wanted, "INBOX", { uid: true }).catch(() => undefined);
+  } finally {
+    lock.release();
+  }
+  return out;
+}

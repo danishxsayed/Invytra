@@ -1,4 +1,4 @@
-import { openSecret, realMailboxReader, type IncomingMail, type MailboxReader, type PrismaClient } from "@invytra/db";
+import { explainMailError, openSecret, realMailboxReader, type IncomingMail, type MailboxReader, type PrismaClient } from "@invytra/db";
 
 /*
  * Replies and bounces for email campaigns: every few minutes, each mailbox that has written
@@ -21,6 +21,8 @@ export interface ReplyTickResult {
   replies: number;
   autoReplies: number;
   bounces: number;
+  /** Lead messages found in the spam folder (moved back to the inbox). */
+  fromSpam: number;
 }
 
 const DAY_MS = 86_400_000;
@@ -30,7 +32,7 @@ const ACTIVE_DAYS = 60;
 export async function emailReplyTick(d: ReplyTickDeps): Promise<ReplyTickResult> {
   const { prisma } = d;
   const now = d.now ?? new Date();
-  const res: ReplyTickResult = { mailboxes: 0, replies: 0, autoReplies: 0, bounces: 0 };
+  const res: ReplyTickResult = { mailboxes: 0, replies: 0, autoReplies: 0, bounces: 0, fromSpam: 0 };
   const every = (d.everyMinutes ?? 3) * 60_000;
 
   const boxes = await prisma.emailAccount.findMany({
@@ -44,16 +46,34 @@ export async function emailReplyTick(d: ReplyTickDeps): Promise<ReplyTickResult>
   for (const box of boxes) {
     const firstSend = await prisma.emailLead.findFirst({ where: { emailAccountId: box.id, lastSentAt: { not: null } }, orderBy: { lastSentAt: "asc" }, select: { lastSentAt: true } });
     const since = new Date(Math.max((firstSend?.lastSentAt ?? now).getTime() - DAY_MS, now.getTime() - 14 * DAY_MS));
+    // What counts as a lead's message in the spam folder: from a lead's address, answering one
+    // of our emails, or a bounce — and not already saved.
+    const [leadEmails, sentIds, savedIds] = await Promise.all([
+      prisma.emailLead.findMany({ where: { emailAccountId: box.id, lastSentAt: { not: null } }, select: { email: true } }).then((r) => new Set(r.map((x) => x.email))),
+      prisma.emailSend
+        .findMany({ where: { emailAccountId: box.id, kind: { in: ["CAMPAIGN", "REPLY"] }, messageId: { not: null }, createdAt: { gte: new Date(now.getTime() - ACTIVE_DAYS * DAY_MS) } }, select: { messageId: true } })
+        .then((r) => new Set(r.map((x) => x.messageId!))),
+      prisma.emailReply.findMany({ where: { emailAccountId: box.id, messageId: { not: null }, receivedAt: { gte: new Date(now.getTime() - 7 * DAY_MS) } }, select: { messageId: true } }).then((r) => new Set(r.map((x) => x.messageId!))),
+    ]);
+    const fromLead = (e: { messageId: string | null; fromEmail: string; inReplyTo: string | null }) =>
+      !(e.messageId && savedIds.has(e.messageId)) && (leadEmails.has(e.fromEmail) || (!!e.inReplyTo && sentIds.has(e.inReplyTo)) || /^(mailer-daemon|postmaster)@/i.test(e.fromEmail));
+
     let read;
     try {
-      read = await (d.reader ?? realMailboxReader).read({ ...box, password: openSecret(box.secret, d.key) }, { uidValidity: box.replyUidValidity, uidNext: box.replyUidNext }, since);
-    } catch {
-      await prisma.emailAccount.update({ where: { id: box.id }, data: { lastReplyCheckAt: now } });
-      continue; // Can't read right now; try again later.
+      read = await (d.reader ?? realMailboxReader).read({ ...box, password: openSecret(box.secret, d.key) }, { uidValidity: box.replyUidValidity, uidNext: box.replyUidNext }, since, fromLead);
+    } catch (e) {
+      // Can't read right now: say why on the mailbox, try again later.
+      await prisma.emailAccount.update({ where: { id: box.id }, data: { lastReplyCheckAt: now, replyError: explainMailError(e, "IMAP", box.provider) } });
+      continue;
     }
     res.mailboxes++;
-    for (const m of read.messages) await handle(prisma, box, m, res);
-    await prisma.emailAccount.update({ where: { id: box.id }, data: { replyUidValidity: read.uidValidity, replyUidNext: read.uidNext, lastReplyCheckAt: now } });
+    for (const m of read.messages) {
+      if (m.messageId && savedIds.has(m.messageId)) continue; // Seen already (e.g. moved back from spam).
+      await handle(prisma, box, m, res);
+      if (m.messageId) savedIds.add(m.messageId);
+      if (m.fromSpam) res.fromSpam++;
+    }
+    await prisma.emailAccount.update({ where: { id: box.id }, data: { replyUidValidity: read.uidValidity, replyUidNext: read.uidNext, lastReplyCheckAt: now, replyError: null } });
   }
   return res;
 }
