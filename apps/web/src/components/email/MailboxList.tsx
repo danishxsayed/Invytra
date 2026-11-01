@@ -9,6 +9,7 @@ import type { MailboxRow } from "@/lib/mailboxes";
 import { btn } from "../AccountControls";
 import { Card, EmptyState, cx } from "../ui";
 import { CheckLine } from "./ConnectMailbox";
+import { DomainHealth } from "./DomainHealth";
 
 const STATUS: Record<MailboxRow["status"], { text: string; cls: string }> = {
   ACTIVE: { text: "Connected", cls: "bg-emerald-50 text-emerald-700 ring-emerald-600/20" },
@@ -92,6 +93,7 @@ function Row({ m, providerName }: { m: MailboxRow; providerName: string }) {
           <CheckLine label="Reading replies (IMAP)" r={checks.imap} />
         </ul>
       )}
+      {m.dns ? <DomainHealth dns={m.dns} /> : <p className="mt-2 text-[14px] text-stone-500">Press “Check again” to check this domain's SPF, DKIM and DMARC.</p>}
       {error && <p role="alert" className="mt-2 text-[14px] text-rose-700">{error}</p>}
     </li>
   );

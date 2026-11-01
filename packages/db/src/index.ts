@@ -19,3 +19,4 @@ export * from "./replies.js";
 export * from "./ai-line.js";
 export * from "./plan-limits.js";
 export * from "./mailbox.js";
+export * from "./dns-check.js";

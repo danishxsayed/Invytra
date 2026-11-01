@@ -543,6 +543,8 @@ model EmailAccount {
   /// Emails it may send a day (warm-up raises it over time)
   dailyLimit  Int             @default(30) @map("daily_limit")
   lastCheckedAt DateTime?     @map("last_checked_at")
+  /// The domain's email DNS (SPF, DKIM, DMARC, MX) as last checked (DomainDns in @invytra/db)
+  dns         Json?
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
 

@@ -1,5 +1,8 @@
 import {
   IMAP_PORTS,
+  checkDomainDns,
+  type DnsLookup,
+  type DomainDns,
   MAILBOX_PRESETS,
   SMTP_PORTS,
   openSecret,
@@ -43,7 +46,18 @@ export interface ConnectResult {
   imap: CheckResult;
   /** Set when the mailbox was saved (both checks passed). */
   id?: string;
+  /** The domain's email DNS, checked once the mailbox works. */
+  dns?: DomainDns;
 }
+
+/** Test doubles: the mail login check and the DNS lookups. */
+export interface MailboxDeps {
+  tester?: MailboxTester;
+  dns?: DnsLookup;
+}
+
+const domainOf = (email: string) => email.slice(email.lastIndexOf("@") + 1);
+const dnsJson = (d: DomainDns) => d as unknown as object;
 
 function key(): string {
   const k = process.env.SESSION_ENCRYPTION_KEY;
@@ -63,13 +77,14 @@ export async function connectMailbox(
   prisma: PrismaClient,
   workspaceId: string,
   input: ConnectMailboxInput,
-  tester?: MailboxTester,
+  deps: MailboxDeps = {},
 ): Promise<Result<ConnectResult>> {
   const taken = await takenProblem(prisma, workspaceId, input.email);
   if (taken) return { ok: false, error: taken };
   const login = { ...input, username: input.username || input.email, provider: input.provider };
-  const checks = await testMailbox(login, tester);
+  const checks = await testMailbox(login, deps.tester);
   if (!checks.smtp.ok || !checks.imap.ok) return { ok: true, value: checks };
+  const dns = await checkDomainDns(domainOf(input.email), input.provider, deps.dns);
   const saved = await prisma.emailAccount.create({
     data: {
       workspaceId,
@@ -85,26 +100,31 @@ export async function connectMailbox(
       secret: sealSecret(input.password, key()),
       status: "ACTIVE",
       lastCheckedAt: new Date(),
+      dns: dnsJson(dns),
     },
     select: { id: true },
   });
-  return { ok: true, value: { ...checks, id: saved.id } };
+  return { ok: true, value: { ...checks, id: saved.id, dns } };
 }
 
-/** Logs in again with the saved details and records whether it still works. */
-export async function recheckMailbox(prisma: PrismaClient, workspaceId: string, id: string, tester?: MailboxTester): Promise<Result<ConnectResult>> {
+/** Logs in again with the saved details and checks the domain's DNS again. */
+export async function recheckMailbox(prisma: PrismaClient, workspaceId: string, id: string, deps: MailboxDeps = {}): Promise<Result<ConnectResult>> {
   const m = await prisma.emailAccount.findFirst({ where: { id, workspaceId } });
   if (!m) return { ok: false, error: "Mailbox not found." };
-  const checks = await testMailbox({ ...m, provider: m.provider, password: openSecret(m.secret, key()) }, tester);
+  const [checks, dns] = await Promise.all([
+    testMailbox({ ...m, provider: m.provider, password: openSecret(m.secret, key()) }, deps.tester),
+    checkDomainDns(domainOf(m.email), m.provider, deps.dns),
+  ]);
   const ok = checks.smtp.ok && checks.imap.ok;
   await prisma.emailAccount.update({
     where: { id: m.id },
     data: {
       lastCheckedAt: new Date(),
+      dns: dnsJson(dns),
       ...(ok ? { status: m.status === "PAUSED" ? "PAUSED" : "ACTIVE", statusReason: null } : { status: "ERROR", statusReason: checks.smtp.error ?? checks.imap.error ?? null }),
     },
   });
-  return { ok: true, value: checks };
+  return { ok: true, value: { ...checks, dns } };
 }
 
 export async function removeMailbox(prisma: PrismaClient, workspaceId: string, id: string): Promise<Result> {
@@ -129,7 +149,8 @@ export function listMailboxes(prisma: PrismaClient, workspaceId: string) {
       dailyLimit: true,
       lastCheckedAt: true,
       createdAt: true,
+      dns: true,
     },
-  });
+  }).then((rows) => rows.map((r) => ({ ...r, dns: (r.dns ?? null) as DomainDns | null })));
 }
 export type MailboxRow = Awaited<ReturnType<typeof listMailboxes>>[number];
