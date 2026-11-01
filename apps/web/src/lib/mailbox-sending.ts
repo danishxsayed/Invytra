@@ -33,10 +33,10 @@ export async function setMailboxPaused(prisma: PrismaClient, workspaceId: string
   return { ok: true, value: undefined };
 }
 
-/** Emails each mailbox has sent today (in its own time zone). */
+/** Emails each mailbox has sent today (in its own time zone); warm-up emails don't count. */
 export async function sentToday(prisma: PrismaClient, mailboxes: { id: string; timeZone: string }[], now = new Date()): Promise<Map<string, number>> {
   const counts = await Promise.all(
-    mailboxes.map((m) => prisma.emailSend.count({ where: { emailAccountId: m.id, status: "SENT", createdAt: { gte: localDayStart(now, m.timeZone) } } })),
+    mailboxes.map((m) => prisma.emailSend.count({ where: { emailAccountId: m.id, status: "SENT", kind: { not: "WARMUP" }, createdAt: { gte: localDayStart(now, m.timeZone) } } })),
   );
   return new Map(mailboxes.map((m, i) => [m.id, counts[i]!]));
 }

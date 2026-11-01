@@ -15,3 +15,4 @@ export * from "./audience.js";
 export * from "./ai.js";
 export * from "./channels.js";
 export * from "./email-sending.js";
+export * from "./email-warmup.js";

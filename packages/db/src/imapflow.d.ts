@@ -16,5 +16,11 @@ declare module "imapflow" {
     logout(): Promise<void>;
     close(): void;
     on(event: "error", cb: (e: Error) => void): void;
+    list(): Promise<{ path: string; name: string; delimiter?: string; specialUse?: string }[]>;
+    mailboxCreate(path: string): Promise<unknown>;
+    getMailboxLock(path: string): Promise<{ release(): void }>;
+    search(query: Record<string, unknown>, opts?: { uid?: boolean }): Promise<number[] | false>;
+    messageFlagsAdd(range: number[], flags: string[], opts?: { uid?: boolean }): Promise<boolean>;
+    messageMove(range: number[], destination: string, opts?: { uid?: boolean }): Promise<unknown>;
   }
 }

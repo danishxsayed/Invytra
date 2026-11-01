@@ -13,6 +13,8 @@ export interface OutgoingEmail {
   subject: string;
   /** Plain-text body; the signature is added by emailBody(). */
   text: string;
+  /** For a reply: the Message-ID it answers (threads it in the recipient's mailbox). */
+  inReplyTo?: string;
 }
 
 export interface MailSender {
@@ -36,7 +38,14 @@ export const realMailSender: MailSender = {
       socketTimeout: TIMEOUT_MS,
     });
     try {
-      const info = await t.sendMail({ from: { name: mail.fromName, address: mail.from }, to: mail.to, subject: mail.subject, text: mail.text, html: mail.html });
+      const info = await t.sendMail({
+        from: { name: mail.fromName, address: mail.from },
+        to: mail.to,
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
+        ...(mail.inReplyTo && { inReplyTo: mail.inReplyTo, references: mail.inReplyTo }),
+      });
       return { messageId: info.messageId };
     } finally {
       t.close();

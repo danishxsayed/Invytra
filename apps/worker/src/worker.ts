@@ -13,6 +13,7 @@ import { QUEUE_NAME, createQueue, scheduleAction, type ActionJob } from "./queue
 import { createConnectServer } from "./connect/server.js";
 import { campaignTick } from "./campaigns/engine.js";
 import { importTick } from "./imports/importer.js";
+import { warmupTick } from "./email/warmup.js";
 import { createRuntime } from "./runtime.js";
 import { unipileFromEnv } from "@invytra/db";
 
@@ -126,6 +127,24 @@ async function main() {
   await runCampaigns();
   const campaignTimer = setInterval(runCampaigns, Number(process.env.CAMPAIGN_TICK_SECONDS ?? 60) * 1000);
 
+  // Email warm-up: pool mailboxes email each other; the receiving side files them and replies.
+  let warming = false;
+  const runWarmup = async () => {
+    if (warming) return;
+    warming = true;
+    try {
+      const w = await warmupTick({ prisma: rt.prisma, key: rt.env.SESSION_ENCRYPTION_KEY });
+      if (w.sent || w.checked || w.failed) {
+        log(`Email warm-up: ${w.sent} sent, ${w.checked} checked${w.spam ? ` (${w.spam} rescued from spam)` : ""}, ${w.replied} replied${w.failed ? `, ${w.failed} failed` : ""}`);
+      }
+    } catch (e) {
+      log(`Email warm-up error: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      warming = false;
+    }
+  };
+  const warmupTimer = setInterval(runWarmup, 60_000);
+
   // Replies typed in the dashboard's inbox, and inbox checks it asks for while open: the web
   // app only writes the QUEUED row, so look for new ones every few seconds and queue them.
   const picked = new Set<string>(queued.map((q) => q.id));
@@ -175,6 +194,7 @@ async function main() {
     clearInterval(timer);
     clearInterval(campaignTimer);
     clearInterval(replyTimer);
+    clearInterval(warmupTimer);
     await connect?.closeAll();
     await worker.close();
     await queue.close();

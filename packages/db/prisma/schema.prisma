@@ -552,6 +552,13 @@ model EmailAccount {
   /// Plain-text signature added under every email
   signature   String          @default("")
   lastSentAt  DateTime?       @map("last_sent_at")
+  /// Warm-up: in the pool, since when (the ramp counts from here), up to how many a day,
+  /// and the % of received warm-up emails it replies to
+  warmupEnabled   Boolean   @default(false) @map("warmup_enabled")
+  warmupStartedAt DateTime? @map("warmup_started_at")
+  warmupMaxDaily  Int       @default(20) @map("warmup_max_daily")
+  warmupReplyRate Int       @default(30) @map("warmup_reply_rate")
+  lastWarmupAt    DateTime? @map("last_warmup_at")
   lastCheckedAt DateTime?     @map("last_checked_at")
   /// The domain's email DNS (SPF, DKIM, DMARC, MX) as last checked (DomainDns in @invytra/db)
   dns         Json?
@@ -560,6 +567,7 @@ model EmailAccount {
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   sends     EmailSend[]
+  received  EmailSend[] @relation("WarmupReceived")
 
   @@index([workspaceId])
   @@map("email_accounts")
@@ -576,6 +584,13 @@ enum EmailSendStatus {
   FAILED
 }
 
+/// Where a warm-up email landed in the receiving mailbox
+enum WarmupLanding {
+  INBOX
+  SPAM
+  MISSING
+}
+
 /// Every email a mailbox tried to send: what counts toward its daily limit, and the log.
 model EmailSend {
   id             String          @id @default(cuid())
@@ -588,11 +603,20 @@ model EmailSend {
   /// The SMTP Message-ID (to match replies later)
   messageId      String?         @map("message_id")
   error          String?
+  /// Warm-up only: the pool mailbox it went to, the code that finds it there, whether it is
+  /// a reply (replies get no reply), where it landed and when that was checked
+  toAccountId    String?         @map("to_account_id")
+  warmupCode     String?         @unique @map("warmup_code")
+  isReply        Boolean         @default(false) @map("is_reply")
+  landedIn       WarmupLanding?  @map("landed_in")
+  checkedAt      DateTime?       @map("checked_at")
   createdAt      DateTime        @default(now()) @map("created_at")
 
-  emailAccount EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccount EmailAccount  @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  toAccount    EmailAccount? @relation("WarmupReceived", fields: [toAccountId], references: [id], onDelete: Cascade)
 
   @@index([emailAccountId, createdAt])
   @@index([workspaceId, createdAt])
+  @@index([kind, landedIn, createdAt])
   @@map("email_sends")
 }

@@ -4,7 +4,8 @@ import { prisma } from "@invytra/db";
 import { revalidatePath } from "next/cache";
 import type { Result } from "@/lib/accounts";
 import { requireChannel } from "@/lib/auth";
-import { mailboxSettingsSchema } from "@invytra/shared";
+import { mailboxSettingsSchema, warmupSettingsSchema } from "@invytra/shared";
+import { saveWarmupSettings } from "@/lib/warmup";
 import { sendTestEmail, setMailboxPaused, testEmailSchema, updateMailboxSettings } from "@/lib/mailbox-sending";
 import { connectMailbox, connectMailboxSchema, recheckMailbox, removeMailbox, type ConnectResult } from "@/lib/mailboxes";
 
@@ -54,6 +55,15 @@ export async function sendTestEmailAction(id: string, input: unknown): Promise<R
   const parsed = testEmailSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
   const r = await sendTestEmail(prisma, me.workspace.id, String(id), parsed.data.to);
+  revalidatePath("/email", "layout");
+  return r;
+}
+
+export async function saveWarmupAction(id: string, input: unknown): Promise<Result> {
+  const me = await requireChannel("email");
+  const parsed = warmupSettingsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
+  const r = await saveWarmupSettings(prisma, me.workspace.id, String(id), parsed.data);
   revalidatePath("/email", "layout");
   return r;
 }
