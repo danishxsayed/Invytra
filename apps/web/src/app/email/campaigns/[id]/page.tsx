@@ -7,7 +7,8 @@ import { CampaignSettings } from "@/components/email/campaign/CampaignSettings";
 import { AddLeads } from "@/components/email/campaign/AddLeads";
 import { MailboxPicker } from "@/components/email/campaign/MailboxPicker";
 import { SequenceEditor } from "@/components/email/campaign/SequenceEditor";
-import { CAMPAIGN_STATUS, LEAD_STATUS, pct } from "@/components/email/campaign/status";
+import { CAMPAIGN_STATUS, LEAD_STATUS, pct, scheduleText } from "@/components/email/campaign/status";
+import { allTimeZones } from "@/lib/timezones";
 import { Card, cx } from "@/components/ui";
 import { requireChannel } from "@/lib/auth";
 import { listLists, listVariables } from "@/lib/email-contacts";
@@ -105,7 +106,7 @@ export default async function EmailCampaignPage({ params, searchParams }: { para
   const now = new Date();
   const s = CAMPAIGN_STATUS[c.status]!;
   const draft = c.status === "DRAFT";
-  const editable = c.status === "DRAFT" || c.status === "PAUSED";
+  const editable = c.status === "DRAFT" || c.status === "PAUSED" || c.status === "SCHEDULED";
 
   return (
     <div className="space-y-6">
@@ -118,9 +119,17 @@ export default async function EmailCampaignPage({ params, searchParams }: { para
             {c.name}
             <span className={cx("rounded-full px-2.5 py-0.5 text-[13px] font-medium ring-1", s.cls)}>{s.text}</span>
           </h1>
-          <p className="text-[15px] text-stone-500">{draft ? "Add leads, write the emails, choose mailboxes, then launch." : `Launched ${when(c.launchedAt)}. Emails go out within each mailbox's hours and daily limit.`}</p>
+          <p className="text-[15px] text-stone-500">
+            {draft
+              ? "Add leads, write the emails, choose mailboxes, then launch or schedule it."
+              : c.status === "SCHEDULED"
+                ? `Scheduled for ${scheduleText(c.schedule.local, c.schedule.timeZone, c.schedule.recipientTz)}. You can still edit everything until then.`
+                : c.status === "CANCELLED"
+                  ? "Cancelled: nothing more is sent."
+                  : `Launched ${when(c.launchedAt)}. Emails go out within each mailbox's hours and daily limit.`}
+          </p>
         </div>
-        <CampaignActions id={c.id} status={c.status} ready={c.problems.length === 0} />
+        <CampaignActions id={c.id} status={c.status} ready={c.problems.length === 0} zones={allTimeZones()} schedule={c.schedule} />
       </div>
 
       {!draft && (
@@ -135,14 +144,14 @@ export default async function EmailCampaignPage({ params, searchParams }: { para
 
       {c.status === "ACTIVE" && <SendingNote c={c} now={now} />}
 
-      {draft && c.problems.length > 0 && (
+      {(draft || c.status === "SCHEDULED") && c.problems.length > 0 && (
         <p className="flex items-start gap-2 rounded-lg bg-stone-100 px-3 py-2 text-[14px] text-stone-700">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-stone-500" aria-hidden /> Before launching: {c.problems.join(" ")}
         </p>
       )}
 
       <Section n={draft ? 1 : undefined} title="Leads" done={c.stats.leads > 0} description="Add a contact list, or upload a CSV. Each lead's details fill the variables in your emails.">
-        {c.status !== "COMPLETED" && <AddLeads id={c.id} lists={lists} variables={variables} />}
+        {c.status !== "COMPLETED" && c.status !== "CANCELLED" && <AddLeads id={c.id} lists={lists} variables={variables} />}
         {c.stats.leads > 0 && (
           <div className="mt-5">
             <nav className="mb-2 flex flex-wrap gap-1" aria-label="Filter leads">
@@ -184,7 +193,7 @@ export default async function EmailCampaignPage({ params, searchParams }: { para
                         {l.lastSentAt && <span className="block text-[12px] text-stone-500">{when(l.lastSentAt)}</span>}
                       </td>
                       <td className="hidden px-3 py-2 text-stone-600 md:table-cell">{l.emailAccount?.email ?? "—"}</td>
-                      <td className="hidden px-3 py-2 text-stone-600 md:table-cell">{l.status === "ACTIVE" && !draft ? (l.nextAt && l.nextAt > now ? when(l.nextAt) : "Next in line") : "—"}</td>
+                      <td className="hidden px-3 py-2 text-stone-600 md:table-cell">{l.status === "ACTIVE" && !draft && l.nextAt ? (l.nextAt > now ? when(l.nextAt) : "Next in line") : "—"}</td>
                     </tr>
                   ))}
                 </tbody>

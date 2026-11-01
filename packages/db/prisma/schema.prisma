@@ -646,11 +646,14 @@ model EmailSend {
   @@map("email_sends")
 }
 
+/// Shown as: Draft, Scheduled, Sending (ACTIVE), Paused, Sent (COMPLETED), Cancelled
 enum EmailCampaignStatus {
   DRAFT
+  SCHEDULED
   ACTIVE
   PAUSED
   COMPLETED
+  CANCELLED
 }
 
 /// An email campaign: leads, a sequence of emails (steps JSON, EmailStep[] in @invytra/shared)
@@ -670,6 +673,12 @@ model EmailCampaign {
   /// Soft bounces (mailbox full, server busy): try the same email again this many times, this many hours apart
   softBounceRetries Int     @default(2) @map("soft_bounce_retries")
   softRetryHours    Int     @default(24) @map("soft_retry_hours")
+  /// Scheduled sending: the first emails go out from this moment (the earliest, when each
+  /// recipient's own time zone is used), as entered (local date-time + zone)
+  scheduledAt         DateTime? @map("scheduled_at")
+  scheduleLocal       String?   @map("schedule_local")
+  scheduleTimeZone    String?   @map("schedule_time_zone")
+  scheduleRecipientTz Boolean   @default(false) @map("schedule_recipient_tz")
   launchedAt  DateTime?           @map("launched_at")
   createdAt   DateTime            @default(now()) @map("created_at")
   updatedAt   DateTime            @updatedAt @map("updated_at")

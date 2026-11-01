@@ -137,6 +137,7 @@ async function main() {
     try {
       const key = rt.env.SESSION_ENCRYPTION_KEY;
       const c = await emailCampaignTick({ prisma: rt.prisma, key });
+      if (c.started) log(`Email campaigns: ${c.started} scheduled campaign(s) started`);
       if (c.sent || c.bounced || c.skipped || c.failed || c.completed) {
         log(`Email campaigns: ${c.sent} sent${c.bounced ? `, ${c.bounced} bounced` : ""}${c.skipped ? `, ${c.skipped} skipped` : ""}${c.failed ? `, ${c.failed} failed` : ""}${c.completed ? `, ${c.completed} campaign(s) finished` : ""}`);
       }

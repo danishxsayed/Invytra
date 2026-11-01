@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EMAIL_LIMITS, localDayStart, nextSendAfter, nextSendingWindow, waitingText, mailboxReadiness, mailboxSettingsSchema, pickMailbox, type MailboxSendState } from "../src/email-sending.js";
+import { EMAIL_LIMITS, localDayStart, nextSendAfter, nextSendingWindow, recipientTimeZone, waitingText, zonedTime, mailboxReadiness, mailboxSettingsSchema, pickMailbox, type MailboxSendState } from "../src/email-sending.js";
 
 // Monday 2 Nov 2026, 11:00 in Kolkata (05:30 UTC).
 const now = new Date("2026-11-02T05:30:00Z");
@@ -38,6 +38,15 @@ describe("email sending rules", () => {
   it("waits for the randomised next send time", () => {
     expect(mailboxReadiness(box({ nextSendAt: new Date(now.getTime() + 60_000) }), now)).toMatchObject({ reason: "TOO_SOON" });
     expect(nextSendAfter(10, now, () => 1).getTime() - now.getTime()).toBe(15 * 60_000);
+  });
+
+  it("turns a scheduled local time into an instant, and finds a recipient's time zone", () => {
+    expect(zonedTime("2026-11-05T09:00", "Asia/Kolkata")?.toISOString()).toBe("2026-11-05T03:30:00.000Z");
+    expect(zonedTime("2026-11-02T09:00", "America/New_York")?.toISOString()).toBe("2026-11-02T14:00:00.000Z"); // after DST ends
+    expect(zonedTime("2026-10-30T09:00", "America/New_York")?.toISOString()).toBe("2026-10-30T13:00:00.000Z"); // before
+    expect(zonedTime("tomorrow", "UTC")).toBeNull();
+    expect(recipientTimeZone({ city: "Austin", Time_Zone: "America/Chicago" })).toBe("America/Chicago");
+    expect(recipientTimeZone({ timezone: "Moon/Base" })).toBeNull();
   });
 
   it("says when sending hours open next, and why a mailbox waits", () => {

@@ -90,6 +90,23 @@ export function localDayStart(now: Date, timeZone: string): Date {
   return new Date(midnight - offsetAt(new Date(guess), timeZone));
 }
 
+/** A wall-clock date-time ("2026-11-05T09:00") in a time zone, as an instant (daylight-saving safe). */
+export function zonedTime(local: string, timeZone: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
+  if (!m || !timeZoneSchema.safeParse(timeZone).success) return null;
+  const wall = Date.UTC(+m[1]!, +m[2]! - 1, +m[3]!, +m[4]!, +m[5]!);
+  const guess = wall - offsetAt(new Date(wall), timeZone);
+  return new Date(wall - offsetAt(new Date(guess), timeZone));
+}
+
+/** A recipient's own time zone, from a {{timezone}} / {{time_zone}} / {{tz}} variable, if it is a real zone. */
+export function recipientTimeZone(vars: Record<string, string> | null | undefined): string | null {
+  for (const [k, v] of Object.entries(vars ?? {})) {
+    if (["timezone", "tz"].includes(k.toLowerCase().replace(/[^a-z]/g, "")) && v && timeZoneSchema.safeParse(v.trim()).success) return v.trim();
+  }
+  return null;
+}
+
 /** Whether a mailbox may send a campaign email right now, and if not, why. */
 export function mailboxReadiness(m: MailboxSendState, now: Date): Readiness {
   if (m.status === "PAUSED") return { ok: false, reason: "PAUSED" };

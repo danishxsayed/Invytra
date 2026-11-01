@@ -65,9 +65,9 @@ d("email campaigns", () => {
     await saveEmailSequence(prisma, WS, id, [{ subject: "Hi {firstName}", body: "About {painPoint}", delayDays: 0 }]);
     expect(await setCampaignMailboxes(prisma, WS, id, ["ecm-other"])).toMatchObject({ ok: false });
     await setCampaignMailboxes(prisma, WS, id, ["ecm1"]);
-    expect(await launchEmailCampaign(prisma, WS, id, now)).toEqual({ ok: false, error: "Unknown variable {{painPoint}}: create it under Contacts → Variables, or import a CSV column with that name." });
+    expect(await launchEmailCampaign(prisma, WS, id, { when: "now" }, now)).toEqual({ ok: false, error: "Unknown variable {{painPoint}}: create it under Contacts → Variables, or import a CSV column with that name." });
     await saveEmailSequence(prisma, WS, id, [{ subject: "Hi {{first_name|there}}", body: "Is {{city|your city}} busy?", delayDays: 0 }, { subject: "", body: "Bump", delayDays: 3 }]);
-    expect(await launchEmailCampaign(prisma, WS, id, now)).toEqual({ ok: true, value: undefined });
+    expect(await launchEmailCampaign(prisma, WS, id, { when: "now" }, now)).toEqual({ ok: true, value: undefined });
     expect(await prisma.emailLead.count({ where: { campaignId: id, nextAt: now } })).toBe(2);
     // Running: the emails are locked; new leads start right away.
     expect(await saveEmailSequence(prisma, WS, id, [{ subject: "x", body: "y", delayDays: 0 }])).toMatchObject({ ok: false });

@@ -1,7 +1,7 @@
 import { prisma } from "@invytra/db";
 import { Send } from "lucide-react";
 import { NewCampaignButton } from "@/components/email/campaign/NewCampaignButton";
-import { CAMPAIGN_STATUS, pct } from "@/components/email/campaign/status";
+import { CAMPAIGN_STATUS, pct, scheduleText } from "@/components/email/campaign/status";
 import { Card, EmptyState, PageHeader, cx } from "@/components/ui";
 import { requireChannel } from "@/lib/auth";
 import { listEmailCampaigns } from "@/lib/email-campaigns";
@@ -42,6 +42,7 @@ export default async function EmailCampaignsPage() {
                         {r.name}
                       </a>
                       <span className={cx("ml-2 rounded-full px-2 py-0.5 text-[12px] font-medium ring-1", s.cls)}>{s.text}</span>
+                      {r.status === "SCHEDULED" && <span className="mt-0.5 block text-[12.5px] text-violet-700">{scheduleText(r.scheduleLocal, r.scheduleTimeZone)}</span>}
                     </td>
                     <td className="px-3 py-3 tabular-nums">{r.stats.leads}</td>
                     <td className="px-3 py-3 tabular-nums">{r.stats.sent}</td>

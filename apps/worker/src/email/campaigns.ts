@@ -36,6 +36,8 @@ export interface CampaignTickResult {
   skipped: number;
   failed: number;
   completed: number;
+  /** Scheduled campaigns that started. */
+  started: number;
 }
 
 const FAILS_TO_STOP = 3;
@@ -59,7 +61,10 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
   const { prisma } = d;
   const now = d.now ?? new Date();
   const rand = d.rand ?? Math.random;
-  const res: CampaignTickResult = { sent: 0, bounced: 0, skipped: 0, failed: 0, completed: 0 };
+  const res: CampaignTickResult = { sent: 0, bounced: 0, skipped: 0, failed: 0, completed: 0, started: 0 };
+
+  // Scheduled campaigns whose time has come start sending (each lead still waits for its own time).
+  res.started = (await prisma.emailCampaign.updateMany({ where: { status: "SCHEDULED", scheduledAt: { lte: now } }, data: { status: "ACTIVE", launchedAt: now } })).count;
 
   const campaigns = await prisma.emailCampaign.findMany({ where: { status: "ACTIVE" }, include: { mailboxes: { include: { emailAccount: true } } }, orderBy: { launchedAt: "asc" } });
   // One state per mailbox across campaigns, so a mailbox in two campaigns still keeps one limit.

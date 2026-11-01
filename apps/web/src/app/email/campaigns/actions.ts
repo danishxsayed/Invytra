@@ -12,6 +12,8 @@ import {
   deleteEmailCampaign,
   addListsToCampaign,
   launchEmailCampaign,
+  launchPlanSchema,
+  cancelEmailCampaign,
   renameEmailCampaign,
   saveEmailSequence,
   setCampaignMailboxes,
@@ -64,8 +66,15 @@ export async function addListsToCampaignAction(id: string, listIds: unknown): Pr
   return done(await addListsToCampaign(prisma, w, String(id), p.data));
 }
 
-export async function launchEmailCampaignAction(id: string): Promise<Result> {
-  return done(await launchEmailCampaign(prisma, await ws(), String(id)));
+export async function launchEmailCampaignAction(id: string, plan: unknown = { when: "now" }): Promise<Result> {
+  const w = await ws();
+  const p = launchPlanSchema.safeParse(plan);
+  if (!p.success) return { ok: false, error: p.error.issues[0]!.message };
+  return done(await launchEmailCampaign(prisma, w, String(id), p.data));
+}
+
+export async function cancelEmailCampaignAction(id: string): Promise<Result> {
+  return done(await cancelEmailCampaign(prisma, await ws(), String(id)));
 }
 
 export async function pauseEmailCampaignAction(id: string, paused: boolean): Promise<Result> {

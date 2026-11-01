@@ -155,6 +155,15 @@ d("email campaign engine", () => {
     await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "COMPLETED", unsubscribeLink: false } });
   });
 
+  it("starts a scheduled campaign when its time comes", async () => {
+    await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "SCHEDULED", scheduledAt: new Date(now.getTime() + 60 * 60_000) } });
+    expect(await tick()).toMatchObject({ started: 0 });
+    now = new Date(now.getTime() + 61 * 60_000);
+    expect(await tick()).toMatchObject({ started: 1 });
+    expect((await prisma.emailCampaign.findUniqueOrThrow({ where: { id: "ec1" } })).status).not.toBe("SCHEDULED");
+    await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "COMPLETED" } });
+  });
+
   it("respects the daily limit and sending hours", async () => {
     await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "ACTIVE" } });
     await prisma.emailLead.createMany({ data: ["x1@z.co", "x2@z.co"].map((email) => ({ workspaceId: WS, campaignId: "ec1", email, company: "Z", nextAt: now })) });
