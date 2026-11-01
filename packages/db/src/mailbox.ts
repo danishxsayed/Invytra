@@ -132,11 +132,19 @@ export interface CheckResult {
 }
 
 /** Turns a mail server error into something a person can act on (never echoes the password). */
-export function explainMailError(e: unknown, what: "SMTP" | "IMAP"): string {
-  const err = e as { code?: string; responseCode?: number; authenticationFailed?: boolean; message?: string };
+export function explainMailError(e: unknown, what: "SMTP" | "IMAP", provider?: MailboxProviderId): string {
+  const err = e as { code?: string; responseCode?: number; authenticationFailed?: boolean; message?: string; response?: string; responseText?: string };
   const msg = String(err?.message ?? "");
   if (err?.code === "EAUTH" || err?.authenticationFailed || err?.responseCode === 535 || /auth|credentials|password|login failed|invalid login/i.test(msg)) {
-    return "The server didn't accept the email and password. Check them; Google and Microsoft need an app password.";
+    // What the server itself replied (it never contains the password), to tell causes apart.
+    const said = String(err?.response ?? err?.responseText ?? "").replace(/\s+/g, " ").trim().slice(0, 140);
+    const hint =
+      provider === "GOOGLE" || provider === "MICROSOFT"
+        ? "Use an app password, not the normal one."
+        : provider === "HOSTINGER"
+          ? "If unsure, set a new password in hPanel → Emails → this mailbox, wait a minute, and try again."
+          : "Check the password with your email host.";
+    return `The server didn't accept this email and password. ${hint}${said ? ` (Server said: ${said})` : ""}`;
   }
   if (err?.code === "ENOTFOUND" || err?.code === "EDNS") return `Couldn't find the ${what} server. Check its name.`;
   if (err?.code === "ETIMEDOUT" || err?.code === "ECONNECTION" || err?.code === "ECONNREFUSED" || /timeout|establish connection|required time/i.test(msg)) {
@@ -190,14 +198,17 @@ export const realMailboxTester: MailboxTester = {
 };
 
 /** Checks that a mailbox can send (SMTP) and read replies (IMAP), both at once. */
-export async function testMailbox(login: MailboxLogin, tester: MailboxTester = realMailboxTester): Promise<{ smtp: CheckResult; imap: CheckResult }> {
+export async function testMailbox(
+  login: MailboxLogin & { provider?: MailboxProviderId },
+  tester: MailboxTester = realMailboxTester,
+): Promise<{ smtp: CheckResult; imap: CheckResult }> {
   const run = async (what: "SMTP" | "IMAP", host: string, fn: () => Promise<void>): Promise<CheckResult> => {
     try {
       await checkMailHost(host);
       await fn();
       return { ok: true };
     } catch (e) {
-      return { ok: false, error: e instanceof MailHostError ? e.message : explainMailError(e, what) };
+      return { ok: false, error: e instanceof MailHostError ? e.message : explainMailError(e, what, login.provider) };
     }
   };
   const [smtp, imap] = await Promise.all([

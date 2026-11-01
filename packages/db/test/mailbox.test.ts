@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MAILBOX_PRESETS, checkMailHost, explainMailError, testMailbox, type MailboxLogin } from "../src/mailbox.js";
 
-const login: MailboxLogin = { ...MAILBOX_PRESETS.GOOGLE, username: "a@b.co", password: "secret-pw" };
+const login: MailboxLogin & { provider: "GOOGLE" } = { ...MAILBOX_PRESETS.GOOGLE, provider: "GOOGLE", username: "a@b.co", password: "secret-pw" };
 
 describe("mailboxes", () => {
   it("has the usual hosts' servers filled in", () => {
@@ -16,7 +16,9 @@ describe("mailboxes", () => {
   });
 
   it("explains failures in plain words, never echoing the password", () => {
-    expect(explainMailError({ code: "EAUTH", message: "535 bad secret-pw" }, "SMTP")).toMatch(/didn't accept the email and password/);
+    expect(explainMailError({ code: "EAUTH", message: "Invalid login", response: "535 5.7.8 Error: authentication failed" }, "SMTP", "HOSTINGER")).toBe(
+      "The server didn't accept this email and password. If unsure, set a new password in hPanel → Emails → this mailbox, wait a minute, and try again. (Server said: 535 5.7.8 Error: authentication failed)",
+    );
     expect(explainMailError({ code: "ETIMEDOUT" }, "IMAP")).toMatch(/Couldn't reach the IMAP server/);
     expect(explainMailError({ message: "wrong version number" }, "SMTP")).toMatch(/465 = SSL, 587 = STARTTLS/);
     expect(explainMailError({ authenticationFailed: true, message: "x" }, "IMAP")).not.toContain("secret-pw");

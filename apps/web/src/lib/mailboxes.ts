@@ -67,7 +67,7 @@ export async function connectMailbox(
 ): Promise<Result<ConnectResult>> {
   const taken = await takenProblem(prisma, workspaceId, input.email);
   if (taken) return { ok: false, error: taken };
-  const login = { ...input, username: input.username || input.email };
+  const login = { ...input, username: input.username || input.email, provider: input.provider };
   const checks = await testMailbox(login, tester);
   if (!checks.smtp.ok || !checks.imap.ok) return { ok: true, value: checks };
   const saved = await prisma.emailAccount.create({
@@ -95,7 +95,7 @@ export async function connectMailbox(
 export async function recheckMailbox(prisma: PrismaClient, workspaceId: string, id: string, tester?: MailboxTester): Promise<Result<ConnectResult>> {
   const m = await prisma.emailAccount.findFirst({ where: { id, workspaceId } });
   if (!m) return { ok: false, error: "Mailbox not found." };
-  const checks = await testMailbox({ ...m, password: openSecret(m.secret, key()) }, tester);
+  const checks = await testMailbox({ ...m, provider: m.provider, password: openSecret(m.secret, key()) }, tester);
   const ok = checks.smtp.ok && checks.imap.ok;
   await prisma.emailAccount.update({
     where: { id: m.id },
