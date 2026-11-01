@@ -81,7 +81,7 @@ async function handle(prisma: PrismaClient, box: { id: string; workspaceId: stri
   if (!lead) {
     const ids = [m.inReplyTo, ...m.references].filter((x): x is string => !!x);
     if (ids.length) {
-      const s = await prisma.emailSend.findFirst({ where: { emailAccountId: box.id, kind: "CAMPAIGN", messageId: { in: ids }, emailLeadId: { not: null } }, select: { emailLeadId: true } });
+      const s = await prisma.emailSend.findFirst({ where: { emailAccountId: box.id, kind: { in: ["CAMPAIGN", "REPLY"] }, messageId: { in: ids }, emailLeadId: { not: null } }, select: { emailLeadId: true } });
       if (s) lead = await prisma.emailLead.findUnique({ where: { id: s.emailLeadId! } });
     }
   }

@@ -587,6 +587,8 @@ enum EmailSendKind {
   TEST
   CAMPAIGN
   WARMUP
+  /// Written in the inbox, answering a lead
+  REPLY
 }
 
 enum EmailSendStatus {
@@ -613,11 +615,13 @@ model EmailSend {
   /// The SMTP Message-ID (to match replies later)
   messageId      String?         @map("message_id")
   error          String?
-  /// Warm-up only: the pool mailbox it went to, the code that finds it there, whether it is
-  /// a reply (replies get no reply), where it landed and when that was checked
-  /// Campaign only: the lead and which email of the sequence (0 = the first)
+  /// What was sent (campaign emails and inbox replies, with the signature)
+  text           String?
+  /// Campaign and inbox replies: the lead; campaign: which email of the sequence (0 = the first)
   emailLeadId    String?         @map("email_lead_id")
   stepIndex      Int?            @map("step_index")
+  /// Warm-up only: the pool mailbox it went to, the code that finds it there, whether it is
+  /// a reply (replies get no reply), where it landed and when that was checked
   toAccountId    String?         @map("to_account_id")
   warmupCode     String?         @unique @map("warmup_code")
   isReply        Boolean         @default(false) @map("is_reply")
@@ -712,6 +716,8 @@ model EmailLead {
   reason          String?
   lastSentAt      DateTime?       @map("last_sent_at")
   repliedAt       DateTime?       @map("replied_at")
+  /// Inbox: marked done (until they write again)
+  inboxDoneAt     DateTime?       @map("inbox_done_at")
   createdAt       DateTime        @default(now()) @map("created_at")
 
   campaign     EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)

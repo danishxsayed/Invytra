@@ -1,6 +1,6 @@
 "use client";
 
-import { Flame, Mail, Send } from "lucide-react";
+import { Flame, Inbox, Mail, Send } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cx } from "../ui";
 
@@ -8,11 +8,12 @@ const LIVE = [
   { href: "/email/mailboxes", end: "/mailboxes", label: "Mailboxes", Icon: Mail },
   { href: "/email/warmup", end: "/warmup", label: "Warm-up", Icon: Flame },
   { href: "/email/campaigns", end: "/campaigns", label: "Campaigns", Icon: Send },
+  { href: "/email/inbox", end: "/inbox", label: "Inbox", Icon: Inbox },
 ];
-const SOON = ["Inbox"];
+const SOON: string[] = [];
 
 /** The Email Outreach tabs; works on its own subdomain (/warmup) and on one host (/email/warmup). */
-export function EmailNav() {
+export function EmailNav({ needsReply = 0 }: { needsReply?: number }) {
   const path = usePathname() ?? "";
   return (
     <nav aria-label="Email" className="flex flex-wrap items-center gap-1">
@@ -26,6 +27,11 @@ export function EmailNav() {
             className={cx("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[14px] font-medium transition", on ? "bg-brand-400 text-stone-900" : "text-stone-600 hover:bg-stone-100")}
           >
             <Icon className="h-4 w-4" aria-hidden /> {label}
+            {label === "Inbox" && needsReply > 0 && (
+              <span className="rounded-full bg-stone-900 px-1.5 text-[11px] font-semibold text-white" aria-label={`${needsReply} need a reply`}>
+                {needsReply}
+              </span>
+            )}
           </a>
         );
       })}

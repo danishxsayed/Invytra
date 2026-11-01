@@ -1,4 +1,4 @@
-import { openSecret, sendEmail, type MailSender, type PrismaClient } from "@invytra/db";
+import { emailBody, openSecret, sendEmail, type MailSender, type PrismaClient } from "@invytra/db";
 import {
   emailSequenceSchema,
   localDayStart,
@@ -113,6 +113,7 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
           subject: subject.text,
           messageId: r.ok ? r.messageId : null,
           error: r.ok ? null : r.error,
+          text: emailBody(body.text, box.signature).text,
           emailLeadId: lead.id,
           stepIndex: lead.stepIndex,
           createdAt: now,
