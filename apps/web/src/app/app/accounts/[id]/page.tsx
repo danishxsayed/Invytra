@@ -38,7 +38,7 @@ export default async function AccountPage({
           <ArrowLeft className="h-4 w-4" aria-hidden /> All accounts
         </Link>
         <div className="mt-2">
-          <PageHeader title={a.label} description="Health, limits, working hours and proxy for this LinkedIn account." />
+          <PageHeader title={a.label} description={a.viaUnipile ? "Health, limits and working hours for this LinkedIn account." : "Health, limits, working hours and proxy for this LinkedIn account."} />
         </div>
       </div>
       {q.connected === "1" && a.status === "ACTIVE" && (
@@ -57,6 +57,7 @@ export default async function AccountPage({
         id={a.id}
         zones={allTimeZones()}
         proxyRequired={proxyRequired()}
+        viaUnipile={a.viaUnipile}
         defaults={DEFAULT_LIMITS}
         max={MAX_LIMITS}
         initial={{

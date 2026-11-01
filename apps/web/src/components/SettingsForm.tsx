@@ -2,7 +2,7 @@
 
 import { Check, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { saveSettingsAction } from "@/app/app/accounts/actions";
 import { btn } from "./AccountControls";
 import { Field, Toggle, TimeZoneSelect, inputCls } from "./fields";
@@ -20,6 +20,8 @@ interface Props {
   id: string;
   zones: string[];
   proxyRequired: boolean;
+  /** Connected through Unipile: Unipile provides its IP, so there's no proxy to set here. */
+  viaUnipile?: boolean;
   initial: {
     label: string;
     timezone: string;
@@ -62,13 +64,17 @@ function Section({ title, description, children }: { title: string; description:
   );
 }
 
-export function SettingsForm({ id, zones, proxyRequired, initial, defaults, max }: Props) {
+export function SettingsForm({ id, zones, proxyRequired, viaUnipile = false, initial, defaults, max }: Props) {
   const router = useRouter();
   const [label, setLabel] = useState(initial.label);
   const [timezone, setTimezone] = useState(initial.timezone);
   const [limits, setLimits] = useState(initial.limits);
   const [hours, setHours] = useState(initial.workingHours);
   const [warmup, setWarmup] = useState(initial.warmup);
+  // Opened from an account's Settings button (…#settings): go straight to the form.
+  useEffect(() => {
+    if (window.location.hash === "#settings") document.getElementById("settings")?.scrollIntoView({ block: "start" });
+  }, []);
   const [proxyUrl, setProxyUrl] = useState("");
   const [removeProxy, setRemoveProxy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +106,7 @@ export function SettingsForm({ id, zones, proxyRequired, initial, defaults, max 
   };
 
   return (
-    <form onSubmit={submit} onChange={() => setSaved(false)} className="space-y-4">
+    <form id="settings" onSubmit={submit} onChange={() => setSaved(false)} className="scroll-mt-6 space-y-4">
       <Section title="Account" description="The name is only shown to you.">
         <Field label="Name">
           <input className={inputCls} value={label} onChange={(e) => setLabel(e.target.value)} maxLength={40} required />
@@ -234,6 +240,7 @@ export function SettingsForm({ id, zones, proxyRequired, initial, defaults, max 
         </Field>
       </Section>
 
+      {!viaUnipile && (
       <Section title="Proxy" description="Each account needs its own proxy, ideally in the account's country. Stored encrypted.">
         <p className="text-[15px] text-stone-700">
           Current: <span className="font-medium">{initial.proxy ?? "none (this computer's own connection)"}</span>
@@ -252,6 +259,7 @@ export function SettingsForm({ id, zones, proxyRequired, initial, defaults, max 
           <Toggle checked={removeProxy} onChange={setRemoveProxy} label="Remove the proxy" hint="Development only." />
         )}
       </Section>
+      )}
 
       <div className="sticky bottom-0 z-10 -mx-1 flex items-center justify-end gap-3 rounded-2xl border border-stone-200/80 bg-white/90 px-4 py-3 shadow-card backdrop-blur">
         {error && (

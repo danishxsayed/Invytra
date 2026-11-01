@@ -100,7 +100,7 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
           </button>
         )}
         {full && (
-          <Link href={`/app/accounts/${id}`} className={btn.secondary}>
+          <Link href={`/app/accounts/${id}#settings`} className={btn.secondary}>
             <Settings2 className="h-4 w-4" aria-hidden /> Settings
           </Link>
         )}
