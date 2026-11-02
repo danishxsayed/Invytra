@@ -1,5 +1,6 @@
 "use client";
 
+import { playLaunchSound, primeSound } from "@/lib/sounds";
 import {
   DEFAULT_CAMPAIGN_SETTINGS,
   DEGREE_LABEL,
@@ -109,16 +110,19 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const save = (launch: boolean) =>
+  const save = (launch: boolean) => {
+    if (launch) primeSound();
     start(async () => {
       setError(null);
       const r = await saveCampaignAction(initial?.id ?? null, { name, accountIds, listId: listId || null, steps, settings }, launch);
       if (!r.ok) return setError(r.error);
       setConfirm(false);
       if (r.value.launchError) setError(`Saved as a draft. ${r.value.launchError}`);
+      else if (launch) playLaunchSound();
       router.push(`/app/campaigns/${r.value.id}`);
       router.refresh();
     });
+  };
 
   // Free LinkedIn accounts can still add notes, but only a few a month (then invites go without one).
   const free = senders.filter((a) => a.premium === false).map((a) => `“${a.label}”`);

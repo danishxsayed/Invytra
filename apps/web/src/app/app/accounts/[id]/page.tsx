@@ -53,7 +53,7 @@ export default async function AccountPage({
       )}
       <AccountPanel a={a} />
       <SettingsForm
-        key={`${a.id}-${a.label}`}
+        key={a.id}
         id={a.id}
         zones={allTimeZones()}
         proxyRequired={proxyRequired()}

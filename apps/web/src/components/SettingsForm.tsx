@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Loader2 } from "lucide-react";
+import { Toast } from "./Toast";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { saveSettingsAction } from "@/app/app/accounts/actions";
@@ -80,6 +81,10 @@ export function SettingsForm({ id, zones, proxyRequired, viaUnipile = false, ini
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, start] = useTransition();
+  // What was last saved: the save bar only shows while something differs from it.
+  const snapshot = () => JSON.stringify({ label, timezone, limits, hours, warmup, proxyUrl, removeProxy });
+  const [savedState, setSavedState] = useState(() => JSON.stringify({ label: initial.label, timezone: initial.timezone, limits: initial.limits, hours: initial.workingHours, warmup: initial.warmup, proxyUrl: "", removeProxy: false }));
+  const dirty = snapshot() !== savedState;
 
   const setLimit = (k: keyof Omit<Limits, "randomizeDaily">, v: number) => {
     setSaved(false);
@@ -101,12 +106,13 @@ export function SettingsForm({ id, zones, proxyRequired, viaUnipile = false, ini
       setSaved(true);
       setProxyUrl("");
       setRemoveProxy(false);
+      setSavedState(JSON.stringify({ label, timezone, limits, hours, warmup, proxyUrl: "", removeProxy: false }));
       router.refresh();
     });
   };
 
   return (
-    <form id="settings" onSubmit={submit} onChange={() => setSaved(false)} className="scroll-mt-6 space-y-4">
+    <form id="settings" onSubmit={submit} className="scroll-mt-6 space-y-4">
       <Section title="Account" description="The name is only shown to you.">
         <Field label="Name">
           <input className={inputCls} value={label} onChange={(e) => setLabel(e.target.value)} maxLength={40} required />
@@ -261,21 +267,21 @@ export function SettingsForm({ id, zones, proxyRequired, viaUnipile = false, ini
       </Section>
       )}
 
-      <div className="sticky bottom-0 z-10 -mx-1 flex items-center justify-end gap-3 rounded-2xl border border-stone-200/80 bg-white/90 px-4 py-3 shadow-card backdrop-blur">
-        {error && (
-          <p role="alert" className="mr-auto text-[15px] text-rose-700">
-            {error}
-          </p>
-        )}
-        {saved && !error && (
-          <p className="mr-auto inline-flex items-center gap-1.5 text-[15px] font-medium text-emerald-700" role="status">
-            <Check className="h-4 w-4" aria-hidden /> Saved
-          </p>
-        )}
-        <button className={btn.primary} disabled={pending}>
-          {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Save changes
-        </button>
-      </div>
+      {(dirty || pending || error) && (
+        <div className="animate-fade-up sticky bottom-0 z-10 -mx-1 flex items-center justify-end gap-3 rounded-2xl border border-stone-200/80 bg-white/90 px-4 py-3 shadow-card backdrop-blur">
+          {error ? (
+            <p role="alert" className="mr-auto text-[15px] text-rose-700">
+              {error}
+            </p>
+          ) : (
+            <p className="mr-auto text-[15px] text-stone-600">You have unsaved changes.</p>
+          )}
+          <button className={btn.primary} disabled={pending}>
+            {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />} Save changes
+          </button>
+        </div>
+      )}
+      {saved && <Toast text="Settings saved" onDone={() => setSaved(false)} />}
     </form>
   );
 }

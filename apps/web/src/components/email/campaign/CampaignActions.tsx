@@ -1,5 +1,6 @@
 "use client";
 
+import { playLaunchSound, primeSound } from "@/lib/sounds";
 import { CalendarClock, Ban, Loader2, Pause, Play, Rocket, Send, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -24,14 +25,17 @@ function LaunchModal({ id, zones, schedule, onClose }: { id: string; zones: stri
   const [recipientTz, setRecipientTz] = useState(schedule.recipientTz);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const go = () =>
+  const go = () => {
+    primeSound();
     start(async () => {
       setError(null);
       const r = await launchEmailCampaignAction(id, when === "now" ? { when } : { when, local, timeZone, recipientTz });
       if (!r.ok) return setError(r.error);
+      if (!schedule.local || when === "now") playLaunchSound();
       router.refresh();
       onClose();
     });
+  };
   const choice = (v: "now" | "later", Icon: typeof Send, title: string, text: string) => (
     <label className={cx("flex cursor-pointer gap-3 rounded-xl border px-4 py-3", when === v ? "border-brand-500 bg-brand-50" : "border-stone-200 hover:border-stone-300")}>
       <input type="radio" name="when" className="mt-1 accent-lime-500" checked={when === v} onChange={() => setWhen(v)} />

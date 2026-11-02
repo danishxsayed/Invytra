@@ -1,5 +1,6 @@
 "use client";
 
+import { playLaunchSound, primeSound } from "@/lib/sounds";
 import { Loader2, Pause, Pencil, Play, Rocket, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -27,7 +28,7 @@ export function CampaignControls({ id, name, status, problems }: { id: string; n
     <div className="flex flex-col items-end gap-2">
       <div className="flex flex-wrap items-center justify-end gap-2">
         {status === "DRAFT" && (
-          <button className={btn.primary} disabled={pending || problems.length > 0} title={problems[0]} onClick={() => run(() => setCampaignStatusAction(id, "ACTIVE"))}>
+          <button className={btn.primary} disabled={pending || problems.length > 0} title={problems[0]} onClick={() => (primeSound(), run(() => setCampaignStatusAction(id, "ACTIVE"), playLaunchSound))}>
             {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Rocket className="h-4 w-4" aria-hidden />} Launch
           </button>
         )}
