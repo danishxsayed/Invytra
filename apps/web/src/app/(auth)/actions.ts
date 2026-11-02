@@ -64,7 +64,8 @@ export async function forgotPassword(_prev: FormState, form: FormData): Promise<
   recordFailure(`reset:${email}`);
   try {
     await requestPasswordReset(prisma, email, send);
-  } catch {
+  } catch (e) {
+    console.error(`Password reset email failed: ${e instanceof Error ? e.message : e}`);
     return { error: "We couldn't send the email right now. Try again in a few minutes.", fields: { email } };
   }
   // Same answer whether or not the address has an account.
