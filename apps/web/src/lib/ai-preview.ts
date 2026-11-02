@@ -30,7 +30,7 @@ export async function previewAiLines(
     where: { workspaceId, id: { in: input.accountIds.slice(0, 50) }, engine: "UNIPILE", status: "ACTIVE", unipileAccountId: { not: null } },
     select: { unipileAccountId: true },
   });
-  if (!sender || !unipile) return { ok: false, error: "AI lines are written with accounts connected through Unipile: choose one as a sender." };
+  if (!sender || !unipile) return { ok: false, error: "AI lines are written with accounts connected with Secure login: choose one as a sender." };
   const leads = await prisma.lead.findMany({
     where: { workspaceId, listId: input.listId },
     orderBy: { createdAt: "asc" },

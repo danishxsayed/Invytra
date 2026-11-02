@@ -130,7 +130,7 @@ export function AddAccountButton({ zones, proxyRequired, unipile = false }: { zo
                 <Field label="Time zone" hint="Actions run during working hours in this time zone.">
                   <TimeZoneSelect zones={zones} value={timezone} onChange={setTimezone} />
                 </Field>
-                {/* With Unipile, accounts get their IP when they connect: no proxy to enter. */}
+                {/* With Secure login, accounts get their IP when they connect: no proxy to enter. */}
                 {!unipile && (
                   <Field
                     label={proxyRequired ? "Proxy" : "Proxy (optional on this computer)"}

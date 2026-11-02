@@ -111,7 +111,7 @@ export async function startUnipileConnectAction(
       const r = await unipileConnectLink(prisma, me.workspace.id, a.id);
       return r.ok ? { ok: true, value: { url: r.value } } : r;
     } catch (e) {
-      console.error("Unipile connect link failed:", e instanceof Error ? e.message : e);
+      console.error("Secure login link failed:", e instanceof Error ? e.message : e);
       return { ok: false, error: "Couldn't open the LinkedIn login right now. Try again in a minute." };
     }
   });

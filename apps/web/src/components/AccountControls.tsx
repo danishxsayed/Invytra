@@ -207,7 +207,7 @@ export function AccountControls({ id, label, status, next, canResumeAfterCheck, 
                     <ShieldCheck className="h-4 w-4" aria-hidden /> Secure login with a dedicated IP
                     <span className="rounded-full bg-brand-100 px-2 py-0.5 text-[12px] font-semibold text-brand-900">Recommended</span>
                   </span>
-                  <span className="mt-0.5 block text-[13px] text-stone-500">Log in on Unipile's page. The account gets its own IP; your proxy isn't used.</span>
+                  <span className="mt-0.5 block text-[13px] text-stone-500">Log in on the secure login page. The account gets its own dedicated IP; your proxy isn't used.</span>
                 </button>
                 <button type="button" disabled={pending} onClick={() => connect("browser")} className="rounded-xl border border-stone-200 p-3.5 text-left transition hover:border-stone-300 hover:bg-stone-50">
                   <span className="flex items-center gap-2 text-[15px] font-semibold text-stone-900">

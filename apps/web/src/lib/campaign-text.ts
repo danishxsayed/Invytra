@@ -1,4 +1,5 @@
 import type { CampaignStep } from "@invytra/shared";
+import { hideVendor } from "./vendor";
 
 /** Plain-language labels for campaigns (safe to use in client components). */
 
@@ -44,7 +45,7 @@ const REASONS: Record<string, string> = {
   ALREADY_INVITED: "Already invited to the event",
   SENDER_REMOVED: "Its sending account was removed from the campaign after contacting them",
   NO_AI_LINE: "Nothing specific for the AI line in their profile, and no fallback line",
-  NOT_AVAILABLE_UNIPILE: "Not available for accounts connected through Unipile",
+  NOT_AVAILABLE_UNIPILE: "Not available for accounts connected with Secure login",
 };
 
 export function reasonText(code: string | null | undefined): string {
@@ -55,7 +56,7 @@ export function reasonText(code: string | null | undefined): string {
     const d = code.slice(16);
     return `${d === "1" ? "1st" : d === "2" ? "2nd" : "3rd+"}-degree connection, not in this campaign's connection levels`;
   }
-  return REASONS[code] ?? code.split("\n")[0]!;
+  return REASONS[code] ?? hideVendor(code.split("\n")[0]!);
 }
 
 export function stepLabel(s: CampaignStep | undefined): string {

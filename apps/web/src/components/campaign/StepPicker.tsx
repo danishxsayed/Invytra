@@ -83,7 +83,7 @@ export function StepPicker({
   /** Why a card can't be used right now, or null. */
   const blocked = (kind: Kind): string | null => {
     if (SOON.has(kind)) return null;
-    if (viaUnipile && (kind === "FOLLOW" || kind === "EVENT")) return "Not available for accounts connected through Unipile.";
+    if (viaUnipile && (kind === "FOLLOW" || kind === "EVENT")) return "Not available for accounts connected with Secure login.";
     if (steps.length >= MAX_STEPS) return `A sequence can have up to ${MAX_STEPS} steps.`;
     if (kind === "INVITE" && count("INVITE") >= MAX_OF.INVITE) return "Already in your sequence.";
     if ((kind === "MESSAGE" || kind === "EVENT") && !canAddMessage(steps, settings)) return "Add a connection request first, or include 1st-degree connections in Configure.";

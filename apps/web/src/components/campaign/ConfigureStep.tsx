@@ -231,7 +231,7 @@ export function ConfigureStep({
             <span className="mt-1 block text-[13px] text-stone-500">Used when a profile has nothing specific. Leave empty to skip those people.</span>
           </label>
         </div>
-        <p className="mt-3 text-[13px] text-stone-500">Written with accounts connected through Unipile. Accounts on Invytra&apos;s own browser use the fallback line.</p>
+        <p className="mt-3 text-[13px] text-stone-500">Written for accounts connected with Secure login. Accounts on Invytra&apos;s own browser use the fallback line.</p>
       </Setting>
 
       <p className="text-[14px] text-stone-500 md:col-span-2">

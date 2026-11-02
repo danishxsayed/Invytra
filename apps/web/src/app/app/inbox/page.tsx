@@ -18,6 +18,7 @@ import {
   type ConversationFull,
   type InboxFilter,
 } from "@/lib/inbox";
+import { hideVendor } from "@/lib/vendor";
 
 export const metadata = { title: "Inbox" };
 export const dynamic = "force-dynamic";
@@ -224,11 +225,11 @@ function toView(c: ConversationFull, now: Date): ConversationViewData {
 
 /** Why a reply wasn't sent, in plain words (the worker stores technical errors). */
 function notSent(error: string | null, account: { label: string; engine: string }): string {
-  const first = error?.split("\n")[0] ?? "";
+  const first = hideVendor(error?.split("\n")[0] ?? "");
   if (account.engine !== "UNIPILE" && /timeout|net::|ERR_|Target page|browser has been closed/i.test(first)) {
-    return `Not sent: LinkedIn didn't load for “${account.label}” in Invytra's own browser. Reconnect “${account.label}” with Secure login (Unipile) on the Accounts page for instant replies.`;
+    return `Not sent: LinkedIn didn't load for “${account.label}” in Invytra's own browser. Reconnect “${account.label}” with Secure login on the Accounts page for instant replies.`;
   }
-  if (/Unipile 422/.test(first)) return "Not sent: LinkedIn doesn't allow replies in this conversation (for example a sponsored message, or someone who isn't a connection).";
+  if (/LinkedIn connection 422/.test(first)) return "Not sent: LinkedIn doesn't allow replies in this conversation (for example a sponsored message, or someone who isn't a connection).";
   if (/LOGGED_OUT|NEEDS_ATTENTION|isn't connected/i.test(first)) return `Not sent: “${account.label}” needs to be reconnected on the Accounts page.`;
   return `Not sent: ${first || "something went wrong"}`;
 }

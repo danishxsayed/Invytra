@@ -11,7 +11,7 @@ export class UnipileError extends Error {
     readonly type: string,
     readonly detail: string,
   ) {
-    super(`Unipile ${status} ${type}${detail ? `: ${detail}` : ""}`);
+    super(`LinkedIn connection ${status} ${type}${detail ? `: ${detail}` : ""}`);
     this.name = "UnipileError";
   }
   /** The LinkedIn session is gone: the account must be reconnected. */

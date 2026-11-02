@@ -35,7 +35,7 @@ async function main() {
   const queue = createQueue(connection);
   const pacing = redisPacingStore(rt.redis);
   const unipile = unipileFromEnv();
-  if (unipile) log("Unipile is set up: accounts connected through Unipile run through its API");
+  if (unipile) log("Secure login is set up: accounts connected with it run in the cloud");
 
   // Recover from a crash: RUNNING rows go back to QUEUED, and every QUEUED row gets its job (idempotent).
   // A reply cut off mid-send may have gone out: never send it twice, let the person check.

@@ -25,7 +25,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     else back.searchParams.set("connect_error", r.code);
   } catch (e) {
     if (e instanceof AccountNotFoundError) return new Response("Not found", { status: 404 });
-    console.error("Unipile sync failed:", e instanceof Error ? e.message : e);
+    console.error("Secure login sync failed:", e instanceof Error ? e.message : e);
     back.searchParams.set("connect_error", "unavailable");
   }
   revalidatePath("/app", "layout");

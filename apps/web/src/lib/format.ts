@@ -1,3 +1,4 @@
+import { hideVendor } from "./vendor";
 export const ACTION_LABEL: Record<string, string> = {
   PROFILE_VISIT: "Profile visit",
   CHECK_CONNECTION: "Connection check",
@@ -68,7 +69,7 @@ export function outcomeText(row: { status: string; error: string | null; payload
     case "SKIPPED":
       return skipText(row.error);
     case "FAILED":
-      return (row.error ?? "Failed").split("\n")[0]!;
+      return hideVendor((row.error ?? "Failed").split("\n")[0]!);
     case "RUNNING":
       return "Running now";
     default:

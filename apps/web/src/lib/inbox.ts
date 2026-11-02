@@ -232,7 +232,7 @@ async function sendViaUnipile(
       await client.sendInChat(chatId, body, c.unipileAccountId);
     } else {
       const slug = c.campaignLead ? parseProfileUrl(c.campaignLead.profileUrl) : null;
-      if (!slug?.ok) throw new Error("This conversation hasn't been read through Unipile yet. Click “Check now”, then send again.");
+      if (!slug?.ok) throw new Error("This conversation hasn't been read yet. Click “Check now”, then send again.");
       const who = await client.user(c.unipileAccountId, slug.slug);
       chatId = (await client.startChat(c.unipileAccountId, who.provider_id, body)).chat_id;
       await prisma.conversation.update({ where: { id: c.id }, data: { externalId: chatId } });

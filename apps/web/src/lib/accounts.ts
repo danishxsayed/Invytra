@@ -8,6 +8,7 @@ import {
   workingHoursSchema,
 } from "@invytra/shared";
 import { z } from "zod";
+import { hideVendor } from "./vendor";
 
 /*
  * LinkedIn account management for the dashboard. Every function takes the
@@ -335,7 +336,8 @@ export interface StatusExplanation {
   next: "connect" | "reconnect" | "resume" | "none";
 }
 
-export function explainStatus(status: string, reason: string | null, hasSession: boolean): StatusExplanation {
+export function explainStatus(status: string, rawReason: string | null, hasSession: boolean): StatusExplanation {
+  const reason = hideVendor(rawReason);
   if (status === "ACTIVE") return { title: "Running", body: "Actions run inside your working hours and daily limits.", tone: "ok", next: "none" };
   if (status === "PAUSED") return { title: "Paused", body: "Nothing runs until you resume. Queued actions wait.", tone: "warn", next: "resume" };
   if (status === "DISCONNECTED" || !hasSession) {

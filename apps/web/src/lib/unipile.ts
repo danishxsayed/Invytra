@@ -59,7 +59,7 @@ export async function unipileConnectLink(
   accountId: string,
   client: UnipileClient | null = unipileClient(),
 ): Promise<Result<string>> {
-  if (!client) return { ok: false, error: "Unipile isn't set up on this server yet." };
+  if (!client) return { ok: false, error: "Secure login isn't set up on this server yet." };
   const a = await getAccount(prisma, workspaceId, accountId);
   const back = `${origin()}/app/accounts/${a.id}/unipile-return`;
   // An account Unipile still knows is reconnected in place (same id, same IP).
