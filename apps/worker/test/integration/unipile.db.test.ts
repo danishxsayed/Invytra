@@ -48,7 +48,7 @@ d("Unipile accounts", () => {
       data: { id: ACC, workspaceId: WS, label: "uni", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE", engine: "UNIPILE", unipileAccountId: "uni-1", premiumCheckedAt: new Date() },
     });
     fake.add({ slug: "jane-doe", providerId: "P-JANE", first: "Jane", last: "Doe", headline: "Founder at Acme", distance: "SECOND_DEGREE", posts: ["111"] });
-    fake.add({ slug: "raj-k", providerId: "P-RAJ", first: "Raj", last: "Kumar", distance: "FIRST_DEGREE", premium: true, posts: ["222"] });
+    fake.add({ slug: "raj-k", providerId: "P-RAJ", first: "Raj", last: "Kumar", distance: "FIRST_DEGREE", premium: true, posts: ["222"], email: " Raj@Example.COM " });
   });
   afterAll(async () => {
     await prisma.workspace.deleteMany({ where: { id: WS } });
@@ -60,6 +60,13 @@ d("Unipile accounts", () => {
     expect(row.status).toBe("SUCCEEDED");
     expect(fake.visits).toEqual(["jane-doe"]);
     expect((row.payload as { result: Record<string, unknown> }).result).toMatchObject({ name: "Jane Doe", status: "NOT_CONNECTED", degree: 2, premium: false });
+  });
+
+  it("reads a connection's email from their contact info (never a non-connection's)", async () => {
+    const raj = await run("CHECK_CONNECTION", "https://www.linkedin.com/in/raj-k/");
+    expect((raj.row.payload as { result: Record<string, unknown> }).result).toMatchObject({ status: "CONNECTED", email: "raj@example.com" });
+    const jane = await run("CHECK_CONNECTION", "https://www.linkedin.com/in/jane-doe/");
+    expect((jane.row.payload as { result: Record<string, unknown> }).result).not.toHaveProperty("email");
   });
 
   it("sends a connection request with the note filled in, and skips a second one", async () => {

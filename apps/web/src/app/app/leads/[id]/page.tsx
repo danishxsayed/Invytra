@@ -36,11 +36,12 @@ export default async function LeadListPage({
     if (e instanceof LeadListNotFoundError) notFound();
     throw e;
   }
-  const [{ total, rows }, summaries, accounts, imports] = await Promise.all([
+  const [{ total, rows }, summaries, accounts, imports, withEmail] = await Promise.all([
     leadsPage(prisma, me.workspace.id, id, { q, page, pageSize: PAGE_SIZE }),
     listSummaries(prisma, me.workspace.id),
     importAccounts(prisma, me.workspace.id),
     importsForList(prisma, me.workspace.id, id),
+    prisma.lead.count({ where: { workspaceId: me.workspace.id, listId: id, email: { not: null } } }),
   ]);
   const now = new Date();
   const waits = await importWaits(prisma, imports, now);
@@ -77,6 +78,7 @@ export default async function LeadListPage({
             <h1 className="truncate text-[34px] font-semibold tracking-tight text-stone-900">{list.name}</h1>
             <p className="mt-1 text-[16px] text-stone-500">
               {listTotal.toLocaleString()} {listTotal === 1 ? "lead" : "leads"} · {(summary?.contacted ?? 0).toLocaleString()} contacted
+              {withEmail > 0 && <span title="Emails from connections' LinkedIn contact info"> · {withEmail.toLocaleString()} with email</span>}
             </p>
           </div>
           <ListActions id={list.id} name={list.name} total={listTotal} accounts={accounts} />

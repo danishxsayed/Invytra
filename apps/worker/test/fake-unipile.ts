@@ -8,6 +8,8 @@ export interface FakePerson {
   distance?: "FIRST_DEGREE" | "SECOND_DEGREE" | "THIRD_DEGREE";
   premium?: boolean;
   posts?: string[];
+  /** Shared with connections only (LinkedIn hides it from everyone else). */
+  email?: string;
 }
 
 export class FakeUnipile {
@@ -81,6 +83,7 @@ export class FakeUnipile {
         network_distance: p.distance ?? "SECOND_DEGREE",
         is_premium: !!p.premium,
         is_relationship: p.distance === "FIRST_DEGREE",
+        contact_info: { emails: p.distance === "FIRST_DEGREE" && p.email ? [p.email] : [] },
         ...(pending && { invitation: { type: "SENT", status: "PENDING" } }),
       });
     }

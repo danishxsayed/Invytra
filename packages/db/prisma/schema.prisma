@@ -285,6 +285,8 @@ model Lead {
   degree      Int?
   /// LinkedIn Premium badge seen (null = not known yet)
   premium     Boolean?
+  /// Email from their LinkedIn contact info (only visible once they're a 1st-degree connection)
+  email       String?
   /// Other columns from the uploaded file, for personalisation later
   extra       Json     @default("{}")
   createdAt   DateTime @default(now()) @map("created_at")

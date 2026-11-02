@@ -67,7 +67,11 @@ export function statusOf(u: UnipileUser): ConnectionStatus {
 }
 
 const fullName = (u: { first_name?: string; last_name?: string }) => [u.first_name, u.last_name].filter(Boolean).join(" ").trim();
-const facts = (u: UnipileUser) => ({ degree: degreeOf(u.network_distance), premium: !!u.is_premium });
+const EMAIL = /^[^\s@<>()",;]+@[^\s@<>()",;]+\.[a-z]{2,}$/i;
+/** The email they share with connections (LinkedIn shows none to anyone else). */
+export const emailOf = (u: UnipileUser): string | undefined =>
+  (u.contact_info?.emails ?? []).map((e) => (typeof e === "string" ? e.trim().toLowerCase() : "")).find((e) => EMAIL.test(e));
+const facts = (u: UnipileUser) => ({ degree: degreeOf(u.network_distance), premium: !!u.is_premium, ...(emailOf(u) && { email: emailOf(u) }) });
 
 function varsOf(p: Record<string, unknown>): TemplateVars {
   const v = (p.vars ?? {}) as Record<string, unknown>;

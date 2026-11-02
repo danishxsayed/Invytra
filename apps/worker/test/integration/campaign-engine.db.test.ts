@@ -116,12 +116,17 @@ d("campaign engine", () => {
     // Jane accepted, Kim hasn't yet
     for (const a of await queued()) {
       const accepted = a.targetUrl === U("jane");
-      await prisma.action.update({ where: { id: a.id }, data: { status: "SUCCEEDED", executedAt: clock, payload: { result: { status: accepted ? "CONNECTED" : "PENDING" } } } });
+      await prisma.action.update({ where: { id: a.id }, data: { status: "SUCCEEDED", executedAt: clock, payload: { result: accepted ? { status: "CONNECTED", email: "jane@acme.io" } : { status: "PENDING" } } } });
     }
     await tick();
     expect(await lead("jane")).toMatchObject({ state: "IN_PROGRESS", step: 2 });
     expect((await lead("jane")).connectedAt).not.toBeNull();
     expect(await lead("kim")).toMatchObject({ state: "WAITING_ACCEPT" });
+    // Her email (shared with connections) is kept on the lead and added to Email Outreach → Contacts.
+    expect(await prisma.lead.findFirst({ where: { workspaceId: WS, profileUrl: U("jane") }, select: { email: true } })).toEqual({ email: "jane@acme.io" });
+    const contact = await prisma.emailContact.findUniqueOrThrow({ where: { workspaceId_email: { workspaceId: WS, email: "jane@acme.io" } }, include: { lists: { include: { list: true } } } });
+    expect(contact).toMatchObject({ firstName: "Jane", lastName: "Doe", company: "Acme", vars: { linkedin_url: U("jane") } });
+    expect(contact.lists.map((m) => m.list.name)).toEqual(["LinkedIn · Prospects"]);
   });
 
   it("messages after acceptance, then stops following up when they reply", async () => {

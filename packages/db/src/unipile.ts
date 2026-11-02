@@ -42,6 +42,8 @@ export interface UnipileUser {
   is_relationship?: boolean;
   invitation?: { type?: string; status?: string };
   profile_picture_url?: string;
+  /** Contact info: LinkedIn shows it only to 1st-degree connections, and only what they chose to share. */
+  contact_info?: { emails?: string[] | null } | null;
 }
 
 export interface UnipileMe {

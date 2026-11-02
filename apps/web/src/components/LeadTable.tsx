@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Loader2, Trash2 } from "lucide-react";
+import { ExternalLink, Loader2, Mail, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { removeLeadsAction } from "@/app/app/leads/actions";
@@ -19,6 +19,8 @@ export interface LeadView {
   location: string | null;
   degree?: number | null;
   premium?: boolean | null;
+  /** From their LinkedIn contact info, once they're connected */
+  email?: string | null;
   createdAt: string;
   status: { stage: LeadStage; at: string | null; detail?: string };
 }
@@ -199,6 +201,16 @@ export function LeadTable({
                         >
                           {sub}
                         </p>
+                      )}
+                      {r.email && (
+                        <a
+                          href={`mailto:${r.email}`}
+                          title="Email from their LinkedIn contact info (also added to Email Outreach → Contacts)"
+                          className="flex w-fit min-w-0 items-center gap-1 text-[13.5px] text-brand-700 hover:underline"
+                        >
+                          <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          <span className="truncate">{r.email}</span>
+                        </a>
                       )}
                       <span
                         className={cx(

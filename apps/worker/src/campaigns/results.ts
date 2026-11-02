@@ -12,6 +12,7 @@ import {
   type LeadState,
 } from "@invytra/shared";
 import { z } from "zod";
+import { saveLeadEmail } from "./lead-email.js";
 
 /** A campaign's steps and settings, read defensively (bad JSON → no steps, the campaign does nothing). */
 export function campaignPlan(c: { steps: unknown; settings: unknown }): { steps: CampaignStep[]; settings: CampaignSettings } {
@@ -98,9 +99,17 @@ function factsOf(action: Action): { degree?: number; premium?: boolean } {
 
 /** The lead list keeps what we learned too (shown on the list, used by later campaigns). */
 async function recordFactsOnList(prisma: PrismaClient, lead: CampaignLead, action: Action): Promise<void> {
+  if (!lead.leadId) return;
   const facts = factsOf(action);
-  if (!lead.leadId || Object.keys(facts).length === 0) return;
-  await prisma.lead.updateMany({ where: { id: lead.leadId }, data: facts });
+  if (Object.keys(facts).length) await prisma.lead.updateMany({ where: { id: lead.leadId }, data: facts });
+  const email = ((action.payload ?? {}) as { result?: { email?: unknown } }).result?.email;
+  if (typeof email === "string" && email.includes("@")) {
+    try {
+      await saveLeadEmail(prisma, lead.leadId, email);
+    } catch {
+      // A missing list or a race with another save: the email comes again on the next check.
+    }
+  }
 }
 
 /** Only clears/updates the lead if it still waits on this same action. */

@@ -198,7 +198,7 @@ export async function leadsPage(
     workspaceId,
     listId,
     ...(term && {
-      OR: (["firstName", "lastName", "company", "title", "location", "profileUrl"] as const).map((f) => ({
+      OR: (["firstName", "lastName", "company", "title", "location", "profileUrl", "email"] as const).map((f) => ({
         [f]: { contains: term, mode: "insensitive" as const },
       })),
     }),
@@ -210,7 +210,7 @@ export async function leadsPage(
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       skip: (Math.max(1, page) - 1) * pageSize,
       take: pageSize,
-      select: { id: true, profileUrl: true, firstName: true, lastName: true, company: true, title: true, location: true, degree: true, premium: true, createdAt: true },
+      select: { id: true, profileUrl: true, firstName: true, lastName: true, company: true, title: true, location: true, degree: true, premium: true, email: true, createdAt: true },
     }),
   ]);
   const statuses = await leadStatuses(prisma, workspaceId, rows.map((r) => r.profileUrl));
