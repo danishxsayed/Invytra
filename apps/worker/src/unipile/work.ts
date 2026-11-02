@@ -296,8 +296,9 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
             premium: !!it.premium,
           });
         }
+        // LinkedIn often leaves the total empty (null): then a (nearly) full page means there are more.
         const total = r.paging?.total_count;
-        const hasNext = people.length > 0 && (total !== undefined ? page * per < total : people.length >= per * 0.8);
+        const hasNext = people.length > 0 && (typeof total === "number" && total > 0 ? page * per < total : people.length >= per * 0.8);
         return { outcome: "DONE", data: { people, hasNext } };
       };
 

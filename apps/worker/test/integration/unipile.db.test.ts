@@ -118,6 +118,20 @@ d("Unipile accounts", () => {
     expect(result.hasNext).toBe(false);
   });
 
+  it("keeps reading a search when LinkedIn leaves the result total empty", async () => {
+    fake.searchAnswer = {
+      items: Array.from({ length: 10 }, (_, i) => ({ type: "PEOPLE", id: `ACo${i}`, public_identifier: `person-${i}`, name: `Person ${i}`, headline: "Founder at X" })),
+      paging: { total_count: null },
+    };
+    const full = await run("SEARCH_PAGE", "https://www.linkedin.com/search/results/people/?keywords=saas", { kind: "LINKEDIN_SEARCH", page: 1 });
+    expect((full.row.payload as { result: { hasNext: boolean } }).result.hasNext).toBe(true);
+    // A short last page ends it.
+    fake.searchAnswer = { items: [{ type: "PEOPLE", id: "ACoZ", public_identifier: "last-one", name: "Last One" }], paging: { total_count: null } };
+    const last = await run("SEARCH_PAGE", "https://www.linkedin.com/search/results/people/?keywords=saas", { kind: "LINKEDIN_SEARCH", page: 2 });
+    expect((last.row.payload as { result: { hasNext: boolean } }).result.hasNext).toBe(false);
+    fake.searchAnswer = null;
+  });
+
   it("stores replies from the inbox with the chat id, and answers in that chat", async () => {
     fake.receive("raj-k", "Sounds good, let's talk");
     fake.ads.push({ id: "AD-1", subject: "What have you built lately?" });

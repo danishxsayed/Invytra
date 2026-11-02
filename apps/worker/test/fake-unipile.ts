@@ -12,6 +12,8 @@ export interface FakePerson {
 
 export class FakeUnipile {
   people = new Map<string, FakePerson>();
+  /** Replaces the search answer (e.g. a full page whose total is left empty, as LinkedIn often does). */
+  searchAnswer: unknown = null;
   invites: { id: string; providerId: string; message?: string }[] = [];
   chats: { id: string; providerId: string; name: string; messages: { id: string; text: string; ts: string; mine: boolean }[] }[] = [];
   reactions: string[] = [];
@@ -121,6 +123,7 @@ export class FakeUnipile {
       return json(200, { items: [...(chat?.messages ?? [])].reverse().map((x) => ({ id: x.id, text: x.text, timestamp: x.ts, is_sender: x.mine ? 1 : 0 })) });
     }
     if (method === "POST" && path === "/api/v1/linkedin/search") {
+      if (this.searchAnswer) return json(200, this.searchAnswer);
       const people = [...this.people.values()];
       return json(200, {
         items: people.map((p) => ({ type: "PEOPLE", id: p.providerId, public_identifier: p.slug, name: `${p.first} ${p.last} • 2nd`, headline: p.headline, location: "Pune", network_distance: "DISTANCE_2", premium: !!p.premium })),
