@@ -51,7 +51,7 @@ export function VerifyProgress({ pending, problem, configured }: { pending: numb
       )}
       {!configured && (
         <p className="rounded-lg bg-stone-100 px-3 py-2 text-[13.5px] text-stone-600">
-          Deep verification isn't set up yet (MillionVerifier API key). Until then only free checks run: bad format, domains that can't receive mail and throwaway inboxes are marked Invalid; everything else stays Unknown.
+          Deep verification isn't set up yet (verification API key in .env). Until then only free checks run: bad format, domains that can't receive mail and throwaway inboxes are marked Invalid; everything else stays Unknown.
         </p>
       )}
     </div>

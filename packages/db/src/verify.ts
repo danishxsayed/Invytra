@@ -2,7 +2,7 @@ import { Resolver } from "node:dns/promises";
 
 /*
  * Email verification: free checks first (format, the domain can receive mail, not a
- * throwaway domain), then a verification service (MillionVerifier) for whether the mailbox
+ * throwaway domain), then a verification service (Reoon, or MillionVerifier) for whether the mailbox
  * itself exists. Without the service a contact is never called valid: format alone
  * proves nothing.
  */
@@ -12,7 +12,7 @@ export type VerifyOutcome = { status: VerifyStatus; detail: string } | { retry: 
 
 /** A verification service's answer for one address. */
 export interface ServiceAnswer {
-  result: "ok" | "catch_all" | "unknown" | "disposable" | "invalid" | "error";
+  result: "ok" | "catch_all" | "unknown" | "disposable" | "invalid" | "disabled" | "inbox_full" | "spamtrap" | "error";
   role?: boolean;
   didyoumean?: string;
   /** Set when the call itself failed (bad key, no credits…): try again later. */
@@ -39,7 +39,42 @@ export function millionVerifier(apiKey: string, fetchImpl: typeof fetch = fetch)
   };
 }
 
-export const verifierFromEnv = (env: NodeJS.ProcessEnv = process.env): EmailVerifier | null => (env.MILLIONVERIFIER_API_KEY ? millionVerifier(env.MILLIONVERIFIER_API_KEY) : null);
+/**
+ * Reoon's single-address API in "power" mode (https://www.reoon.com/articles/api-documentation-of-reoon-email-verifier/):
+ * it checks the mailbox itself, which can take from a few seconds to over a minute.
+ */
+export function reoonVerifier(apiKey: string, fetchImpl: typeof fetch = fetch): EmailVerifier {
+  return {
+    name: "Reoon",
+    async check(email) {
+      const url = `https://emailverifier.reoon.com/api/v1/verify?email=${encodeURIComponent(email)}&key=${encodeURIComponent(apiKey)}&mode=power`;
+      const res = await fetchImpl(url, { signal: AbortSignal.timeout(100_000) });
+      const j = (await res.json().catch(() => ({}))) as { status?: string; reason?: string; message?: string; is_role_account?: boolean; is_deliverable?: boolean };
+      const status = (j.status ?? "").toLowerCase();
+      if (!res.ok || status === "error" || !status) return { result: "error", error: j.reason || j.message || `Reoon answered ${res.status}` };
+      const role = j.is_role_account === true;
+      switch (status) {
+        case "safe":
+          return { result: "ok", role };
+        case "role_account": // a shared inbox (info@, sales@): fine if the server takes mail for it
+          return { result: j.is_deliverable ? "ok" : "unknown", role: true };
+        case "catch_all":
+        case "invalid":
+        case "disabled":
+        case "disposable":
+        case "inbox_full":
+        case "spamtrap":
+          return { result: status, role };
+        default: // "unknown", or quick-mode "valid" (doesn't check the mailbox)
+          return { result: "unknown", role };
+      }
+    },
+  };
+}
+
+/** The verification service from .env: Reoon if its key is set, else MillionVerifier, else none. */
+export const verifierFromEnv = (env: NodeJS.ProcessEnv = process.env): EmailVerifier | null =>
+  env.REOON_API_KEY ? reoonVerifier(env.REOON_API_KEY) : env.MILLIONVERIFIER_API_KEY ? millionVerifier(env.MILLIONVERIFIER_API_KEY) : null;
 
 /** Throwaway-inbox domains (the common ones; the service catches the rest). */
 const DISPOSABLE = new Set(
@@ -79,6 +114,12 @@ export function fromServiceAnswer(a: ServiceAnswer, service: string): VerifyOutc
       return { status: "INVALID", detail: "Disposable (temporary) mailbox" };
     case "invalid":
       return { status: "INVALID", detail: `Mailbox doesn't exist${hint}` };
+    case "disabled":
+      return { status: "INVALID", detail: "Mailbox is disabled" };
+    case "spamtrap":
+      return { status: "INVALID", detail: "Known spam trap: never email it" };
+    case "inbox_full":
+      return { status: "RISKY", detail: `Inbox is full: emails will bounce until it's cleared${role}` };
     default:
       return { status: "UNKNOWN", detail: `The mail server didn't say${role}` };
   }

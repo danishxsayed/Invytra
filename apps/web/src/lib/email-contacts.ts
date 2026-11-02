@@ -247,7 +247,7 @@ export function isSuppressed(entries: Set<string>, email: string): boolean {
 
 // ---------------------------------------------------------------- verification
 
-export const verificationConfigured = () => !!process.env.MILLIONVERIFIER_API_KEY;
+export const verificationConfigured = () => !!(process.env.REOON_API_KEY || process.env.MILLIONVERIFIER_API_KEY);
 
 /**
  * Queues contacts for verification (the worker checks them in the background): those in a

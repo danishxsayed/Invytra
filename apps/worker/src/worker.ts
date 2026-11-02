@@ -144,8 +144,6 @@ async function main() {
       }
       const r = await emailReplyTick({ prisma: rt.prisma, key });
       if (r.replies || r.bounces || r.autoReplies) log(`Email inbox: ${r.replies} repl${r.replies === 1 ? "y" : "ies"}, ${r.autoReplies} auto-repl${r.autoReplies === 1 ? "y" : "ies"}, ${r.bounces} bounce(s)${r.fromSpam ? ` (${r.fromSpam} found in spam, moved to the inbox)` : ""}`);
-      const v = await verifyTick({ prisma: rt.prisma });
-      if (v.checked || v.error) log(`Email verification: ${v.checked} checked${v.waiting ? `, ${v.waiting} waiting` : ""}${v.error ? ` (stopped: ${v.error})` : ""}`);
       const w = await warmupTick({ prisma: rt.prisma, key });
       if (w.sent || w.checked || w.failed) {
         log(`Email warm-up: ${w.sent} sent, ${w.checked} checked${w.spam ? ` (${w.spam} rescued from spam)` : ""}, ${w.replied} replied${w.failed ? `, ${w.failed} failed` : ""}`);
@@ -158,6 +156,24 @@ async function main() {
   };
   await runWarmup();
   const warmupTimer = setInterval(runWarmup, 60_000);
+
+  // Email verification on its own loop: a deep mailbox check can take a minute, and it must
+  // never hold up campaign emails or reply reading.
+  let verifying = false;
+  const runVerify = async () => {
+    if (verifying) return;
+    verifying = true;
+    try {
+      const v = await verifyTick({ prisma: rt.prisma, batch: 40 });
+      if (v.checked || v.error) log(`Email verification: ${v.checked} checked${v.waiting ? `, ${v.waiting} waiting` : ""}${v.error ? ` (stopped: ${v.error})` : ""}`);
+    } catch (e) {
+      log(`Email verification error: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      verifying = false;
+    }
+  };
+  void runVerify();
+  const verifyTimer = setInterval(runVerify, 60_000);
 
   // Replies typed in the dashboard's inbox, and inbox checks it asks for while open: the web
   // app only writes the QUEUED row, so look for new ones every few seconds and queue them.
@@ -209,6 +225,7 @@ async function main() {
     clearInterval(campaignTimer);
     clearInterval(replyTimer);
     clearInterval(warmupTimer);
+    clearInterval(verifyTimer);
     await connect?.closeAll();
     await worker.close();
     await queue.close();

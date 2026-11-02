@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromServiceAnswer, millionVerifier, mxLookup, verifyEmail, type EmailVerifier } from "../src/verify.js";
+import { fromServiceAnswer, millionVerifier, reoonVerifier, verifierFromEnv, mxLookup, verifyEmail, type EmailVerifier } from "../src/verify.js";
 
 const mx = async (d: string) => (d === "nomail.co" ? [] : d === "dnsdown.co" ? null : ["mx.example.com"]);
 const svc = (result: string, extra: object = {}): EmailVerifier => ({ name: "Test", check: async () => ({ result: result as never, ...extra }) });
@@ -52,5 +52,35 @@ describe("email verification", () => {
     expect(asked).toBe("https://api.millionverifier.com/api/v3/?api=k%261&email=a%2Bx%40b.co&timeout=20");
     const bad = (async () => new Response(JSON.stringify({ error: "Invalid API key", result: "" }))) as unknown as typeof fetch;
     expect(await millionVerifier("x", bad).check("a@b.co")).toEqual({ result: "error", error: "Invalid API key" });
+  });
+
+  it("calls Reoon's API in power mode and reads its answer", async () => {
+    let asked = "";
+    const answer = (body: unknown, status = 200) =>
+      (async (url: string) => {
+        asked = url;
+        return new Response(JSON.stringify(body), { status });
+      }) as unknown as typeof fetch;
+    expect(await reoonVerifier("k&1", answer({ email: "a@b.co", status: "safe", is_role_account: false, is_deliverable: true })).check("a+x@b.co")).toEqual({ result: "ok", role: false });
+    expect(asked).toBe("https://emailverifier.reoon.com/api/v1/verify?email=a%2Bx%40b.co&key=k%261&mode=power");
+    expect(await reoonVerifier("k", answer({ status: "catch_all" })).check("a@b.co")).toMatchObject({ result: "catch_all" });
+    expect(await reoonVerifier("k", answer({ status: "disabled" })).check("a@b.co")).toMatchObject({ result: "disabled" });
+    expect(await reoonVerifier("k", answer({ status: "role_account", is_role_account: true, is_deliverable: true })).check("info@b.co")).toEqual({ result: "ok", role: true });
+    expect(await reoonVerifier("k", answer({ status: "role_account", is_role_account: true, is_deliverable: false })).check("info@b.co")).toEqual({ result: "unknown", role: true });
+    expect(await reoonVerifier("k", answer({ status: "valid" })).check("a@b.co")).toMatchObject({ result: "unknown" });
+    expect(await reoonVerifier("k", answer({ status: "error", reason: "Invalid API key" })).check("a@b.co")).toEqual({ result: "error", error: "Invalid API key" });
+    expect(await reoonVerifier("k", answer({}, 402)).check("a@b.co")).toEqual({ result: "error", error: "Reoon answered 402" });
+  });
+
+  it("reads Reoon's extra answers", () => {
+    expect(fromServiceAnswer({ result: "disabled" }, "R")).toMatchObject({ status: "INVALID" });
+    expect(fromServiceAnswer({ result: "spamtrap" }, "R")).toMatchObject({ status: "INVALID" });
+    expect(fromServiceAnswer({ result: "inbox_full" }, "R")).toMatchObject({ status: "RISKY" });
+  });
+
+  it("prefers Reoon when both keys are set", () => {
+    expect(verifierFromEnv({ REOON_API_KEY: "r", MILLIONVERIFIER_API_KEY: "m" } as NodeJS.ProcessEnv)?.name).toBe("Reoon");
+    expect(verifierFromEnv({ MILLIONVERIFIER_API_KEY: "m" } as NodeJS.ProcessEnv)?.name).toBe("MillionVerifier");
+    expect(verifierFromEnv({} as NodeJS.ProcessEnv)).toBeNull();
   });
 });
