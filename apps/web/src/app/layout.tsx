@@ -6,7 +6,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: { default: "Invytra", template: "%s · Invytra" },
-  description: "LinkedIn outreach at a human pace: invites, messages and follow-ups inside safe daily limits, stopping when someone replies.",
+  description: "Outreach on LinkedIn, email and WhatsApp, in one place: automatic follow-ups, safe limits, and every reply in one inbox.",
   openGraph: { siteName: "Invytra", type: "website" },
 };
 

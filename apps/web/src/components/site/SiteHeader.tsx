@@ -8,6 +8,7 @@ import { LogoMark } from "../LogoMark";
 import { cx } from "../ui";
 
 const NAV = [
+  { href: "/#channels", label: "Channels" },
   { href: "/#how", label: "How it works" },
   { href: "/#safety", label: "Safety" },
   { href: "/pricing", label: "Pricing" },
@@ -48,7 +49,7 @@ export function SiteHeader() {
           <Link href="/login" className="rounded-lg px-3 py-2 text-[15px] font-medium text-stone-700 hover:text-stone-900">
             Log in
           </Link>
-          <Link href="/signup" className="rounded-lg bg-stone-900 px-4 py-2 text-[15px] font-semibold text-white transition hover:bg-stone-700">
+          <Link href="/signup" className="rounded-full bg-stone-900 px-5 py-2.5 text-[15px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-stone-800">
             Start free trial
           </Link>
         </div>

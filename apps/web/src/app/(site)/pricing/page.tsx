@@ -145,7 +145,9 @@ export default function PricingPage() {
 
       <section className="mt-20 max-w-[860px]">
         <h2 className="font-display text-[34px] font-bold tracking-[-0.02em] text-stone-900">Billing questions</h2>
-        <Faq items={FAQ} />
+        <div className="mt-8">
+          <Faq items={FAQ} />
+        </div>
       </section>
     </div>
   );

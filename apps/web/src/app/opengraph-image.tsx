@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
-export const alt = "Invytra — LinkedIn outreach at a human pace";
+export const alt = "Invytra — Outreach on LinkedIn, email and WhatsApp, in one place";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -21,8 +21,8 @@ export default async function OpengraphImage() {
           <div style={{ fontSize: 44, fontWeight: 700, color: "#1C1917" }}>Invytra</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div style={{ fontSize: 84, fontWeight: 700, lineHeight: 1, letterSpacing: -2, color: "#1C1917", maxWidth: 900 }}>LinkedIn outreach at a human pace.</div>
-          <div style={{ fontSize: 32, color: "#57534E" }}>Safe daily limits, office hours, and it stops when they reply. From $29 per account.</div>
+          <div style={{ fontSize: 84, fontWeight: 700, lineHeight: 1, letterSpacing: -2, color: "#1C1917", maxWidth: 900 }}>Outreach that feels personal, on every channel.</div>
+          <div style={{ fontSize: 32, color: "#57534E" }}>LinkedIn, email and WhatsApp, with every reply in one inbox.</div>
         </div>
         <div style={{ display: "flex", gap: 14, alignItems: "flex-end", height: 40 }}>
           {bars.map((b, i) => (

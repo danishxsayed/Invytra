@@ -67,7 +67,6 @@ const DIFFERENT = [
 ];
 
 const OTHERS = [
-  { need: "Cold email and LinkedIn in one tool", body: "Invytra is LinkedIn only. Tools such as Dripify, or Waalaxy's Business plan, include email." },
   { need: "Importing straight from a Sales Navigator search", body: "Invytra imports Sales Navigator CSV exports, but not search links yet." },
   { need: "White-label for an agency's clients", body: "Invytra has no white-label option. HeyReach and Expandi offer one on their agency plans." },
 ];
