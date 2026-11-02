@@ -5,9 +5,12 @@ import { ImportContactsButton } from "@/components/email/contacts/ImportContacts
 import { SuppressionPanel } from "@/components/email/contacts/SuppressionPanel";
 import { VariablesPanel } from "@/components/email/contacts/VariablesPanel";
 import { VerifyButton, VerifyProgress } from "@/components/email/contacts/VerifyButton";
+import { VerifyCredits } from "@/components/email/contacts/VerifyCredits";
 import { inputCls } from "@/components/fields";
 import { Card, EmptyState, PageHeader, cx } from "@/components/ui";
 import { requireChannel } from "@/lib/auth";
+import { timeAgo } from "@/lib/format";
+import { getVerifyBalance, listVerifyOrders } from "@/lib/verify-credits";
 import { CONTACT_FILTERS, listContacts, listLists, listSuppressions, listVariables, verificationConfigured, verificationProgress, type ContactFilter, type ContactRowView } from "@/lib/email-contacts";
 
 export const metadata = { title: "Contacts" };
@@ -63,7 +66,18 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
   const [lists, variables] = await Promise.all([listLists(prisma, ws), listVariables(prisma, ws)]);
   const list = lists.find((l) => l.id === q.list);
   const href = (o: Partial<Q>) => `/email/contacts?${new URLSearchParams(Object.entries({ tab, list: list?.id, f: filter === "all" ? undefined : filter, q: q.q, ...o }).filter((e): e is [string, string] => !!e[1]))}`;
-  const [total, progress] = await Promise.all([prisma.emailContact.count({ where: { workspaceId: ws } }), verificationProgress(prisma, ws)]);
+  const [total, progress, balance, orders] = await Promise.all([
+    prisma.emailContact.count({ where: { workspaceId: ws } }),
+    verificationProgress(prisma, ws),
+    getVerifyBalance(prisma, ws),
+    listVerifyOrders(prisma, ws),
+  ]);
+  const credits = {
+    ...balance,
+    resetsOn: balance.resetsAt.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+    trial: me.workspace.plan === "trial",
+    orders: orders.map((o) => ({ id: o.id, credits: o.credits, priceCents: o.priceCents, status: o.status as "PENDING" | "PAID", when: timeAgo(o.createdAt) })),
+  };
 
   return (
     <div className="space-y-5">
@@ -91,6 +105,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
         ))}
       </nav>
 
+      {tab === "contacts" && verificationConfigured() && <VerifyCredits c={credits} />}
       {tab === "contacts" && total > 0 && <VerifyProgress pending={progress.pending} problem={progress.problem} configured={verificationConfigured()} />}
       {tab === "variables" && (
         <Card className="p-5">

@@ -21,6 +21,7 @@ import {
   variableSchema,
   type ContactImportResult,
 } from "@/lib/email-contacts";
+import { cancelVerifyOrder, orderVerifyPack } from "@/lib/verify-credits";
 
 /* Contacts, lists, variables and the suppression list: Email channel only, own workspace only. */
 
@@ -84,4 +85,12 @@ export async function requestVerificationAction(scope: unknown): Promise<Result<
   const p = z.object({ listId: z.string().max(40).optional(), filter: z.enum(CONTACT_FILTERS).optional(), q: z.string().max(200).optional() }).safeParse(scope ?? {});
   if (!p.success) return { ok: false, error: "Choose contacts to verify." };
   return done(await requestVerification(prisma, w, p.data));
+}
+
+export async function orderVerifyPackAction(packId: unknown): Promise<Result<{ id: string; credits: number; priceCents: number }>> {
+  const me = await requireChannel("email");
+  return done(await orderVerifyPack(prisma, me.workspace.id, me.user.id, z.string().max(10).parse(packId)));
+}
+export async function cancelVerifyOrderAction(orderId: string): Promise<Result> {
+  return done(await cancelVerifyOrder(prisma, await ws(), id.parse(orderId)));
 }

@@ -23,6 +23,11 @@ model Workspace {
   plan      String   @default("trial")
   /// Outreach channels this workspace's subscription includes (ids from CHANNELS in @invytra/shared)
   channels  String[] @default(["linkedin", "email"])
+  /// Email verification credits: used this credit month (verifyPeriod = its 1st, UTC), and
+  /// extra credits bought (never expire). The monthly allowance comes from the plan.
+  verifyUsed   Int       @default(0) @map("verify_used")
+  verifyPeriod DateTime? @map("verify_period")
+  verifyExtra  Int       @default(0) @map("verify_extra")
   createdAt DateTime @default(now()) @map("created_at")
 
   members           Membership[]
@@ -37,6 +42,7 @@ model Workspace {
   emailLists        EmailList[]
   emailVariables    EmailVariable[]
   emailSuppressions EmailSuppression[]
+  verifyPurchases   VerifyCreditPurchase[]
 
   @@map("workspaces")
 }
@@ -921,4 +927,30 @@ model PasswordReset {
 
   @@index([userId, createdAt])
   @@map("password_resets")
+}
+
+enum VerifyPurchaseStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+/// Extra email verification credits a workspace bought (or asked to buy).
+model VerifyCreditPurchase {
+  id          String               @id @default(cuid())
+  workspaceId String               @map("workspace_id")
+  credits     Int
+  priceCents  Int                  @map("price_cents")
+  currency    String               @default("USD")
+  status      VerifyPurchaseStatus @default(PENDING)
+  /// Who asked (user id), and the payment's reference once paid
+  requestedBy String?              @map("requested_by")
+  paymentRef  String?              @map("payment_ref")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  paidAt      DateTime?            @map("paid_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@map("verify_credit_purchases")
 }

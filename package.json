@@ -29,7 +29,8 @@
     "web": "pnpm packages:build && pnpm --filter @invytra/web build && pnpm --filter @invytra/web start",
     "web:dev": "pnpm packages:build && pnpm --filter @invytra/web dev",
     "web:start": "pnpm --filter @invytra/web start",
-    "user:password": "pnpm --filter @invytra/web user:password"
+    "user:password": "pnpm --filter @invytra/web user:password",
+    "credits:add": "pnpm --filter @invytra/web credits:add"
   },
   "devDependencies": {
     "turbo": "2.3.3",

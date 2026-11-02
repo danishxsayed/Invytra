@@ -9,7 +9,8 @@
     "start": "next start -p 3000",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "user:password": "tsx scripts/set-password.ts"
+    "user:password": "tsx scripts/set-password.ts",
+    "credits:add": "tsx scripts/verify-credits.ts"
   },
   "dependencies": {
     "@invytra/db": "workspace:*",

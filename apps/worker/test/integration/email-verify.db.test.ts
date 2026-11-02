@@ -41,6 +41,8 @@ d("email verification job", () => {
     expect(await status("y@mailinator.com")).toMatchObject({ verification: "INVALID", verifyDetail: "Disposable (temporary) mailbox" });
     expect(await status("later@fine.co")).toMatchObject({ verification: "UNKNOWN" });
     expect(await status("skip@fine.co")).toMatchObject({ verification: "NOT_CHECKED" });
+    // Only the 4 deep checks used credits (the trial's monthly allowance).
+    expect(await prisma.workspace.findUniqueOrThrow({ where: { id: WS } })).toMatchObject({ verifyUsed: 4, verifyExtra: 0 });
   });
 
   it("waits (and says why) when the service account has a problem", async () => {
@@ -48,9 +50,31 @@ d("email verification job", () => {
     const broke: EmailVerifier = { name: "Test", check: async () => ({ result: "error", error: "Insufficient credits" }) };
     expect(await verifyTick({ prisma, verifier: broke, mx, now })).toEqual({ checked: 0, waiting: 1, error: "Insufficient credits" });
     expect(await status("later@fine.co")).toMatchObject({ verification: "PENDING", verifyDetail: "Waiting: Insufficient credits" });
+    // The service didn't check it, so the credit came back.
+    expect((await prisma.workspace.findUniqueOrThrow({ where: { id: WS } })).verifyUsed).toBe(4);
+  });
+
+  it("uses this month's credits, then extra ones, then waits until more are added", async () => {
+    // A paid plan with 999 of 1,000 used and 1 extra credit: two checks, then none left.
+    await prisma.workspace.update({ where: { id: WS }, data: { plan: "pro", verifyUsed: 999, verifyPeriod: new Date("2026-11-01T00:00:00Z"), verifyExtra: 1 } });
+    await prisma.emailContact.createMany({ data: ["a@fine.co", "b@fine.co", "c@fine.co"].map((email) => ({ workspaceId: WS, email, verification: "PENDING" as const })) });
+    const r = await verifyTick({ prisma, verifier, mx, now, concurrency: 1 });
+    expect(r.checked).toBe(2); // one monthly credit and one extra
+    expect(await prisma.workspace.findUniqueOrThrow({ where: { id: WS } })).toMatchObject({ verifyUsed: 1000, verifyExtra: 0 });
+    const left = await prisma.emailContact.findMany({ where: { workspaceId: WS, verification: "PENDING" } });
+    expect(left).toHaveLength(2);
+    expect(left.every((c) => /no verification credits left/.test(c.verifyDetail ?? ""))).toBe(true);
+    // Next round: skipped without calling the service at all.
+    const before = calls;
+    expect(await verifyTick({ prisma, verifier, mx, now })).toMatchObject({ checked: 0 });
+    expect(calls).toBe(before);
+    // A new month brings 1,000 fresh credits.
+    expect(await verifyTick({ prisma, verifier, mx, now: new Date("2026-12-01T08:00:00Z") })).toMatchObject({ checked: 2 });
+    expect(await prisma.workspace.findUniqueOrThrow({ where: { id: WS } })).toMatchObject({ verifyUsed: 2 });
   });
 
   it("without a service, never calls an address valid", async () => {
+    await prisma.emailContact.updateMany({ where: { workspaceId: WS, email: "later@fine.co" }, data: { verification: "PENDING" } });
     expect(await verifyTick({ prisma, verifier: null, mx, now })).toMatchObject({ checked: 1 });
     expect(await status("later@fine.co")).toMatchObject({ verification: "UNKNOWN" });
   });
