@@ -3,7 +3,7 @@ import { hostKind, channelOrigin, domainConfig, hubOrigin, siteOrigin, type Doma
 
 export type RouteDecision = { type: "next" } | { type: "rewrite"; path: string } | { type: "redirect"; url: string };
 
-const AUTH_PATHS = ["/login", "/signup"];
+const AUTH_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
 const is = (path: string, base: string) => path === base || path.startsWith(`${base}/`);
 
 /**

@@ -127,3 +127,24 @@ export async function sendEmail(
     return { ok: false, error: explainMailError(e, "SMTP", login.provider) };
   }
 }
+
+/** One email through a given SMTP server (the platform's own emails, e.g. password resets). */
+export async function sendSystemEmail(
+  smtp: { host: string; port: number; user: string; pass: string; from: string },
+  mail: { to: string; subject: string; text: string; html: string },
+): Promise<void> {
+  const t = nodemailer.createTransport({
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.port === 465,
+    requireTLS: smtp.port !== 465,
+    auth: { user: smtp.user, pass: smtp.pass },
+    connectionTimeout: TIMEOUT_MS,
+    socketTimeout: TIMEOUT_MS,
+  });
+  try {
+    await t.sendMail({ from: smtp.from, ...mail });
+  } finally {
+    t.close();
+  }
+}

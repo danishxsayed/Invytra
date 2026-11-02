@@ -28,7 +28,8 @@
     "queue:cancel": "pnpm --filter @invytra/worker queue:cancel",
     "web": "pnpm packages:build && pnpm --filter @invytra/web build && pnpm --filter @invytra/web start",
     "web:dev": "pnpm packages:build && pnpm --filter @invytra/web dev",
-    "web:start": "pnpm --filter @invytra/web start"
+    "web:start": "pnpm --filter @invytra/web start",
+    "user:password": "pnpm --filter @invytra/web user:password"
   },
   "devDependencies": {
     "turbo": "2.3.3",

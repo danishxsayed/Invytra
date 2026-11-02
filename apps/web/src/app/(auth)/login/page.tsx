@@ -6,13 +6,15 @@ import { login } from "../actions";
 
 export const metadata = { title: "Log in" };
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const next = safeNext((await searchParams).next);
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; reset?: string }> }) {
+  const q = await searchParams;
+  const next = safeNext(q.next);
   if (await currentUser()) redirect(next ?? hubHref("/"));
   return (
     <>
       <h1 className="text-xl font-semibold tracking-tight">Welcome back</h1>
       <p className="mb-6 mt-1 text-[16px] text-stone-500">Log in to your Invytra workspace.</p>
+      {q.reset === "1" && <p className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-[15px] text-emerald-800">Password changed. Log in with your new password.</p>}
       <AuthForm
         hidden={next ? { next } : undefined}
         action={login}
@@ -22,6 +24,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           { name: "email", label: "Email", type: "email", autoComplete: "email", placeholder: "you@company.com" },
           { name: "password", label: "Password", type: "password", autoComplete: "current-password" },
         ]}
+        aside={{ href: "/forgot-password", text: "Forgot password?" }}
         footer={{ text: "New to Invytra?", href: next ? `/signup?next=${encodeURIComponent(next)}` : "/signup", link: "Create an account" }}
       />
     </>

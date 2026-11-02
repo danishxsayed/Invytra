@@ -21,6 +21,7 @@ export function AuthForm({
   pending,
   footer,
   hidden,
+  aside,
 }: {
   action: (prev: FormState, form: FormData) => Promise<FormState>;
   fields: Field[];
@@ -29,6 +30,8 @@ export function AuthForm({
   footer: { text: string; href: string; link: string };
   /** Extra values sent with the form (e.g. where to go after signing in). */
   hidden?: Record<string, string>;
+  /** A small link under the fields, e.g. "Forgot password?". */
+  aside?: { href: string; text: string };
 }) {
   const [state, formAction, isPending] = useActionState(action, {});
   return (
@@ -51,6 +54,13 @@ export function AuthForm({
           {f.hint && <span className="mt-1 block text-[14px] text-stone-500">{f.hint}</span>}
         </label>
       ))}
+      {aside && (
+        <p className="-mt-2 text-right text-[14px]">
+          <Link href={aside.href} className="font-medium text-stone-500 hover:text-stone-900">
+            {aside.text}
+          </Link>
+        </p>
+      )}
       {state.error && (
         <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[15px] text-rose-700">
           {state.error}

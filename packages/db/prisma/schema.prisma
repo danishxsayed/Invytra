@@ -52,7 +52,8 @@ model User {
   /// Sessions signed before this moment are no longer accepted (password change, "sign out everywhere")
   sessionsValidAfter DateTime? @map("sessions_valid_after")
 
-  memberships Membership[]
+  memberships    Membership[]
+  passwordResets PasswordReset[]
 
   @@map("users")
 }
@@ -902,4 +903,20 @@ model EmailSuppression {
 
   @@unique([workspaceId, email])
   @@map("email_suppressions")
+}
+
+/// "Forgot password?" links: only a hash of the token is stored; one use, short-lived.
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  /// sha256 of the token in the emailed link
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("password_resets")
 }
