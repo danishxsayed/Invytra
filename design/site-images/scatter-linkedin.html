@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:Geist;src:url(Geist-Regular.woff2);font-weight:400}
+@font-face{font-family:Geist;src:url(Geist-Medium.woff2);font-weight:500}
+@font-face{font-family:Geist;src:url(Geist-SemiBold.woff2);font-weight:600}
+@font-face{font-family:Bric;src:url(BricolageGrotesque-latin.woff2);font-weight:200 800}
+*{box-sizing:border-box;margin:0}
+body{width:520px;height:400px;overflow:hidden;font-family:Geist,sans-serif;color:#1C1917;
+ background:
+  radial-gradient(120% 90% at 85% 10%, rgba(196,250,19,.55), transparent 60%),
+  radial-gradient(90% 80% at 0% 100%, rgba(10,102,194,.10), transparent 60%),
+  linear-gradient(160deg,#F7FBE6 0%,#EEF3DA 55%,#E6EDCC 100%);
+ position:relative}
+.dots{position:absolute;inset:0;background-image:radial-gradient(rgba(94,122,6,.18) 1px,transparent 1.2px);background-size:16px 16px;
+ -webkit-mask-image:radial-gradient(70% 70% at 50% 50%,#000 30%,transparent 80%)}
+.stage{position:absolute;inset:0;perspective:1100px}
+/* back card for depth */
+.ghost{position:absolute;left:92px;top:96px;width:330px;height:150px;border-radius:26px;background:rgba(255,255,255,.55);
+ border:1px solid rgba(255,255,255,.8);transform:rotateX(14deg) rotateZ(-9deg) translate(-18px,-16px);
+ box-shadow:0 30px 60px -30px rgba(28,25,23,.35);backdrop-filter:blur(2px)}
+.card{position:absolute;left:84px;top:118px;width:352px;border-radius:26px;padding:20px 20px 18px;
+ background:linear-gradient(180deg,#ffffff 0%,#fbfcf7 100%);
+ border:1px solid rgba(28,25,23,.06);
+ transform:rotateX(12deg) rotateY(-10deg) rotateZ(-4deg);
+ box-shadow:
+  0 1px 0 rgba(255,255,255,.9) inset,
+  0 -2px 0 rgba(28,25,23,.04) inset,
+  0 2px 4px rgba(28,25,23,.05),
+  0 18px 30px -12px rgba(28,25,23,.25),
+  0 50px 80px -30px rgba(70,90,10,.45)}
+.card:before{content:"";position:absolute;inset:0;border-radius:26px;
+ background:linear-gradient(115deg,rgba(255,255,255,.95) 0%,rgba(255,255,255,0) 38%);pointer-events:none}
+.row{display:flex;align-items:center;gap:12px;position:relative}
+.li{width:34px;height:34px;border-radius:10px;background:linear-gradient(160deg,#1b7fe0,#0A66C2);display:flex;align-items:center;justify-content:center;
+ box-shadow:0 6px 12px -4px rgba(10,102,194,.55), inset 0 1px 0 rgba(255,255,255,.35)}
+.li b{font:700 17px/1 Geist;color:#fff;letter-spacing:-.5px}
+.t1{font-weight:600;font-size:16px}
+.t2{font-size:13px;color:#78716C;margin-top:2px}
+.badge{margin-left:auto;font:600 11.5px Geist;background:#F0FDC4;color:#47590A;padding:4px 9px;border-radius:99px}
+.person{display:flex;align-items:center;gap:12px;margin-top:16px;padding:12px;border-radius:18px;background:#F5F5EB;position:relative}
+.av{width:48px;height:48px;border-radius:50%;position:relative;flex:none;
+ background:radial-gradient(circle at 35% 30%,#fde7c8,#f2b97f 55%,#d9925a);
+ box-shadow:0 0 0 3px #fff,0 4px 10px -3px rgba(28,25,23,.3);display:flex;align-items:center;justify-content:center;font:600 17px Bric;color:#6b3d17}
+.av:after{content:"";position:absolute;right:-2px;bottom:-2px;width:16px;height:16px;border-radius:50%;background:#C4FA13;border:3px solid #fff;
+ box-shadow:0 0 0 1px rgba(28,25,23,.06)}
+.name{font:600 15px Geist}
+.role{font-size:12.5px;color:#78716C;margin-top:2px}
+.conn{margin-left:auto;display:flex;align-items:center;gap:6px;background:#1C1917;color:#fff;font:500 12.5px Geist;padding:7px 11px;border-radius:99px}
+.conn i{width:14px;height:14px;border-radius:50%;background:#C4FA13;display:inline-flex;align-items:center;justify-content:center}
+.next{margin-top:12px;font-size:12.5px;color:#57534E;display:flex;align-items:center;gap:7px;position:relative}
+.next span{width:7px;height:7px;border-radius:50%;background:#A8D90A;box-shadow:0 0 0 4px rgba(196,250,19,.35)}
+/* floating bits */
+.chk{position:absolute;right:58px;top:70px;width:62px;height:62px;border-radius:20px;transform:rotate(12deg);
+ background:linear-gradient(150deg,#D9FF5A 0%,#C4FA13 45%,#9fcf05 100%);
+ box-shadow:inset 0 2px 0 rgba(255,255,255,.7),inset 0 -6px 10px rgba(80,110,0,.25),0 18px 30px -12px rgba(110,150,0,.7);
+ display:flex;align-items:center;justify-content:center}
+.pill{position:absolute;left:44px;bottom:52px;transform:rotate(-6deg);background:#fff;border-radius:99px;padding:8px 14px 8px 8px;display:flex;gap:8px;align-items:center;
+ font:500 13px Geist;box-shadow:0 14px 28px -12px rgba(28,25,23,.35)}
+.pill .d{width:24px;height:24px;border-radius:50%;background:#1C1917;display:flex;align-items:center;justify-content:center}
+.spark{position:absolute;width:14px;height:14px;background:#C4FA13;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)}
+</style></head><body>
+<div class="dots"></div>
+<div class="stage">
+ <div class="ghost"></div>
+ <div class="card">
+  <div class="row"><div class="li"><b>in</b></div><div><div class="t1">Invite accepted</div><div class="t2">LinkedIn · just now</div></div><div class="badge">New connection</div></div>
+  <div class="person"><div class="av">PN</div><div><div class="name">Priya Nair</div><div class="role">Head of Growth</div></div>
+   <div class="conn"><i><svg width="9" height="9" viewBox="0 0 12 12"><path d="M2 6.5 5 9l5-6" fill="none" stroke="#1C1917" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i>Connected</div></div>
+  <div class="next"><span></span>First message goes out tomorrow, 10:20 her time</div>
+ </div>
+ <div class="chk"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M5 12.5 10 17 19 7" fill="none" stroke="#1C1917" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+ <div class="pill"><div class="d"><svg width="12" height="12" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18" stroke="#C4FA13" stroke-width="3.5" stroke-linecap="round"/></svg></div>12 invites accepted this week</div>
+ <div class="spark" style="right:150px;top:44px"></div>
+ <div class="spark" style="right:40px;bottom:120px;transform:scale(.7)"></div>
+ <div class="spark" style="left:60px;top:70px;transform:scale(.55);background:#A8D90A"></div>
+</div>
+</body></html>
