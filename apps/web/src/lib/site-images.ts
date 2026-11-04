@@ -23,8 +23,8 @@ export const SITE_IMAGES = {
     w: 2400,
     h: 1500,
     kind: "Product screenshot",
-    alt: "Invytra dashboard showing a campaign that runs on LinkedIn, email and WhatsApp",
-    brief: "The Invytra dashboard, light theme: one campaign whose steps use LinkedIn, Email and WhatsApp, with reply counts. Clean demo data (no real people). Browser frame optional.",
+    alt: "A running LinkedIn campaign in Invytra with its stats, sequence and senders",
+    brief: "Real screenshot: a running LinkedIn campaign page from the demo workspace (pnpm demo:seed), 1440×900 at 2×.",
   },
   "scatter-founder": {
     section: "One workspace",
@@ -48,7 +48,7 @@ export const SITE_IMAGES = {
     h: 420,
     kind: "UI mockup",
     alt: "A new email reply in the Invytra inbox",
-    brief: "Cropped UI card from the Invytra inbox: a new reply with the person's name, company and a short message. Rounded corners, soft shadow, on a light tint.",
+    brief: "Real screenshot, cropped: an open conversation in the Email inbox from the demo workspace.",
   },
   "scatter-team": {
     section: "One workspace",
@@ -71,8 +71,8 @@ export const SITE_IMAGES = {
     w: 1600,
     h: 1200,
     kind: "Product screenshot",
-    alt: "LinkedIn campaign steps in Invytra: visit, invite, message, follow up",
-    brief: "Invytra LinkedIn campaign builder: Visit → Invite → Message → Follow up, with the daily limits visible. Crop to the useful area.",
+    alt: "Invytra LinkedIn dashboard with this week's invites, messages and replies",
+    brief: "Real screenshot: the LinkedIn dashboard (stats and this week) from the demo workspace, 1280×960 at 2×.",
   },
   "channel-email": {
     section: "Channels",
@@ -80,7 +80,7 @@ export const SITE_IMAGES = {
     h: 1200,
     kind: "Product screenshot",
     alt: "Email campaign in Invytra with several mailboxes and warm-up health",
-    brief: "Invytra Email: a campaign using several mailboxes, with warm-up health and sent / replied counts.",
+    brief: "Real screenshot: a running Email campaign from the demo workspace, 1280×960 at 2×.",
   },
   "channel-whatsapp": {
     section: "Channels",
@@ -95,8 +95,8 @@ export const SITE_IMAGES = {
     w: 1200,
     h: 900,
     kind: "Product screenshot",
-    alt: "Unified inbox with replies from LinkedIn, email and WhatsApp",
-    brief: "Invytra unified inbox: a list of replies, each with its channel icon (LinkedIn, email, WhatsApp), and one conversation open.",
+    alt: "Invytra inbox with replies and one conversation open",
+    brief: "Real screenshot: the LinkedIn inbox with one conversation open, from the demo workspace, 1280×960 at 2×.",
   },
   "usecase-agencies": {
     section: "Who it's for",

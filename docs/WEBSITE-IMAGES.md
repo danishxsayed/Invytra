@@ -2,6 +2,8 @@
 
 The new home page has 15 image slots. Each one shows a labelled placeholder on the page until its file exists.
 
+**Product screenshots** come from the real app, filled with made-up data by `DEMO_SEED=yes pnpm demo:seed` (log in as demo@invytra.com / demo-password-2026). Retake them whenever the screens change.
+
 **How to add an image:** export it at the size below (2× is fine for sharp screens), name it exactly `<file name>.webp` (or .png / .jpg), put it in `apps/web/public/site/`, and rebuild (`pnpm web`). The placeholder is replaced automatically.
 
 **Style for all images:** light and bright, warm natural light, our lime (#C4FA13) and stone colours as accents, rounded corners are added by the page (export square corners). People should look international (mixed backgrounds, real offices, not posed stock). Product screenshots use clean demo data, never real people's names or photos.
@@ -10,7 +12,7 @@ The new home page has 15 image slots. Each one shows a labelled placeholder on t
 
 | File name | Size (px) | Type | What to make |
 |---|---|---|---|
-| `hero-dashboard.webp` | 2400 × 1500 | Product screenshot | The Invytra dashboard, light theme: one campaign whose steps use LinkedIn, Email and WhatsApp, with reply counts. Clean demo data (no real people). Browser frame optional. |
+| `hero-dashboard.webp` | 2400 × 1500 | Product screenshot | Real screenshot: a running LinkedIn campaign page from the demo workspace (pnpm demo:seed), 1440×900 at 2×. |
 
 ## One workspace
 
@@ -18,7 +20,7 @@ The new home page has 15 image slots. Each one shows a labelled placeholder on t
 |---|---|---|---|
 | `scatter-founder.webp` | 520 × 640 | Photo | Candid photo: a founder working on a laptop in a bright café or co-working space. Natural light, warm tones. Portrait crop. |
 | `scatter-whatsapp.webp` | 480 × 590 | Photo | Close-up of a hand holding a phone showing a friendly business chat on WhatsApp. Soft background blur. Portrait crop. |
-| `scatter-inbox.webp` | 560 × 420 | UI mockup | Cropped UI card from the Invytra inbox: a new reply with the person's name, company and a short message. Rounded corners, soft shadow, on a light tint. |
+| `scatter-inbox.webp` | 560 × 420 | UI mockup | Real screenshot, cropped: an open conversation in the Email inbox from the demo workspace. |
 | `scatter-team.webp` | 440 × 560 | Photo | Two or three people from different backgrounds, smiling at a laptop in a modern office. Feels international, not stock-posed. |
 | `scatter-linkedin.webp` | 520 × 400 | 3D / illustration | Floating 'Invite accepted' notification card with a profile photo, slightly tilted, glossy 3D style in our lime and stone colours. |
 
@@ -26,15 +28,15 @@ The new home page has 15 image slots. Each one shows a labelled placeholder on t
 
 | File name | Size (px) | Type | What to make |
 |---|---|---|---|
-| `channel-linkedin.webp` | 1600 × 1200 | Product screenshot | Invytra LinkedIn campaign builder: Visit → Invite → Message → Follow up, with the daily limits visible. Crop to the useful area. |
-| `channel-email.webp` | 1600 × 1200 | Product screenshot | Invytra Email: a campaign using several mailboxes, with warm-up health and sent / replied counts. |
+| `channel-linkedin.webp` | 1600 × 1200 | Product screenshot | Real screenshot: the LinkedIn dashboard (stats and this week) from the demo workspace, 1280×960 at 2×. |
+| `channel-email.webp` | 1600 × 1200 | Product screenshot | Real screenshot: a running Email campaign from the demo workspace, 1280×960 at 2×. |
 | `channel-whatsapp.webp` | 1600 × 1200 | UI mockup | A phone showing a WhatsApp Business conversation, next to (or over) the Invytra WhatsApp broadcast screen. Mockup until the app screens exist. |
 
 ## Features
 
 | File name | Size (px) | Type | What to make |
 |---|---|---|---|
-| `bento-inbox.webp` | 1200 × 900 | Product screenshot | Invytra unified inbox: a list of replies, each with its channel icon (LinkedIn, email, WhatsApp), and one conversation open. |
+| `bento-inbox.webp` | 1200 × 900 | Product screenshot | Real screenshot: the LinkedIn inbox with one conversation open, from the demo workspace, 1280×960 at 2×. |
 
 ## Who it's for
 

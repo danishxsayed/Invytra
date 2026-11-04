@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "user:password": "tsx scripts/set-password.ts",
-    "credits:add": "tsx scripts/verify-credits.ts"
+    "credits:add": "tsx scripts/verify-credits.ts",
+    "demo:seed": "tsx scripts/demo-seed.ts"
   },
   "dependencies": {
     "@invytra/db": "workspace:*",
