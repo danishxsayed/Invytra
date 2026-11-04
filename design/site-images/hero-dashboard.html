@@ -1,0 +1,126 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:Geist;src:url(Geist-Regular.woff2);font-weight:400}
+@font-face{font-family:Geist;src:url(Geist-Medium.woff2);font-weight:500}
+@font-face{font-family:Geist;src:url(Geist-SemiBold.woff2);font-weight:600}
+@font-face{font-family:Bric;src:url(BricolageGrotesque-latin.woff2);font-weight:200 800}
+*{box-sizing:border-box;margin:0}
+body{width:1200px;height:750px;overflow:hidden;font-family:Geist,sans-serif;color:#1C1917;background:#E9EBDD}
+.win{position:absolute;inset:0;background:#F5F5EB;display:flex;flex-direction:column}
+.chrome{height:38px;background:#EDEEE3;display:flex;align-items:center;padding:0 14px;gap:7px;border-bottom:1px solid rgba(28,25,23,.06)}
+.chrome i{width:11px;height:11px;border-radius:50%;display:block}
+.url{margin:0 auto;width:360px;height:24px;border-radius:8px;background:#fff;font-size:12px;color:#78716C;display:flex;align-items:center;justify-content:center;gap:6px}
+.top{height:58px;display:flex;align-items:center;padding:0 22px;gap:14px;background:rgba(255,255,255,.55);border-bottom:1px solid rgba(28,25,23,.06)}
+.logo{width:30px;height:30px;border-radius:9px;background:#C4FA13;display:flex;align-items:center;justify-content:center}
+.brand{font:600 17px Bric;letter-spacing:-.3px}
+.ws{font-size:12.5px;color:#57534E;background:#ECECE2;padding:4px 10px;border-radius:99px}
+.nav{display:flex;gap:4px;margin-left:24px}
+.nav span{display:flex;align-items:center;gap:6px;font-size:13.5px;color:#57534E;padding:7px 12px;border-radius:10px}
+.nav .on{background:#C4FA13;color:#1C1917;font-weight:500;box-shadow:0 4px 14px -4px rgba(160,210,10,.7)}
+.nav b{background:#1C1917;color:#C4FA13;font-size:11px;border-radius:99px;padding:1px 6px}
+.right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ch{width:24px;height:24px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.li{background:#0A66C2}.em{background:#FBBF24}.wa{background:#25D366}
+.me{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fef3c7,#fcd34d 60%,#f59e0b);display:flex;align-items:center;justify-content:center;font:600 12px Bric;color:#78350f;margin-left:6px}
+.main{padding:20px 22px;display:grid;grid-template-columns:1fr 300px;gap:16px;flex:1}
+.card{background:#fff;border-radius:18px;border:1px solid rgba(28,25,23,.06);box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.h{display:flex;align-items:flex-end;gap:12px;margin-bottom:14px}
+.h h1{font:600 24px Bric;letter-spacing:-.6px}
+.pill{font:500 12px Geist;padding:4px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:6px}
+.run{background:#ECFCCB;color:#3F6212}.run i{width:7px;height:7px;border-radius:50%;background:#65A30D;box-shadow:0 0 0 3px rgba(132,204,22,.25)}
+.muted{color:#78716C;font-size:12.5px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.stat{padding:14px 16px}
+.stat p{font-size:12px;color:#78716C}
+.stat h3{font:600 26px Bric;letter-spacing:-.5px;margin-top:4px}
+.stat small{font-size:12px;color:#65A30D;font-weight:500}
+.seq{padding:16px 18px}
+.seq h4,.side h4{font:600 14px Geist;display:flex;align-items:center;gap:8px}
+.steps{display:flex;align-items:stretch;gap:0;margin-top:14px}
+.step{flex:1;background:#FAFAF5;border:1px solid rgba(28,25,23,.06);border-radius:14px;padding:11px 12px;position:relative}
+.step .t{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600}
+.step .d{font-size:11.5px;color:#A8A29E;margin-top:3px}
+.step .n{font:600 18px Bric;margin-top:8px}
+.step .bar{height:5px;border-radius:99px;background:#ECECE2;margin-top:6px;overflow:hidden}
+.step .bar span{display:block;height:100%;border-radius:99px;background:#C4FA13}
+.step.active{background:#fff;border-color:#C4FA13;box-shadow:0 0 0 3px rgba(196,250,19,.3),0 10px 24px -14px rgba(28,25,23,.35)}
+.arrow{width:22px;display:flex;align-items:center;justify-content:center;color:#A8A29E;font-size:14px}
+.chart{padding:16px 18px;margin-top:14px}
+.bars{display:flex;align-items:flex-end;gap:10px;height:150px;margin-top:12px}
+.bars div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:2px}
+.bars span{display:block;border-radius:4px}
+.lbl{display:flex;gap:10px;margin-top:6px}.lbl span{flex:1;text-align:center;font-size:10.5px;color:#A8A29E}
+.leg{display:flex;gap:14px;margin-left:auto;font-size:11.5px;color:#78716C;font-weight:400}
+.leg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px}
+.side{padding:16px}
+.rep{display:flex;gap:10px;padding:10px 4px;border-top:1px solid #F0F0E8}
+.rep:first-of-type{border-top:0}
+.av{width:32px;height:32px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font:600 12px Bric}
+.rep .nm{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.rep .tx{font-size:12px;color:#57534E;margin-top:2px;line-height:1.35}
+.rep .tm{margin-left:auto;font-size:11px;color:#A8A29E;font-weight:400}
+.tag{font:600 10.5px Geist;background:#F0FDC4;color:#47590A;padding:2px 7px;border-radius:99px}
+.mini{margin-top:12px;padding:12px;border-radius:14px;background:#1C1917;color:#fff}
+.mini p{font-size:11.5px;color:#C4FA13;display:flex;gap:6px;align-items:center}
+.mini h5{font:600 15px Bric;margin-top:6px}
+.mini .r{display:flex;gap:6px;margin-top:10px}
+.mini .r span{flex:1;height:5px;border-radius:99px;background:rgba(255,255,255,.15)}
+.mini .r span.f{background:#C4FA13}
+</style></head><body><div class="win">
+<div class="chrome"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i>
+ <div class="url"><svg width="11" height="11" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="#A8A29E" stroke-width="2.4"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="#A8A29E" stroke-width="2.4"/></svg>app.invytra.com/campaigns</div></div>
+<div class="top">
+ <div class="logo"><svg width="17" height="17" viewBox="0 0 24 24"><path d="M3 11 21 3l-8 18-2-8z" fill="#1C1917"/></svg></div>
+ <span class="brand">Invytra</span><span class="ws">Northwind Studio</span>
+ <div class="nav"><span>Dashboard</span><span class="on">Campaigns</span><span>Leads</span><span>Inbox <b>3</b></span><span>Accounts</span></div>
+ <div class="right">
+  <span class="ch li"><b style="font:700 12px Geist;color:#fff">in</b></span>
+  <span class="ch em"><svg width="13" height="13" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="#1C1917" stroke-width="2.4"/><path d="m3 7 9 6 9-6" fill="none" stroke="#1C1917" stroke-width="2.4"/></svg></span>
+  <span class="ch wa"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/></svg></span>
+  <div class="me">AR</div></div>
+</div>
+<div class="main">
+ <div>
+  <div class="h"><div><p class="muted">Campaigns /</p><h1>Q4 founders · UAE &amp; Europe</h1></div><span class="pill run"><i></i>Running</span><span class="muted" style="margin-left:auto;margin-bottom:4px">3 senders · Mon–Fri, 9:00–18:00 local time</span></div>
+  <div class="stats">
+   <div class="card stat"><p>People</p><h3>248</h3><span class="muted">from 2 lists</span></div>
+   <div class="card stat"><p>Contacted</p><h3>196</h3><small>79% of the list</small></div>
+   <div class="card stat"><p>Replies</p><h3>41</h3><small>21% reply rate</small></div>
+   <div class="card stat"><p>Interested</p><h3>16</h3><small>+4 this week</small></div>
+  </div>
+  <div class="card seq"><h4>Sequence <span class="muted" style="font-weight:400">· one person moves on when the last step is done</span></h4>
+   <div class="steps">
+    <div class="step"><div class="t"><span class="ch li" style="width:20px;height:20px;border-radius:6px"><b style="font:700 10px Geist;color:#fff">in</b></span>Visit profile</div><div class="d">Day 1</div><div class="n">196</div><div class="bar"><span style="width:100%"></span></div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="t"><span class="ch li" style="width:20px;height:20px;border-radius:6px"><b style="font:700 10px Geist;color:#fff">in</b></span>Invite + note</div><div class="d">Day 2</div><div class="n">183</div><div class="bar"><span style="width:88%"></span></div></div>
+    <div class="arrow">→</div>
+    <div class="step active"><div class="t"><span class="ch em" style="width:20px;height:20px;border-radius:6px"><svg width="11" height="11" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="#1C1917" stroke-width="2.6"/><path d="m3 7 9 6 9-6" fill="none" stroke="#1C1917" stroke-width="2.6"/></svg></span>Intro email</div><div class="d">Day 4</div><div class="n">142</div><div class="bar"><span style="width:66%"></span></div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="t"><span class="ch wa" style="width:20px;height:20px;border-radius:6px"><svg width="11" height="11" viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg></span>WhatsApp</div><div class="d">Day 7 · opted-in</div><div class="n">64</div><div class="bar"><span style="width:34%"></span></div></div>
+    <div class="arrow">→</div>
+    <div class="step"><div class="t"><span class="ch em" style="width:20px;height:20px;border-radius:6px"><svg width="11" height="11" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="#1C1917" stroke-width="2.6"/><path d="m3 7 9 6 9-6" fill="none" stroke="#1C1917" stroke-width="2.6"/></svg></span>Follow-up</div><div class="d">Day 11</div><div class="n">38</div><div class="bar"><span style="width:18%"></span></div></div>
+   </div>
+  </div>
+  <div class="card chart"><h4 style="font:600 14px Geist;display:flex;align-items:center">Activity, last 14 days<span class="leg"><span><i style="background:#0A66C2"></i>LinkedIn</span><span><i style="background:#FBBF24"></i>Email</span><span><i style="background:#25D366"></i>WhatsApp</span></span></h4>
+   <div class="bars" id="bars"></div><div class="lbl" id="lbl"></div></div>
+ </div>
+ <div class="card side"><h4>Latest replies <span class="tag" style="margin-left:auto">3 need reply</span></h4>
+  <div style="margin-top:8px">
+   <div class="rep"><div class="av" style="background:#dbeafe;color:#1e3a8a">DK</div><div style="flex:1"><div class="nm">Daniel K. <span class="ch em" style="width:16px;height:16px;border-radius:5px"><svg width="9" height="9" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="#1C1917" stroke-width="3"/></svg></span><span class="tm">2m</span></div><div class="tx">Sounds good. Could we talk on Thursday?</div></div></div>
+   <div class="rep"><div class="av" style="background:#fde68a;color:#78350f">OA</div><div style="flex:1"><div class="nm">Omar A. <span class="ch wa" style="width:16px;height:16px;border-radius:5px"><svg width="9" height="9" viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z" fill="none" stroke="#fff" stroke-width="3"/></svg></span><span class="tm">18m</span></div><div class="tx">Yes, please send the details over 🙌</div></div></div>
+   <div class="rep"><div class="av" style="background:#e9d5ff;color:#581c87">SM</div><div style="flex:1"><div class="nm">Sara M. <span class="ch li" style="width:16px;height:16px;border-radius:5px"><b style="font:700 8px Geist;color:#fff">in</b></span><span class="tm">1h</span></div><div class="tx">Happy to chat next week, thanks!</div></div></div>
+   <div class="rep"><div class="av" style="background:#ccfbf1;color:#134e4a">LT</div><div style="flex:1"><div class="nm">Lucas T. <span class="ch em" style="width:16px;height:16px;border-radius:5px"><svg width="9" height="9" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="#1C1917" stroke-width="3"/></svg></span><span class="tm">3h</span></div><div class="tx">Not right now, maybe in Q1.</div></div></div>
+  </div>
+  <div class="mini"><p>✦ Next steps today</p><h5>27 messages queued</h5><div class="muted" style="color:rgba(255,255,255,.55);margin-top:2px">Spread across 3 senders, inside office hours</div><div class="r"><span class="f"></span><span class="f"></span><span class="f"></span><span></span><span></span></div></div>
+  <h4 style="margin-top:16px">Senders</h4>
+  <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+   <div style="display:flex;align-items:center;gap:9px;font-size:12.5px"><span class="ch li" style="width:20px;height:20px;border-radius:6px"><b style="font:700 10px Geist;color:#fff">in</b></span>Aisha R.<span class="muted" style="margin-left:auto">14 / 20 today</span></div>
+   <div style="display:flex;align-items:center;gap:9px;font-size:12.5px"><span class="ch em" style="width:20px;height:20px;border-radius:6px"><svg width="11" height="11" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="#1C1917" stroke-width="2.6"/><path d="m3 7 9 6 9-6" fill="none" stroke="#1C1917" stroke-width="2.6"/></svg></span>2 mailboxes<span class="pill run" style="margin-left:auto;padding:2px 8px;font-size:11px">Warm</span></div>
+   <div style="display:flex;align-items:center;gap:9px;font-size:12.5px"><span class="ch wa" style="width:20px;height:20px;border-radius:6px"><svg width="11" height="11" viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg></span>+971 50 ··· 21<span class="pill run" style="margin-left:auto;padding:2px 8px;font-size:11px">Quality: high</span></div>
+  </div>
+ </div>
+</div></div>
+<script>
+const li=[8,10,9,12,11,3,2,10,12,11,13,12,4,3],em=[5,7,6,9,8,1,1,8,9,10,11,9,2,1],wa=[0,0,1,2,2,0,0,2,3,3,4,3,1,0];
+const days="MTWTFSSMTWTFSS";const B=document.getElementById('bars'),L=document.getElementById('lbl');
+for(let i=0;i<14;i++){const d=document.createElement('div');d.innerHTML=`<span style="height:${wa[i]*4.6}px;background:#25D366"></span><span style="height:${em[i]*4.6}px;background:#FBBF24"></span><span style="height:${li[i]*4.6}px;background:#0A66C2"></span>`;B.appendChild(d);const s=document.createElement('span');s.textContent=days[i];L.appendChild(s)}
+</script></body></html>
