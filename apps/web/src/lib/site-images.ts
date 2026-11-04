@@ -37,10 +37,10 @@ export const SITE_IMAGES = {
   "scatter-whatsapp": {
     section: "One workspace",
     w: 480,
-    h: 480,
+    h: 590,
     kind: "Photo",
     alt: "A hand holding a phone with a business chat on WhatsApp",
-    brief: "Close-up of a hand holding a phone showing a friendly business chat on WhatsApp. Soft background blur.",
+    brief: "Close-up of a hand holding a phone showing a friendly business chat on WhatsApp. Soft background blur. Portrait crop.",
   },
   "scatter-inbox": {
     section: "One workspace",

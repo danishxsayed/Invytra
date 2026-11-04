@@ -17,7 +17,7 @@ The new home page has 15 image slots. Each one shows a labelled placeholder on t
 | File name | Size (px) | Type | What to make |
 |---|---|---|---|
 | `scatter-founder.webp` | 520 × 640 | Photo | Candid photo: a founder working on a laptop in a bright café or co-working space. Natural light, warm tones. Portrait crop. |
-| `scatter-whatsapp.webp` | 480 × 480 | Photo | Close-up of a hand holding a phone showing a friendly business chat on WhatsApp. Soft background blur. |
+| `scatter-whatsapp.webp` | 480 × 590 | Photo | Close-up of a hand holding a phone showing a friendly business chat on WhatsApp. Soft background blur. Portrait crop. |
 | `scatter-inbox.webp` | 560 × 420 | UI mockup | Cropped UI card from the Invytra inbox: a new reply with the person's name, company and a short message. Rounded corners, soft shadow, on a light tint. |
 | `scatter-team.webp` | 440 × 560 | Photo | Two or three people from different backgrounds, smiling at a laptop in a modern office. Feels international, not stock-posed. |
 | `scatter-linkedin.webp` | 520 × 400 | 3D / illustration | Floating 'Invite accepted' notification card with a profile photo, slightly tilted, glossy 3D style in our lime and stone colours. |

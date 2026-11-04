@@ -10,20 +10,20 @@ export function Scatter({ images }: { images: [ReactNode, ReactNode, ReactNode, 
   const [founder, whatsapp, inbox, team, linkedin] = images;
   const frame = "overflow-hidden rounded-[22px] shadow-[0_24px_60px_-24px_rgba(28,25,23,.35)] ring-1 ring-stone-900/[0.06]";
   return (
-    <section className="relative overflow-hidden py-28 sm:py-40">
+    <section className="relative overflow-hidden py-28 sm:py-40 lg:pb-52 lg:pt-44">
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-1/2 h-[480px] -translate-y-1/2 bg-[radial-gradient(closest-side,rgba(196,250,19,.22),transparent)]" />
       {/* Pictures (desktop: around the text; mobile: a row under it) */}
       <div className="pointer-events-none absolute inset-0 mx-auto hidden max-w-[1320px] lg:block">
         <Parallax speed={0.35} className="absolute left-[3%] top-[8%] w-[210px] -rotate-3">
           <Reveal className={frame}>{founder}</Reveal>
         </Parallax>
-        <Parallax speed={0.15} className="absolute left-[16%] bottom-[6%] w-[200px] rotate-2">
+        <Parallax speed={0.15} className="absolute bottom-[4%] left-[9%] w-[190px] rotate-2">
           <Reveal delay={120} className={frame}>{whatsapp}</Reveal>
         </Parallax>
         <Parallax speed={0.45} className="absolute right-[4%] top-[4%] w-[250px] rotate-2">
           <Reveal delay={200} className={frame}>{inbox}</Reveal>
         </Parallax>
-        <Parallax speed={0.22} className="absolute right-[15%] bottom-[2%] w-[190px] -rotate-2">
+        <Parallax speed={0.22} className="absolute bottom-[10%] right-[13%] w-[190px] -rotate-2">
           <Reveal delay={280} className={frame}>{team}</Reveal>
         </Parallax>
         <Parallax speed={0.6} className="absolute left-1/2 top-[-2%] w-[200px] -translate-x-[150%] rotate-6">
@@ -44,10 +44,10 @@ export function Scatter({ images }: { images: [ReactNode, ReactNode, ReactNode, 
           </p>
         </Reveal>
       </div>
-      <div className="mt-12 grid grid-cols-2 gap-3 px-5 sm:grid-cols-3 lg:hidden">
-        <div className={frame}>{founder}</div>
-        <div className={frame}>{inbox}</div>
-        <div className={`${frame} hidden sm:block`}>{team}</div>
+      <div className="mx-auto mt-12 grid max-w-[640px] grid-cols-3 gap-2.5 px-5 sm:gap-4 lg:hidden">
+        <div className={`${frame} -rotate-2`}>{founder}</div>
+        <div className={`${frame} translate-y-4`}>{whatsapp}</div>
+        <div className={`${frame} rotate-2`}>{team}</div>
       </div>
     </section>
   );
