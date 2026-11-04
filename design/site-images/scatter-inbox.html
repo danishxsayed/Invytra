@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:Geist;src:url(Geist-Regular.woff2);font-weight:400}
+@font-face{font-family:Geist;src:url(Geist-Medium.woff2);font-weight:500}
+@font-face{font-family:Geist;src:url(Geist-SemiBold.woff2);font-weight:600}
+@font-face{font-family:Bric;src:url(BricolageGrotesque-latin.woff2);font-weight:200 800}
+*{box-sizing:border-box;margin:0}
+body{width:560px;height:420px;overflow:hidden;font-family:Geist,sans-serif;color:#1C1917;position:relative;
+ background:radial-gradient(110% 90% at 10% 0%,rgba(196,250,19,.45),transparent 55%),radial-gradient(80% 70% at 100% 100%,rgba(245,158,11,.14),transparent 60%),linear-gradient(160deg,#F7FBE6,#EEF3DA 55%,#E6EDCC)}
+.dots{position:absolute;inset:0;background-image:radial-gradient(rgba(94,122,6,.18) 1px,transparent 1.2px);background-size:16px 16px;-webkit-mask-image:radial-gradient(70% 70% at 50% 50%,#000 30%,transparent 80%)}
+.panel{position:absolute;left:40px;top:26px;width:480px;border-radius:24px;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.9);
+ box-shadow:0 30px 60px -30px rgba(28,25,23,.35);padding:16px 16px 14px;backdrop-filter:blur(3px)}
+.head{display:flex;align-items:center;gap:10px;padding:0 4px 8px}
+.head h3{font:600 17px Bric;letter-spacing:-.2px}
+.tab{font:500 12px Geist;padding:5px 10px;border-radius:99px;color:#78716C}
+.tab.on{background:#1C1917;color:#fff}
+.tab.on b{background:#C4FA13;color:#1C1917;border-radius:99px;padding:0 6px;margin-left:5px;font-weight:600}
+.ch{width:22px;height:22px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.li{background:#0A66C2}.em{background:#FBBF24}.wa{background:#25D366}
+.row{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:14px;opacity:.55}
+.av{width:34px;height:34px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font:600 13px Bric;color:#44403C}
+.nm{font:600 13.5px Geist}.sub{font-size:12.5px;color:#78716C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+.tm{margin-left:auto;font-size:11.5px;color:#A8A29E}
+/* the highlighted reply */
+.hero{position:relative;opacity:1;margin:6px -4px;padding:16px;border-radius:20px;background:#fff;transform:rotate(-1.5deg) scale(1.03);
+ box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 2px 4px rgba(28,25,23,.05),0 22px 40px -16px rgba(28,25,23,.3),0 40px 70px -30px rgba(70,90,10,.4)}
+.hero .top{display:flex;align-items:center;gap:11px}
+.hero .av{width:42px;height:42px;font-size:15px;background:radial-gradient(circle at 35% 30%,#dbeafe,#93c5fd 60%,#60a5fa);color:#1e3a8a;box-shadow:0 0 0 3px #fff,0 4px 10px -3px rgba(28,25,23,.25)}
+.hero .nm{font-size:15px}
+.tag{font:600 11px Geist;background:#F0FDC4;color:#47590A;padding:3px 8px;border-radius:99px}
+.msg{margin-top:12px;font-size:14px;line-height:1.5;color:#292524;background:#F5F5EB;border-radius:4px 14px 14px 14px;padding:10px 12px}
+.foot{margin-top:12px;display:flex;align-items:center;gap:8px;font-size:12px;color:#78716C}
+.btn{margin-left:auto;background:#1C1917;color:#fff;font:500 12.5px Geist;padding:7px 13px;border-radius:99px;display:flex;gap:6px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;background:#A8D90A;box-shadow:0 0 0 4px rgba(196,250,19,.35)}
+.spark{position:absolute;width:14px;height:14px;background:#C4FA13;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)}
+</style></head><body><div class="dots"></div>
+<div class="panel">
+ <div class="head"><h3>Inbox</h3><span class="tab on">Needs reply<b>3</b></span><span class="tab">All</span><span class="tab">Done</span></div>
+ <div class="row"><div class="av" style="background:#fde68a">OA</div><span class="ch wa"><svg width="12" height="12" viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/></svg></span><div><div class="nm">Omar A. · Gulf Retail</div><div class="sub">Yes, please send the details over</div></div><div class="tm">9:41</div></div>
+ <div class="hero">
+  <div class="top"><div class="av">DK</div><div><div class="nm">Daniel Krüger</div><div class="sub" style="max-width:none">Sales Director · Nordwerk GmbH</div></div>
+   <span class="ch em" style="margin-left:auto"><svg width="12" height="12" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="#1C1917" stroke-width="2.4"/><path d="m3 7 9 6 9-6" fill="none" stroke="#1C1917" stroke-width="2.4"/></svg></span><span class="tag">Interested</span></div>
+  <div class="msg">Sounds good. Could we talk on Thursday afternoon? I'd like to see how it works for our team.</div>
+  <div class="foot"><span class="dot"></span>Replied to step 2 · follow-ups stopped<div class="btn">Reply <span style="color:#C4FA13">→</span></div></div>
+ </div>
+ <div class="row"><div class="av" style="background:#e9d5ff">SM</div><span class="ch li"><b style="font:700 11px Geist;color:#fff">in</b></span><div><div class="nm">Sara M. · Brightpath</div><div class="sub">Happy to chat next week</div></div><div class="tm">Yesterday</div></div>
+</div>
+<div class="spark" style="right:30px;top:26px"></div>
+<div class="spark" style="left:22px;bottom:40px;transform:scale(.7);background:#A8D90A"></div>
+</body></html>
