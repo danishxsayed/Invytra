@@ -103,7 +103,7 @@ export const SITE_IMAGES = {
     w: 1400,
     h: 1000,
     kind: "Photo",
-    alt: "Agency team planning client campaigns",
+    alt: "Agency owner on a video call with a client",
     brief: "An agency team planning client campaigns around a table or whiteboard. Bright, real office.",
   },
   "usecase-sales": {
@@ -111,7 +111,7 @@ export const SITE_IMAGES = {
     w: 1400,
     h: 1000,
     kind: "Photo",
-    alt: "Sales rep with a headset at a desk",
+    alt: "Sales rep with a headset talking to a prospect",
     brief: "A sales rep with a headset at a desk with a laptop, mid-conversation, friendly.",
   },
   "usecase-founders": {

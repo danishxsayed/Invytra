@@ -57,7 +57,7 @@ const CASES: UseCase[] = [
     title: "Run outreach for every client, from one login.",
     body: "Keep each client's accounts, leads and replies apart, and show them results they can see.",
     points: ["Many accounts and mailboxes per workspace", "Separate campaigns per client", "One inbox your team can share"],
-    image: <ImageSlot id="usecase-agencies" sizes="100vw" />,
+    image: <ImageSlot id="usecase-agencies" sizes="100vw" className="object-[50%_28%]" />,
   },
   {
     id: "sales",
@@ -65,7 +65,7 @@ const CASES: UseCase[] = [
     title: "Book more meetings without more busywork.",
     body: "Your reps spend their day talking to interested people, not copying messages between tabs.",
     points: ["Multi-step sequences across channels", "Replies stop follow-ups automatically", "Nobody is contacted twice"],
-    image: <ImageSlot id="usecase-sales" sizes="100vw" />,
+    image: <ImageSlot id="usecase-sales" sizes="100vw" className="object-[50%_28%]" />,
   },
   {
     id: "founders",
@@ -73,7 +73,7 @@ const CASES: UseCase[] = [
     title: "Find your first customers while you build.",
     body: "Set up a campaign in an evening. Invytra keeps reaching out every working day while you work on the product.",
     points: ["Ready-made sequence to start from", "AI writer for your first drafts", "Free trial, no card needed"],
-    image: <ImageSlot id="usecase-founders" sizes="100vw" />,
+    image: <ImageSlot id="usecase-founders" sizes="100vw" className="object-[50%_28%]" />,
   },
   {
     id: "recruiters",
@@ -81,7 +81,7 @@ const CASES: UseCase[] = [
     title: "Reach great candidates before anyone else.",
     body: "Start on LinkedIn, follow up by email or WhatsApp, and keep every conversation in one place.",
     points: ["Import candidates from a search", "Personal notes at scale", "See who replied, on any channel"],
-    image: <ImageSlot id="usecase-recruiters" sizes="100vw" />,
+    image: <ImageSlot id="usecase-recruiters" sizes="100vw" className="object-[50%_28%]" />,
   },
 ];
 
