@@ -243,11 +243,13 @@ export class UnipileClient {
   // ---- Messaging ----
 
   /** Opens (or reuses) the 1-to-1 chat with someone and sends the text. */
-  startChat(accountId: string, providerId: string, text: string): Promise<{ chat_id: string; message_id?: string }> {
+  /** Starts (or continues) the chat with this person. An image, if given, goes as an attachment. */
+  startChat(accountId: string, providerId: string, text: string, image?: { png: Buffer; name: string }): Promise<{ chat_id: string; message_id?: string }> {
     const form = new FormData();
     form.set("account_id", accountId);
     form.append("attendees_ids", providerId);
-    form.set("text", text);
+    if (text) form.set("text", text);
+    if (image) form.append("attachments", new Blob([new Uint8Array(image.png)], { type: "image/png" }), image.name);
     return this.request("POST", "/api/v1/chats", { form });
   }
 

@@ -1,6 +1,8 @@
-import { emailBody, hardBounce, openSecret, publicOrigin, sendEmail, softBounce, unsubscribeToken, unsubscribeUrls, type MailSender, type PrismaClient } from "@invytra/db";
+import { emailBody, hardBounce, openSecret, publicOrigin, refundAiCredits, renderCard, sendEmail, softBounce, spendAiCredits, unsubscribeToken, unsubscribeUrls, type CardFont, type CardStyle, type MailSender, type PrismaClient } from "@invytra/db";
 import {
+  AI_COSTS,
   emailSequenceSchema,
+  monthlyAiCredits,
   localDayStart,
   mailboxReadiness,
   nextSendAfter,
@@ -141,9 +143,29 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
         "List-Unsubscribe": `<${urls.oneClick}>, <mailto:${box.email}?subject=unsubscribe>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       };
+      // A handwritten card drawn for this person (2 AI credits; none left: the email goes without it).
+      let image: { png: Buffer; alt: string } | undefined;
+      let spent: Awaited<ReturnType<typeof spendAiCredits>> = null;
+      if (step.card) {
+        const ct = renderEmailText(step.card.text, vars, rand);
+        if (!ct.ok) {
+          await prisma.emailLead.update({ where: { id: lead.id }, data: { status: "SKIPPED", nextAt: null, reason: `No value for {{${ct.missing[0]}}} in the handwritten card (add a fallback like {{${ct.missing[0]}|there}})` } });
+          res.skipped++;
+          continue;
+        }
+        spent = await spendAiCredits(prisma, c.workspaceId, AI_COSTS.HANDWRITTEN, "HANDWRITTEN", monthlyAiCredits, { ref: lead.id, now });
+        if (spent) {
+          try {
+            image = { png: await renderCard({ text: ct.text, style: step.card.style as CardStyle, font: step.card.font as CardFont }), alt: "Handwritten note" };
+          } catch {
+            await refundAiCredits(prisma, c.workspaceId, spent);
+            spent = null;
+          }
+        }
+      }
       const r = await sendEmail(
         { ...box, provider: box.provider as never, password: openSecret(box.secret, d.key) },
-        { fromName: box.fromName, from: box.email, to: lead.email, subject: subject.text, text: body.text, signature: box.signature, inReplyTo: followUpInThread ? lead.threadMessageId! : undefined, unsubscribe, headers, preview },
+        { fromName: box.fromName, from: box.email, to: lead.email, subject: subject.text, text: body.text, signature: box.signature, inReplyTo: followUpInThread ? lead.threadMessageId! : undefined, unsubscribe, headers, preview, image },
         d.sender,
       );
       await prisma.emailSend.create({
@@ -162,6 +184,8 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
           createdAt: now,
         },
       });
+      // Not sent: the card's credits come back.
+      if (!r.ok && spent) await refundAiCredits(prisma, c.workspaceId, spent);
       box.nextSendAt = nextSendAfter(box.gapMinutes, now, rand);
       await prisma.emailAccount.update({ where: { id: box.id }, data: { nextSendAt: box.nextSendAt, ...(r.ok && { lastSentAt: now }) } });
 

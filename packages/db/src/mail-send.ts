@@ -19,6 +19,8 @@ export interface OutgoingEmail {
   headers?: Record<string, string>;
   /** Preview text: the line inboxes show after the subject (hidden in the email itself). */
   preview?: string;
+  /** An image shown in the email above the text (e.g. a handwritten card), sent inline. */
+  image?: { png: Buffer; alt: string };
 }
 
 /** An unsubscribe line: its text ([brackets] mark the linked words) and where it links. */
@@ -60,6 +62,7 @@ export const realMailSender: MailSender = {
         html: mail.html,
         ...(mail.inReplyTo && { inReplyTo: mail.inReplyTo, references: mail.inReplyTo }),
         ...(mail.headers && { headers: mail.headers }),
+        ...(mail.image && { attachments: [{ filename: "card.png", content: mail.image.png, contentType: "image/png", cid: IMAGE_CID }] }),
       });
       return { messageId: info.messageId };
     } finally {
@@ -67,6 +70,9 @@ export const realMailSender: MailSender = {
     }
   },
 };
+
+/** Where an inline image is referenced from the HTML part. */
+export const IMAGE_CID = "card@invytra";
 
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -102,6 +108,13 @@ export function emailBody(text: string, signature: string, unsubscribe?: Unsubsc
   return { text: body.replace(MARK, u?.text ?? "").trim(), html: `${pre}<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5">${html}</div>` };
 }
 
+/** Puts the inline image at the top of the email's content. */
+export function withImage(html: string, alt: string): string {
+  const img = `<p style="margin:0 0 16px"><img src="cid:${IMAGE_CID}" alt="${escapeHtml(alt)}" width="560" style="max-width:100%;height:auto;border-radius:12px" /></p>`;
+  const at = html.indexOf('line-height:1.5">');
+  return at < 0 ? img + html : html.slice(0, at + 17) + img + html.slice(at + 17);
+}
+
 /** Sends one email. Never throws: a failure comes back as a plain-language reason. */
 export async function sendEmail(
   login: MailboxLogin & { provider?: MailboxProviderId },
@@ -111,6 +124,7 @@ export async function sendEmail(
   try {
     await checkMailHost(login.smtpHost);
     const body = emailBody(mail.text, mail.signature ?? "", mail.unsubscribe, mail.preview);
+    if (mail.image) body.html = withImage(body.html, mail.image.alt);
     const { messageId } = await sender.send(login, { ...mail, ...body });
     return { ok: true, messageId };
   } catch (e) {

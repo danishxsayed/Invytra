@@ -11,12 +11,12 @@ d("email campaign engine", () => {
   let prisma: PrismaClient;
   const WS = "ws-ecamp";
   let now = new Date("2026-11-02T05:30:00Z"); // Mon 11:00 Kolkata
-  const sent: { from: string; to: string; subject: string; text: string; inReplyTo?: string; headers?: Record<string, string> }[] = [];
+  const sent: { from: string; to: string; subject: string; text: string; inReplyTo?: string; headers?: Record<string, string>; html?: string; image?: number }[] = [];
   let refuse = new Set<string>();
   const sender: MailSender = {
     send: async (_l, m) => {
       if (refuse.has(m.to)) throw Object.assign(new Error("x"), { responseCode: 550, response: "550 5.1.1 No such user" });
-      sent.push({ from: m.from, to: m.to, subject: m.subject, text: m.text, inReplyTo: m.inReplyTo, headers: m.headers });
+      sent.push({ from: m.from, to: m.to, subject: m.subject, text: m.text, inReplyTo: m.inReplyTo, headers: m.headers, html: m.html, image: m.image?.png.length });
       return { messageId: `<m${sent.length}@x>` };
     },
   };
@@ -174,5 +174,34 @@ d("email campaign engine", () => {
     expect(await tick()).toMatchObject({ sent: 0 });
     now = new Date("2026-11-06T04:00:00Z"); // Fri 09:30
     expect(await tick()).toMatchObject({ sent: 2 });
+  });
+
+  it("draws a handwritten card into the email (2 AI credits), and sends without it when credits run out", async () => {
+    await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "COMPLETED" } });
+    await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: 0, aiExtra: 0, aiPeriod: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)) } });
+    await prisma.emailAccount.create({
+      data: { id: "em3", workspaceId: WS, email: "card@camp-a.pro", fromName: "Card", provider: "OTHER", smtpHost: "smtp.x", smtpPort: 465, smtpSecure: true, imapHost: "imap.x", imapPort: 993, username: "card@camp-a.pro", secret: sealSecret("pw", KEY), timeZone: "Asia/Kolkata", gapMinutes: 1 },
+    });
+    await prisma.emailCampaign.create({
+      data: {
+        id: "ec-card", workspaceId: WS, name: "Cards", status: "ACTIVE", unsubscribeLink: false, launchedAt: now,
+        steps: [{ subject: "Hi", body: "Hi {firstName|there}, a note for you.", delayDays: 0, card: { text: "Thanks {firstName|friend}!", style: "sticky", font: "elegant" } }],
+        mailboxes: { create: [{ emailAccountId: "em3" }] },
+        leads: { create: [{ workspaceId: WS, email: "lia@card.co", firstName: "Lia", nextAt: now }, { workspaceId: WS, email: "max@card.co", firstName: "Max", nextAt: new Date(now.getTime() + 1) }] },
+      },
+    });
+    const n0 = sent.length;
+    expect(await tick()).toMatchObject({ sent: 1 });
+    expect(sent[n0]).toMatchObject({ to: "lia@card.co" });
+    expect(sent[n0]!.image).toBeGreaterThan(10_000);
+    expect(sent[n0]!.html).toContain('src="cid:card@invytra"');
+    expect(await prisma.aiCreditUse.count({ where: { workspaceId: WS, action: "HANDWRITTEN", credits: 2 } })).toBe(1);
+
+    await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: 1000 } });
+    mins(5);
+    expect(await tick()).toMatchObject({ sent: 1 });
+    expect(sent[n0 + 1]).toMatchObject({ to: "max@card.co", image: undefined });
+    expect(sent[n0 + 1]!.html).not.toContain("cid:");
+    expect(await prisma.aiCreditUse.count({ where: { workspaceId: WS, action: "HANDWRITTEN" } })).toBe(1);
   });
 });

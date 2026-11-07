@@ -267,5 +267,36 @@ d("Unipile accounts", () => {
     expect(fake.invites.find((x) => x.providerId === "P-DAN")?.message).toBe("Hi Dan, Happy to connect.");
     expect(await used()).toBe(before + 2);
   });
-});
 
+  it("sends a handwritten card with a message (2 AI credits), and the message alone without credits", async () => {
+    fake.add({ slug: "eve-h", providerId: "P-EVE", first: "Eve", last: "Hart", distance: "FIRST_DEGREE" });
+    fake.add({ slug: "fay-j", providerId: "P-FAY", first: "Fay", last: "Jo", distance: "FIRST_DEGREE" });
+    for (const [id, url] of [["cl-eve", "eve-h"], ["cl-fay", "fay-j"]]) {
+      await prisma.campaignLead.create({ data: { id, campaignId: "uni-c", workspaceId: WS, profileUrl: `https://www.linkedin.com/in/${url}/`, accountId: ACC, lastActionAt: new Date(Date.now() - 3_600_000) } });
+    }
+    const run = async (leadId: string, slug: string, payload: Record<string, unknown>) => {
+      const id = `uni-a${++n}`;
+      await prisma.action.create({ data: { accountId: ACC, type: "INBOX_SYNC", status: "SUCCEEDED", scheduledAt: new Date(), executedAt: new Date() } });
+      await prisma.action.create({ data: { id, accountId: ACC, type: "MESSAGE", status: "QUEUED", targetUrl: `https://www.linkedin.com/in/${slug}/`, payload: payload as never, scheduledAt: new Date(Date.now() - 1000), campaignLeadId: leadId } });
+      await processAction({ prisma, session, pacing: memoryPacingStore(), ignoreWorkingHours: true, gapScale: 0.001, unipile: client }, id);
+      return prisma.action.findUniqueOrThrow({ where: { id } });
+    };
+    await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: 0, aiPeriod: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)), aiExtra: 0 } });
+    const before = await prisma.aiCreditUse.count({ where: { workspaceId: WS, action: "HANDWRITTEN" } });
+
+    const sent = await run("cl-eve", "eve-h", { text: "Hi {firstName}, a small note for you.", card: { text: "Thanks {firstName}!", style: "kraft", font: "casual" } });
+    expect(sent.status).toBe("SUCCEEDED");
+    expect((sent.payload as { result: { card?: boolean } }).result.card).toBe(true);
+    expect(fake.attachments.find((a) => a.providerId === "P-EVE")).toMatchObject({ type: "image/png" });
+    expect(fake.attachments.find((a) => a.providerId === "P-EVE")!.bytes).toBeGreaterThan(10_000);
+    expect(await prisma.aiCreditUse.count({ where: { workspaceId: WS, action: "HANDWRITTEN", credits: 2, ref: "cl-eve" } })).toBe(1);
+
+    // No credits left: the message goes without the card.
+    await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: 50, aiExtra: 0 } });
+    const plain = await run("cl-fay", "fay-j", { text: "Hi {firstName}, a small note for you.", card: { text: "Thanks!", style: "cream", font: "casual" } });
+    expect(plain.status).toBe("SUCCEEDED");
+    expect(fake.attachments.some((a) => a.providerId === "P-FAY")).toBe(false);
+    expect(fake.chats.find((c) => c.providerId === "P-FAY")?.messages.at(-1)?.text).toBe("Hi Fay, a small note for you.");
+    expect(await prisma.aiCreditUse.count({ where: { workspaceId: WS, action: "HANDWRITTEN" } })).toBe(before + 1);
+  });
+});

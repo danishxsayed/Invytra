@@ -3,6 +3,7 @@
 import { BUILT_IN_VARS, EMAIL_CAMPAIGN, renderEmailText, unknownVars, type EmailRecipientVars, type EmailStep } from "@invytra/shared";
 import { AlertTriangle, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import { AiWriter } from "./AiWriter";
+import { CardEditor } from "../../campaign/CardEditor";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { saveEmailSequenceAction } from "@/app/email/campaigns/actions";
@@ -122,6 +123,7 @@ export function SequenceEditor({ id, initial, columns, sample, editable }: { id:
               onChange={(e) => set(i, { body: e.target.value })}
               placeholder="Write your email. The mailbox's signature is added below it."
             />
+            <CardEditor card={s.card} onChange={(card) => set(i, { card })} disabled={!editable} vars="{{first_name|there}}" />
           </div>
         ))}
         {editable && (

@@ -1,3 +1,4 @@
+import { cardSchema } from "./card.js";
 import { z } from "zod";
 
 /*
@@ -21,6 +22,8 @@ export const emailStepSchema = z.object({
   delayDays: z.number().int().min(0).max(EMAIL_CAMPAIGN.maxDelayDays),
   /** Preview text: the line inboxes show after the subject (optional). */
   preview: z.string().max(150).optional(),
+  /** A handwritten card shown in the email (2 AI credits each). */
+  card: cardSchema.optional(),
 });
 export type EmailStep = z.infer<typeof emailStepSchema>;
 
@@ -32,6 +35,7 @@ export const emailSequenceSchema = z
     steps.forEach((s, i) => {
       if (i === 0 && !s.subject) ctx.addIssue({ code: "custom", message: "The first email needs a subject.", path: [i, "subject"] });
       if (!s.body.trim()) ctx.addIssue({ code: "custom", message: `Email ${i + 1} has no text.`, path: [i, "body"] });
+      if (s.card && !s.card.text.trim()) ctx.addIssue({ code: "custom", message: `Email ${i + 1}: write what the handwritten card says.`, path: [i, "card"] });
       if (i > 0 && s.delayDays < 1) ctx.addIssue({ code: "custom", message: `Email ${i + 1}: wait at least 1 day after the previous email.`, path: [i, "delayDays"] });
     });
   });

@@ -20,6 +20,7 @@ import type { InboxThread, ThreadMessage } from "../linkedin/inbox.js";
 import type { ConnectionStatus } from "../linkedin/profile.js";
 import { companyFromHeadline, type FoundPerson } from "../linkedin/search.js";
 import { NO_AI_LINE, NO_CREDITS, aiLineFor, aiWriteFor } from "./ai-line.js";
+import { cardImageFor, cardOf } from "./card.js";
 
 /**
  * Every campaign action for an account connected through Unipile: the same inputs and
@@ -207,18 +208,27 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
         const status = statusOf(u);
         if (status !== "CONNECTED") return { outcome: "SKIPPED", reason: `NOT_CONNECTED (${status})`, data };
         const guide = String(p.text ?? "").trim();
+        // A handwritten card for this person: its text filled in like a message (2 AI credits).
+        const card = cardOf(p);
+        let image: Buffer | undefined;
+        if (card) {
+          const cardText = fillTemplate(card.text.trim(), varsOf(p), fullName(u));
+          if (cardText === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
+          const png = await cardImageFor(ctx, spec.campaignLeadId, { ...card, text: cardText });
+          if (png !== "NO_CREDITS") image = png;
+        }
         const written = p.aiWrite === true ? await aiWriteFor(ctx, { campaignLeadId: spec.campaignLeadId, providerId: u.provider_id, guide, kind: "message", maxChars: Math.min(MESSAGE_MAX, 1200) }) : null;
-        if (!written && !guide) return { outcome: "SKIPPED", reason: "NO_AI_TEXT", data };
-        const text = written ?? (await fillFor(ctx, spec, guide, u, MESSAGE_MAX));
+        if (!written && !guide && !image) return { outcome: "SKIPPED", reason: card ? "NO_AI_CREDITS" : "NO_AI_TEXT", data };
+        const text = written ?? (guide ? await fillFor(ctx, spec, guide, u, MESSAGE_MAX) : "");
         if (text === "skip") return { outcome: "SKIPPED", reason: NO_AI_LINE, data };
         if (text === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
         try {
-          await ctx.client.startChat(ctx.accountId, u.provider_id, text);
+          await ctx.client.startChat(ctx.accountId, u.provider_id, text, image && { png: image, name: "note.png" });
         } catch (e) {
           if (e instanceof UnipileError && e.status === 422 && /no_connection/.test(e.type)) return { outcome: "SKIPPED", reason: "NOT_CONNECTED (NOT_CONNECTED)", data };
           throw e;
         }
-        return { outcome: "DONE", data: written ? { ...data, aiWritten: true, text } : data };
+        return { outcome: "DONE", data: { ...data, ...(written && { aiWritten: true, text }), ...(image && { card: true }) } };
       };
 
     case "LIKE_POST":

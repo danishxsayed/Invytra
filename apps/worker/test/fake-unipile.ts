@@ -29,6 +29,8 @@ export class FakeUnipile {
   disconnected = false;
   /** Reject invites carrying a note with 422 (free account out of notes). */
   rejectNotes = false;
+  /** Images sent with a new message (handwritten cards). */
+  attachments: { providerId: string; type: string; bytes: number }[] = [];
   private n = 0;
 
   add(p: FakePerson) {
@@ -100,7 +102,9 @@ export class FakeUnipile {
       if (!p || p.distance !== "FIRST_DEGREE") return json(422, { type: "errors/no_connection_with_recipient" });
       let chat = this.chats.find((c) => c.providerId === p.providerId);
       if (!chat) this.chats.push((chat = { id: `chat${++this.n}`, providerId: p.providerId, name: `${p.first} ${p.last}`, messages: [] }));
-      chat.messages.push({ id: `msg${++this.n}`, text: String(body.text), ts: new Date(Date.now() + this.n).toISOString(), mine: true });
+      const att = body.attachments as unknown;
+      if (att instanceof Blob) this.attachments.push({ providerId: p.providerId, type: att.type, bytes: (await att.arrayBuffer()).byteLength });
+      chat.messages.push({ id: `msg${++this.n}`, text: String(body.text ?? ""), ts: new Date(Date.now() + this.n).toISOString(), mine: true });
       return json(201, { chat_id: chat.id });
     }
     if (method === "POST" && (m = /^\/api\/v1\/chats\/([^/]+)\/messages$/.exec(path))) {

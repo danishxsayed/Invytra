@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, CalendarPlus, Eye, MessageCircle, Hourglass, Lock, 
 import { cx } from "../ui";
 import { TextTemplate } from "./TextTemplate";
 import { AiWriteToggle } from "./AiWriteToggle";
+import { CardEditor } from "./CardEditor";
 
 const ICON = { VISIT: Eye, INVITE: UserPlus, MESSAGE: MessageSquare, LIKE_POST: ThumbsUp, FOLLOW: Plus, COMMENT: MessageCircle, EVENT: CalendarPlus } as const;
 const TONE = {
@@ -222,6 +223,7 @@ export function SequenceEditor({
                         rows={4}
                         placeholder={s.aiWrite ? "e.g. Thank them for connecting, refer to their work, offer a free 15-minute audit, link: https://…" : "Write your message…"}
                       />
+                      <CardEditor card={s.card} onChange={(card) => set(i, { card })} />
                     </div>
                   )}
                 </div>
