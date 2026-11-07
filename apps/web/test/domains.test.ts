@@ -66,6 +66,11 @@ describe("routing by host", () => {
     expect(go("app.invytra.com", "/login", false)).toEqual({ type: "next" });
     expect(go("app.invytra.com", "/app/inbox")).toEqual({ type: "redirect", url: "https://linkedin.invytra.com/app/inbox" });
     expect(go("app.invytra.com", "/pricing")).toEqual({ type: "redirect", url: "https://invytra.com/pricing" });
+    // The Credits page belongs to the hub.
+    expect(go("app.invytra.com", "/credits")).toEqual({ type: "rewrite", path: "/workspace/credits" });
+    expect(go("app.invytra.com", "/credits", false)).toEqual({ type: "redirect", url: "https://app.invytra.com/login?next=%2Fcredits" });
+    expect(hubHref("/credits", live)).toBe("https://app.invytra.com/credits");
+    expect(hubHref("/credits", single)).toBe("/workspace/credits");
   });
   it("serves Email on its own subdomain", () => {
     expect(go("email.invytra.com", "/")).toEqual({ type: "rewrite", path: "/email" });

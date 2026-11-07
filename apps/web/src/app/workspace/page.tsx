@@ -7,7 +7,9 @@ import { LogoMark } from "@/components/LogoMark";
 import { Avatar, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { channelSetup, type ChannelSetup } from "@/lib/channel-status";
-import { channelHref } from "@/lib/domains";
+import { channelHref, hubHref } from "@/lib/domains";
+import { CreditsChip } from "@/components/credits/CreditsChip";
+import { getAiBalance } from "@/lib/ai-credits";
 
 export const metadata = { title: "Your workspace" };
 export const dynamic = "force-dynamic";
@@ -31,6 +33,7 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
       return { c, usable, setup: usable ? await channelSetup(prisma, me.workspace.id, c.id) : null };
     }),
   );
+  const ai = await getAiBalance(prisma, me.workspace.id);
   const notice = q.soon ? channelById(q.soon) : q.denied ? channelById(q.denied) : undefined;
   const settingsHref = channelHref("linkedin", "/app/settings");
 
@@ -44,6 +47,7 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
             <span className="hidden truncate rounded-full bg-stone-100 px-2.5 py-0.5 text-[13px] font-medium text-stone-600 sm:inline">{me.workspace.name}</span>
           </div>
           <div className="flex items-center gap-1.5">
+            <CreditsChip left={ai.left} href={hubHref("/credits")} className="mr-1" />
             <a href={settingsHref} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[14px] font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900">
               <Settings className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">Settings</span>
             </a>

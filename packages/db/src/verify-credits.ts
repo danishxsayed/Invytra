@@ -41,7 +41,7 @@ export async function verifyCreditsLeft(prisma: PrismaClient, workspaceId: strin
 }
 
 /**
- * Marks a purchase paid and adds its credits, once (a second call changes nothing).
+ * Marks a purchase paid and adds its credits (verification or AI, by its kind), once (a second call changes nothing).
  * Returns the credits added (0 if it was already paid or cancelled).
  */
 export async function markVerifyPurchasePaid(prisma: PrismaClient, purchaseId: string, paymentRef: string | null, now = new Date()): Promise<number> {
@@ -49,7 +49,7 @@ export async function markVerifyPurchasePaid(prisma: PrismaClient, purchaseId: s
     const p = await tx.verifyCreditPurchase.updateMany({ where: { id: purchaseId, status: "PENDING" }, data: { status: "PAID", paidAt: now, paymentRef } });
     if (!p.count) return 0;
     const row = await tx.verifyCreditPurchase.findUniqueOrThrow({ where: { id: purchaseId } });
-    await tx.workspace.update({ where: { id: row.workspaceId }, data: { verifyExtra: { increment: row.credits } } });
+    await tx.workspace.update({ where: { id: row.workspaceId }, data: row.kind === "AI" ? { aiExtra: { increment: row.credits } } : { verifyExtra: { increment: row.credits } } });
     return row.credits;
   });
 }

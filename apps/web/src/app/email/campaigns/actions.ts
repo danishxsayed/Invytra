@@ -4,6 +4,7 @@ import { prisma } from "@invytra/db";
 import { emailAiRequestSchema, emailSequenceSchema, type EmailDraft } from "@invytra/shared";
 import { OpenAiError } from "@invytra/db";
 import { aiEmailFromEnv } from "@/lib/ai-email";
+import { chargeAi, getAiBalance, refundAi } from "@/lib/ai-credits";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { Result } from "@/lib/accounts";
@@ -95,17 +96,27 @@ export async function saveEmailCampaignSettingsAction(id: string, input: unknown
 }
 
 /** Drafts from the AI writer. It only drafts: nothing is saved or sent from here. */
-export async function aiEmailAction(input: unknown): Promise<Result<EmailDraft[]>> {
-  await ws();
+/** AI writer: 1 AI credit per request (given back if it fails). Returns the drafts and the credits left. */
+export async function aiEmailAction(input: unknown): Promise<Result<{ drafts: EmailDraft[]; creditsLeft: number }>> {
+  const w = await ws();
   const p = emailAiRequestSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]!.message };
   const writer = aiEmailFromEnv();
   if (!writer) return { ok: false, error: "AI writing isn't set up: add OPENAI_API_KEY to .env and restart." };
+  const charge = await chargeAi(prisma, w, "TEXT");
+  if (!charge.ok) return charge;
+  const fail = async (error: string): Promise<Result<never>> => (await refundAi(prisma, w, charge.value), { ok: false, error });
   try {
     const drafts = await writer.write(p.data);
-    return drafts.length ? { ok: true, value: drafts } : { ok: false, error: "The drafts didn't pass the checks (links, made-up variables or spammy words). Try again." };
+    if (!drafts.length) return fail("The drafts didn't pass the checks (links, made-up variables or spammy words). Try again; no credit was used.");
+    return { ok: true, value: { drafts, creditsLeft: (await getAiBalance(prisma, w)).left } };
   } catch (e) {
-    if (e instanceof OpenAiError) return { ok: false, error: e.status === 429 ? "The AI is busy or out of credit right now. Try again in a minute." : e.status === 401 ? "The OpenAI key was refused. Check OPENAI_API_KEY." : "The AI couldn't write right now. Try again." };
-    return { ok: false, error: "The AI took too long. Try again." };
+    if (e instanceof OpenAiError) return fail(e.status === 429 ? "The AI is busy right now. Try again in a minute." : e.status === 401 ? "The OpenAI key was refused. Check OPENAI_API_KEY." : "The AI couldn't write right now. Try again.");
+    return fail("The AI took too long. Try again.");
   }
+}
+
+/** AI credits left, for showing next to AI buttons. */
+export async function aiCreditsLeftAction(): Promise<number> {
+  return (await getAiBalance(prisma, await ws())).left;
 }

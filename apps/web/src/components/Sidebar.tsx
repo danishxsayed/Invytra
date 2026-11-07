@@ -22,6 +22,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { logout } from "@/app/(auth)/actions";
+import { CreditsChip } from "./credits/CreditsChip";
 import { SIDEBAR_COOKIE } from "@/lib/ui-prefs";
 import { accountDot } from "./StatusBadge";
 import { LogoMark } from "./LogoMark";
@@ -37,6 +38,8 @@ interface Props {
   collapsed?: boolean;
   /** The workspace hub with every outreach channel (another subdomain when ROOT_DOMAIN is set). */
   hubHref?: string;
+  /** AI credits left and the Credits page link. */
+  aiCredits?: { left: number; href: string };
 }
 
 const NAV: { href: string; label: string; icon: typeof Settings; soon?: boolean }[] = [
@@ -198,7 +201,7 @@ function AccountSwitcher({ accounts, onNavigate }: { accounts: Props["accounts"]
   );
 }
 
-function SidebarBody({ workspace, user, accounts, needsReply, hubHref, onNavigate, onCollapse }: Props & { onNavigate?: () => void; onCollapse?: () => void }) {
+function SidebarBody({ workspace, user, accounts, needsReply, hubHref, aiCredits, onNavigate, onCollapse }: Props & { onNavigate?: () => void; onCollapse?: () => void }) {
   const path = usePathname();
   return (
     <div className="flex h-full flex-col gap-5 px-3 py-5">
@@ -268,7 +271,8 @@ function SidebarBody({ workspace, user, accounts, needsReply, hubHref, onNavigat
           <span className="flex-1">All channels</span>
         </a>
       )}
-      <div className="mt-auto flex items-center gap-2.5 rounded-xl px-1.5 py-1">
+      {aiCredits && <CreditsChip left={aiCredits.left} href={aiCredits.href} className="mt-auto justify-center py-2" />}
+      <div className={cx("flex items-center gap-2.5 rounded-xl px-1.5 py-1", !aiCredits && "mt-auto")}>
         <Avatar name={user.name} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-medium text-stone-900">{user.name}</p>
@@ -285,7 +289,7 @@ function SidebarBody({ workspace, user, accounts, needsReply, hubHref, onNavigat
 }
 
 /** The narrow sidebar: icons only, names on hover. */
-function SidebarRail({ accounts, user, needsReply, hubHref, onExpand }: Props & { onExpand: () => void }) {
+function SidebarRail({ accounts, user, needsReply, hubHref, aiCredits, onExpand }: Props & { onExpand: () => void }) {
   const path = usePathname();
   const rank = (st: string) => (st === "NEEDS_ATTENTION" ? 0 : st === "DISCONNECTED" ? 1 : st === "PAUSED" ? 2 : 3);
   const current = [...accounts].sort((a, b) => rank(a.status) - rank(b.status))[0];
@@ -338,6 +342,7 @@ function SidebarRail({ accounts, user, needsReply, hubHref, onExpand }: Props & 
         })}
       </nav>
       <div className="mt-auto flex flex-col items-center gap-2">
+        {aiCredits && <CreditsChip left={aiCredits.left} href={aiCredits.href} compact className="px-2" />}
         <span title={user.name}>
           <Avatar name={user.name} />
         </span>

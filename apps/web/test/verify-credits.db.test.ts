@@ -3,6 +3,7 @@ import { PrismaClient, spendVerifyCredit } from "@invytra/db";
 import { monthlyVerifyCredits } from "@invytra/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { addVerifyCredits, cancelVerifyOrder, getVerifyBalance, orderVerifyPack } from "../src/lib/verify-credits";
+import { getAiBalance } from "../src/lib/ai-credits";
 
 const url = process.env.TEST_DATABASE_URL;
 const d = url ? describe : describe.skip;
@@ -47,5 +48,17 @@ d("verification credits", () => {
     // A cancelled order is never paid: adding 10,000 records a new manual purchase instead.
     expect(await addVerifyCredits(prisma, WS, 10000, null, now)).toBe(10000);
     expect((await getVerifyBalance(prisma, WS, now)).extra).toBe(15000);
+  });
+
+  it("AI packs add AI credits, not verification credits", async () => {
+    const o = await orderVerifyPack(prisma, WS, "u1", "ai2k");
+    expect(o).toMatchObject({ ok: true, value: { credits: 2000, priceCents: 1000 } });
+    const before = await prisma.workspace.findUniqueOrThrow({ where: { id: WS } });
+    expect(await addVerifyCredits(prisma, WS, 2000, "pay_ai", now, "AI")).toBe(2000);
+    const after = await prisma.workspace.findUniqueOrThrow({ where: { id: WS } });
+    expect(after.aiExtra - before.aiExtra).toBe(2000);
+    expect(after.verifyExtra).toBe(before.verifyExtra);
+    const ai = await getAiBalance(prisma, WS, now);
+    expect(ai).toMatchObject({ monthly: 500, extra: 2000, left: 2500 });
   });
 });

@@ -3,6 +3,8 @@ import { hostKind, channelOrigin, domainConfig, hubOrigin, siteOrigin, type Doma
 
 export type RouteDecision = { type: "next" } | { type: "rewrite"; path: string } | { type: "redirect"; url: string };
 
+/** Pages of the hub other than its home (served from /workspace/<page>). */
+export const HUB_PAGES = ["/credits"];
 const AUTH_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
 const is = (path: string, base: string) => path === base || path.startsWith(`${base}/`);
 
@@ -38,6 +40,11 @@ export function routeRequest(
       if (path === "/" || path === "/workspace") {
         if (!hasSession) return { type: "redirect", url: `${hubOrigin(cfg)}${login("/")}` };
         return path === "/" ? { type: "rewrite", path: "/workspace" } : { type: "redirect", url: `${hubOrigin(cfg)}/` };
+      }
+      // Hub pages besides the channel list (e.g. /credits) live under /workspace.
+      if (HUB_PAGES.some((p) => is(path, p))) {
+        if (!hasSession) return { type: "redirect", url: `${hubOrigin(cfg)}${login(path)}` };
+        return { type: "rewrite", path: `/workspace${path}` };
       }
       // LinkedIn pages opened on the hub (old links): to its own subdomain.
       if (is(path, "/app")) return { type: "redirect", url: `${channelOrigin("linkedin", cfg)}${path}${search}` };

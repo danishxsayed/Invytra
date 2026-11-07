@@ -3,7 +3,8 @@
 import { EMAIL_AI_ACTIONS, EMAIL_AI_LENGTHS, EMAIL_AI_TONES, type EmailAiAction, type EmailBrief, type EmailDraft } from "@invytra/shared";
 import { Loader2, Sparkles } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
-import { aiEmailAction } from "@/app/email/campaigns/actions";
+import { aiCreditsLeftAction, aiEmailAction } from "@/app/email/campaigns/actions";
+import { AiCreditsHint } from "../../credits/AiCreditsHint";
 import { btn } from "../../AccountControls";
 import { Field, inputCls } from "../../fields";
 import { Modal } from "../../Modal";
@@ -35,7 +36,9 @@ export function AiWriter({ campaignId, step, current, previous, variables, onUse
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [running, setRunning] = useState<EmailAiAction | null>(null);
+  const [creditsLeft, setCreditsLeft] = useState<number | null>(null);
   useEffect(() => setBrief(loadBrief(campaignId)), [campaignId]);
+  useEffect(() => void aiCreditsLeftAction().then(setCreditsLeft, () => {}), []);
   const set = <K extends keyof EmailBrief>(k: K, v: EmailBrief[K]) => {
     const b = { ...brief, [k]: v };
     setBrief(b);
@@ -59,12 +62,13 @@ export function AiWriter({ campaignId, step, current, previous, variables, onUse
       });
       setRunning(null);
       if (!r.ok) return setError(r.error);
-      setDrafts(r.value);
+      setDrafts(r.value.drafts);
+      setCreditsLeft(r.value.creditsLeft);
     });
   const quick: EmailAiAction[] = ["rewrite", "shorter", "professional", "friendly", ...(step === 0 ? (["subject"] as const) : []), "variations"];
 
   return (
-    <Modal title={`Write email ${step + 1} with AI`} description="Drafts only: pick one to put it in the editor, change anything, then save. Nothing is sent from here." onClose={() => !pending && onClose()} busy={pending} wide>
+    <Modal title={`Write email ${step + 1} with AI`} description="Drafts only: pick one to put it in the editor, change anything, then save. Nothing is sent from here. Each request uses 1 AI credit." onClose={() => !pending && onClose()} busy={pending} wide>
       <div className="space-y-4">
         {hasEmail && (
           <div className="flex flex-wrap gap-1.5">
@@ -129,6 +133,7 @@ export function AiWriter({ campaignId, step, current, previous, variables, onUse
                   </option>
                 ))}
               </select>
+              <AiCreditsHint cost={1} left={creditsLeft} />
               {step > 0 && <span className="text-[13px] text-stone-500">Follow-up: it replies in the same thread and refers to email {step}.</span>}
             </div>
           </div>

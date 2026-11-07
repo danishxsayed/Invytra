@@ -28,6 +28,10 @@ model Workspace {
   verifyUsed   Int       @default(0) @map("verify_used")
   verifyPeriod DateTime? @map("verify_period")
   verifyExtra  Int       @default(0) @map("verify_extra")
+  /// AI credits (one balance for every AI feature on every channel), same idea as above.
+  aiUsed       Int       @default(0) @map("ai_used")
+  aiPeriod     DateTime? @map("ai_period")
+  aiExtra      Int       @default(0) @map("ai_extra")
   createdAt DateTime @default(now()) @map("created_at")
 
   members           Membership[]
@@ -43,6 +47,7 @@ model Workspace {
   emailVariables    EmailVariable[]
   emailSuppressions EmailSuppression[]
   verifyPurchases   VerifyCreditPurchase[]
+  aiUsage           AiCreditUse[]
 
   @@map("workspaces")
 }
@@ -935,10 +940,16 @@ enum VerifyPurchaseStatus {
   CANCELLED
 }
 
-/// Extra email verification credits a workspace bought (or asked to buy).
+enum CreditKind {
+  VERIFY
+  AI
+}
+
+/// Extra credits a workspace bought (or asked to buy): email verification or AI.
 model VerifyCreditPurchase {
   id          String               @id @default(cuid())
   workspaceId String               @map("workspace_id")
+  kind        CreditKind           @default(VERIFY)
   credits     Int
   priceCents  Int                  @map("price_cents")
   currency    String               @default("USD")
@@ -953,4 +964,21 @@ model VerifyCreditPurchase {
 
   @@index([workspaceId, createdAt])
   @@map("verify_credit_purchases")
+}
+
+/// One use of AI credits (what used them, how many), for the usage list on the Credits page.
+model AiCreditUse {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  /// TEXT | NOTE | HANDWRITTEN | VOICE | VIDEO (AI_COSTS in @invytra/shared)
+  action      String
+  credits     Int
+  /// Where it was used (campaign or lead id), when known
+  ref         String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@map("ai_credit_uses")
 }
