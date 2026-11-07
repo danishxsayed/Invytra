@@ -291,6 +291,8 @@ async function enqueueStep(
   const payload: Record<string, unknown> = { campaignId: c.id, vars, ...(audience && { audience }) };
   if (plan.type === "CONNECTION_REQUEST" && plan.note) payload.note = plan.note;
   if (plan.type === "MESSAGE" || plan.type === "COMMENT_POST") payload.text = plan.text;
+  // "AI writes this for each person": the text above is the AI's guide (1 AI credit per person).
+  if ((plan.type === "CONNECTION_REQUEST" || plan.type === "MESSAGE") && plan.aiWrite) payload.aiWrite = true;
   // {aiLine}: written when it goes out (accounts through Unipile); the fallback line otherwise.
   const ai = campaignSettingsSchema.safeParse(c.settings).data?.ai;
   if (ai?.fallback && [payload.note, payload.text].some((t) => typeof t === "string" && t.includes("{aiLine}"))) payload.aiFallback = ai.fallback;

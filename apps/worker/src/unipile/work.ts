@@ -19,7 +19,7 @@ import { InviteLimitReachedError, type ActionOutcome } from "../linkedin/actions
 import type { InboxThread, ThreadMessage } from "../linkedin/inbox.js";
 import type { ConnectionStatus } from "../linkedin/profile.js";
 import { companyFromHeadline, type FoundPerson } from "../linkedin/search.js";
-import { NO_AI_LINE, aiLineFor } from "./ai-line.js";
+import { NO_AI_LINE, NO_CREDITS, aiLineFor, aiWriteFor } from "./ai-line.js";
 
 /**
  * Every campaign action for an account connected through Unipile: the same inputs and
@@ -105,11 +105,22 @@ async function fillFor(
       limit,
       fallback: typeof p.aiFallback === "string" ? p.aiFallback : undefined,
     });
+    // Out of AI credits and no fallback: the message goes without the AI line.
+    if (line === NO_CREDITS) return fillTemplate(withoutAiLine(template), vars, fullName(u));
     if (!line) return "skip";
     vars.aiLine = line;
   }
   return fillTemplate(template, vars, fullName(u));
 }
+
+/** The template with {aiLine} taken out (and the spacing around it tidied). */
+export const withoutAiLine = (t: string) =>
+  t
+    .replace(/[ \t]*\{aiLine\}[ \t]*/g, " ")
+    .replace(/ +\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/ {2,}/g, " ")
+    .trim();
 
 /** Their profile, or null if LinkedIn has no such profile. */
 async function profile(ctx: UnipileCtx, slug: string, notify = false): Promise<UnipileUser | null> {
@@ -156,7 +167,8 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
         const status = statusOf(u);
         if (status !== "NOT_CONNECTED") return { outcome: "SKIPPED", reason: status, data: base };
         const raw = typeof p.note === "string" ? p.note.trim() : "";
-        const filled = raw ? await fillFor(ctx, spec, raw, u, NOTE_MAX) : undefined;
+        const written = p.aiWrite === true ? await aiWriteFor(ctx, { campaignLeadId: spec.campaignLeadId, providerId: u.provider_id, guide: raw, kind: "note", maxChars: 200 }) : null;
+        const filled = written ?? (raw ? await fillFor(ctx, spec, raw, u, NOTE_MAX) : undefined);
         if (filled === "skip") return { outcome: "SKIPPED", reason: NO_AI_LINE, data: base };
         let note = filled;
         if (note === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data: base };
@@ -167,7 +179,7 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
         }
         try {
           await ctx.client.invite(ctx.accountId, u.provider_id, note || undefined);
-          return { outcome: "DONE", data: { ...base, withNote: !!note } };
+          return { outcome: "DONE", data: { ...base, withNote: !!note, ...(written && note === written && { aiWritten: true, note }) } };
         } catch (e) {
           if (!(e instanceof UnipileError) || e.status !== 422) throw e;
           const why = `${e.type} ${e.detail}`.toLowerCase();
@@ -194,7 +206,10 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
         if (out) return { outcome: "SKIPPED", reason: out, data };
         const status = statusOf(u);
         if (status !== "CONNECTED") return { outcome: "SKIPPED", reason: `NOT_CONNECTED (${status})`, data };
-        const text = await fillFor(ctx, spec, String(p.text ?? "").trim(), u, MESSAGE_MAX);
+        const guide = String(p.text ?? "").trim();
+        const written = p.aiWrite === true ? await aiWriteFor(ctx, { campaignLeadId: spec.campaignLeadId, providerId: u.provider_id, guide, kind: "message", maxChars: Math.min(MESSAGE_MAX, 1200) }) : null;
+        if (!written && !guide) return { outcome: "SKIPPED", reason: "NO_AI_TEXT", data };
+        const text = written ?? (await fillFor(ctx, spec, guide, u, MESSAGE_MAX));
         if (text === "skip") return { outcome: "SKIPPED", reason: NO_AI_LINE, data };
         if (text === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
         try {
@@ -203,7 +218,7 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
           if (e instanceof UnipileError && e.status === 422 && /no_connection/.test(e.type)) return { outcome: "SKIPPED", reason: "NOT_CONNECTED (NOT_CONNECTED)", data };
           throw e;
         }
-        return { outcome: "DONE", data };
+        return { outcome: "DONE", data: written ? { ...data, aiWritten: true, text } : data };
       };
 
     case "LIKE_POST":

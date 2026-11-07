@@ -4,6 +4,7 @@ import { COMMENT_MAX, MESSAGE_MAX, NOTE_FREE_MAX, NOTE_MAX, eventUrl, type Campa
 import { ArrowDown, ArrowUp, CalendarPlus, Eye, MessageCircle, Hourglass, Lock, MessageSquare, Plus, ThumbsUp, Trash2, UserPlus } from "lucide-react";
 import { cx } from "../ui";
 import { TextTemplate } from "./TextTemplate";
+import { AiWriteToggle } from "./AiWriteToggle";
 
 const ICON = { VISIT: Eye, INVITE: UserPlus, MESSAGE: MessageSquare, LIKE_POST: ThumbsUp, FOLLOW: Plus, COMMENT: MessageCircle, EVENT: CalendarPlus } as const;
 const TONE = {
@@ -149,15 +150,16 @@ export function SequenceEditor({
                         </p>
                       ) : (
                         <>
+                          <AiWriteToggle kind="note" on={!!s.aiWrite} onChange={(v) => set(i, { aiWrite: v || undefined })} />
                           <TextTemplate
-                            label="Invite note"
+                            label={s.aiWrite ? "Guide for the AI" : "Invite note"}
                             value={s.note}
                             onChange={(v) => set(i, { note: v })}
                             max={NOTE_MAX}
                             softMax={NOTE_FREE_MAX}
                             softMaxHint="free accounts may be cut off at 200"
                             rows={3}
-                            placeholder="Hi {firstName}, …"
+                            placeholder={s.aiWrite ? "e.g. Mention their recent post or hiring, say we help clinics get more bookings, ask to connect" : "Hi {firstName}, …"}
                           />
                           <p className="mt-1.5 text-[13px] text-stone-500">
                             {noteHint ?? "Free LinkedIn accounts get a few notes a month. When they run out, invites go without a note."}
@@ -211,7 +213,15 @@ export function SequenceEditor({
                   )}
                   {s.type === "MESSAGE" && (
                     <div className="mt-3">
-                      <TextTemplate label={`${title} text`} value={s.text} onChange={(v) => set(i, { text: v })} max={MESSAGE_MAX} rows={4} placeholder="Write your message…" />
+                      <AiWriteToggle kind="message" on={!!s.aiWrite} onChange={(v) => set(i, { aiWrite: v || undefined })} />
+                      <TextTemplate
+                        label={s.aiWrite ? `${title}: guide for the AI` : `${title} text`}
+                        value={s.text}
+                        onChange={(v) => set(i, { text: v })}
+                        max={MESSAGE_MAX}
+                        rows={4}
+                        placeholder={s.aiWrite ? "e.g. Thank them for connecting, refer to their work, offer a free 15-minute audit, link: https://…" : "Write your message…"}
+                      />
                     </div>
                   )}
                 </div>

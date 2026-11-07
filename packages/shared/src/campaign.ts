@@ -40,8 +40,9 @@ export const stepSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("COMMENT"), delayDays: delay, text: z.string().max(COMMENT_MAX, `Comments can be at most ${COMMENT_MAX} characters`) }),
   /** Invite a connection to one of your LinkedIn events. */
   z.object({ type: z.literal("EVENT"), delayDays: delay, eventUrl: z.string().max(300) }),
-  z.object({ type: z.literal("INVITE"), delayDays: delay, note: z.string().max(NOTE_MAX, `Notes can be at most ${NOTE_MAX} characters`) }),
-  z.object({ type: z.literal("MESSAGE"), delayDays: delay, text: z.string().max(MESSAGE_MAX, `Messages can be at most ${MESSAGE_MAX} characters`) }),
+  /** aiWrite: AI writes the note for each person from their profile, using the note as its guide. */
+  z.object({ type: z.literal("INVITE"), delayDays: delay, note: z.string().max(NOTE_MAX, `Notes can be at most ${NOTE_MAX} characters`), aiWrite: z.boolean().optional() }),
+  z.object({ type: z.literal("MESSAGE"), delayDays: delay, text: z.string().max(MESSAGE_MAX, `Messages can be at most ${MESSAGE_MAX} characters`), aiWrite: z.boolean().optional() }),
 ]);
 export type CampaignStep = z.infer<typeof stepSchema>;
 
@@ -64,7 +65,7 @@ export function sequenceProblems(steps: CampaignStep[]): string[] {
   steps.forEach((s, i) => {
     const n = i + 1;
     if (s.type === "MESSAGE") {
-      if (!s.text.trim()) out.push(`Step ${n}: write the message.`);
+      if (!s.text.trim() && !s.aiWrite) out.push(`Step ${n}: write the message.`);
       else {
         const p = outreachTextProblem(s.text);
         if (p) out.push(`Step ${n}: the message ${p}.`);

@@ -133,6 +133,63 @@ export class AiLineWriter {
     if (!res.ok) throw new OpenAiError(res.status, `OpenAI ${res.status}: ${body?.error?.message ?? "request failed"}`);
     return cleanAiLine(body?.choices?.[0]?.message?.content ?? "", maxChars);
   }
+
+  /**
+   * A whole connection note or message for this person, written from their profile, following
+   * the sender's guide text. Null when the model's answer doesn't pass the checks.
+   */
+  async writeMessage(ctx: ProfileContext, settings: AiSettings, opts: { kind: "note" | "message"; guide: string; maxChars: number }): Promise<string | null> {
+    const what = opts.kind === "note" ? "LinkedIn connection request note" : "LinkedIn message to a 1st-degree connection";
+    const system = [
+      `You write a short ${what} from the sender to the person described, in the sender's voice.`,
+      "Use the sender's guide for what to say and how; keep its meaning, call to action and any links exactly.",
+      "Make it personal: refer to one specific, true detail from their profile (a hiring signal, a recent post, their role or company, their headline). Never invent anything.",
+      "Rules:",
+      "- Address them by first name once, naturally. No subject line, no sign-off with a name, no placeholders like {firstName}.",
+      `- At most ${opts.maxChars} characters in total. Plain text, at most one emoji, no hashtags.`,
+      "- No flattery or clichés (\"came across your profile\", \"impressive journey\", \"hope this finds you well\").",
+      "- Nothing about health, family, religion, politics, age or appearance.",
+      `- Tone: ${settings.tone}.`,
+      'Reply as JSON: {"text": string}.',
+    ].join("\n");
+    const user = JSON.stringify({ sender_offers: settings.offer, sender_guide: opts.guide || "(none: a short, friendly, relevant note)", person: ctx });
+    const res = await this.fetchImpl("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { authorization: `Bearer ${this.apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        model: this.model,
+        temperature: 0.7,
+        max_tokens: 700,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+      signal: AbortSignal.timeout(40_000),
+    });
+    const body = (await res.json().catch(() => null)) as { choices?: { message?: { content?: string } }[]; error?: { message?: string } } | null;
+    if (!res.ok) throw new OpenAiError(res.status, `OpenAI ${res.status}: ${body?.error?.message ?? "request failed"}`);
+    return cleanAiMessage(body?.choices?.[0]?.message?.content ?? "", opts);
+  }
+}
+
+/** Checks a whole AI-written note or message: within the limit, no leftover placeholders, no new links. */
+export function cleanAiMessage(raw: string, opts: { guide: string; maxChars: number }): string | null {
+  let parsed: { text?: unknown } = {};
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof parsed.text !== "string") return null;
+  const text = parsed.text.replace(/\r/g, "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").replace(/^["'“]+|["'”]+$/g, "").trim();
+  if (!text || text.length > opts.maxChars) return null;
+  if (/[{}]/.test(text) || /as an? (ai|language model)/i.test(text) || /#\w/.test(text)) return null;
+  // Links only if the guide had them (and then only those).
+  const links = text.match(/https?:\/\/\S+/g) ?? [];
+  if (links.some((l) => !opts.guide.includes(l.replace(/[.,!?)]+$/, "")))) return null;
+  return text;
 }
 
 /** Checks the model's answer: one clean sentence within the limit, or null. */

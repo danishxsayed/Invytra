@@ -188,7 +188,7 @@ export function ConfigureStep({
       <Setting
         wide
         title="AI personalisation"
-        hint="Put ✦ AI line ({aiLine}) in a note or message, and AI writes one line for each person from their LinkedIn profile: a hiring post, a recent post, their role, headline or About."
+        hint="Two ways to personalise with AI, both from each person's LinkedIn profile (a hiring post, a recent post, their role, headline or About): put ✦ AI line ({aiLine}) in a note or message for one personal line, or switch on “AI writes this for each person” on an invite or message for a whole personal note. Each uses 1 AI credit per person; out of credits, the fallback line (or your text without the AI line) goes out instead."
       >
         <div className="grid gap-3 md:grid-cols-2">
           <label className="block md:col-span-2">

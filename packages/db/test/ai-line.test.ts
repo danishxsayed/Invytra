@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AiLineWriter, cleanAiLine, profileContext } from "../src/ai-line.js";
+import { AiLineWriter, cleanAiLine, cleanAiMessage, profileContext } from "../src/ai-line.js";
 
 const now = new Date("2026-10-31T10:00:00Z");
 const daysAgo = (n: number) => new Date(now.getTime() - n * 86_400_000).toISOString();
@@ -59,5 +59,15 @@ describe("AI personalisation line", () => {
   it("reports OpenAI errors", async () => {
     const w = new AiLineWriter("bad", "gpt-4o-mini", (async () => new Response(JSON.stringify({ error: { message: "Incorrect API key" } }), { status: 401 })) as typeof fetch);
     await expect(w.write(profileContext({ provider_id: "P" }, [], now), { offer: "x", tone: "friendly" }, 100)).rejects.toThrow(/OpenAI 401: Incorrect API key/);
+  });
+
+  it("checks a whole AI-written note: limit, placeholders, new links", () => {
+    const o = { guide: "Mention our demo at https://invytra.com/demo", maxChars: 200 };
+    expect(cleanAiMessage('{"text":"Hi Ana, saw your post on hiring. Our demo: https://invytra.com/demo"}', o)).toBe("Hi Ana, saw your post on hiring. Our demo: https://invytra.com/demo");
+    expect(cleanAiMessage('{"text":"Hi {firstName}, hello"}', o)).toBeNull();
+    expect(cleanAiMessage('{"text":"Hi Ana, see https://evil.example"}', o)).toBeNull();
+    expect(cleanAiMessage(JSON.stringify({ text: "x".repeat(201) }), o)).toBeNull();
+    expect(cleanAiMessage('{"text":"As an AI, I think"}', o)).toBeNull();
+    expect(cleanAiMessage("not json", o)).toBeNull();
   });
 });

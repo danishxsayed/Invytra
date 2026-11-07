@@ -1,6 +1,7 @@
 import { aiFromEnv, readProfileContext, unipileFromEnv, type AiLineWriter, type PrismaClient, type UnipileClient } from "@invytra/db";
 import { aiLineMaxChars, parseProfileUrl, type AiSettings, type AiSignal } from "@invytra/shared";
 import type { Result } from "./accounts";
+import { chargeAi, outOfAiCredits, refundAi } from "./ai-credits";
 
 export interface AiPreviewLine {
   leadId: string;
@@ -19,7 +20,7 @@ const PREVIEW_LEADS = 5;
 export async function previewAiLines(
   prisma: PrismaClient,
   workspaceId: string,
-  input: { listId: string; accountIds: string[]; ai: AiSettings; template: string; limit: number },
+  input: { listId: string; accountIds: string[]; ai: AiSettings; template: string; limit: number; write?: { kind: "note" | "message"; guide: string; maxChars: number } },
   deps: { unipile?: UnipileClient | null; ai?: AiLineWriter | null } = {},
 ): Promise<Result<AiPreviewLine[]>> {
   const unipile = deps.unipile === undefined ? unipileFromEnv() : deps.unipile;
@@ -39,19 +40,39 @@ export async function previewAiLines(
   });
   const max = aiLineMaxChars(input.template, input.limit);
   const out: AiPreviewLine[] = [];
+  // Each sample uses 1 AI credit (given back when nothing comes out).
   for (const l of leads) {
     const slug = parseProfileUrl(l.profileUrl);
     if (!slug.ok) {
       out.push({ leadId: l.id, line: null, signal: null, note: "Not a LinkedIn profile link" });
       continue;
     }
+    const charge = await chargeAi(prisma, workspaceId, "NOTE", "preview");
+    if (!charge.ok) {
+      if (!out.some((x) => x.line)) return { ok: false, error: outOfAiCredits(1) };
+      out.push({ leadId: l.id, line: null, signal: null, note: "Out of AI credits" });
+      continue;
+    }
     try {
       const profile = await readProfileContext(unipile, sender.unipileAccountId!, slug.slug);
+      if (input.write) {
+        const text = await writer.writeMessage(profile, input.ai, input.write);
+        if (text) out.push({ leadId: l.id, line: text, signal: null });
+        else {
+          await refundAi(prisma, workspaceId, charge.value);
+          out.push({ leadId: l.id, line: null, signal: null, note: "AI couldn't write a good one for this person: your text would go out instead" });
+        }
+        continue;
+      }
       const r = await writer.write(profile, input.ai, max);
       if (r.line) out.push({ leadId: l.id, line: r.line, signal: r.signal });
-      else if (input.ai.fallback) out.push({ leadId: l.id, line: input.ai.fallback, signal: "fallback", note: "Nothing specific in their profile: your fallback line" });
-      else out.push({ leadId: l.id, line: null, signal: null, note: "Nothing specific in their profile, and no fallback line: they'd be skipped" });
+      else {
+        await refundAi(prisma, workspaceId, charge.value);
+        if (input.ai.fallback) out.push({ leadId: l.id, line: input.ai.fallback, signal: "fallback", note: "Nothing specific in their profile: your fallback line" });
+        else out.push({ leadId: l.id, line: null, signal: null, note: "Nothing specific in their profile, and no fallback line: they'd be skipped" });
+      }
     } catch (e) {
+      await refundAi(prisma, workspaceId, charge.value);
       out.push({ leadId: l.id, line: null, signal: null, note: e instanceof Error ? e.message.split("\n")[0] : "Couldn't read their profile" });
     }
   }

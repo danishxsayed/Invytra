@@ -85,6 +85,8 @@ export async function previewAiLinesAction(input: {
   ai: unknown;
   template: string;
   limit: number;
+  /** Preview whole AI-written notes/messages (the step's "AI writes this" switch) instead of {aiLine}s. */
+  write?: { kind?: unknown; guide?: unknown };
 }): Promise<Result<AiPreviewLine[]>> {
   const me = await requireChannel("linkedin");
   const ai = aiSettingsSchema.safeParse(input?.ai);
@@ -95,6 +97,9 @@ export async function previewAiLinesAction(input: {
     ai: ai.data,
     template: String(input.template ?? "").slice(0, 2000),
     limit: Math.min(2000, Math.max(100, Number(input.limit) || 300)),
+    ...(input.write && {
+      write: input.write.kind === "note" ? { kind: "note" as const, guide: String(input.write.guide ?? "").slice(0, 400), maxChars: 200 } : { kind: "message" as const, guide: String(input.write.guide ?? "").slice(0, 2000), maxChars: 1200 },
+    }),
   });
 }
 

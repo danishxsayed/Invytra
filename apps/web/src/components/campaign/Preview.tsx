@@ -1,6 +1,6 @@
 "use client";
 
-import { AI_SIGNAL_LABEL, NOTE_MAX, MESSAGE_MAX, fillTemplate, usesAiLine, type AiSettings, type AiSignal, type CampaignStep } from "@invytra/shared";
+import { AI_SIGNAL_LABEL, NOTE_MAX, MESSAGE_MAX, fillTemplate, usesAiLine, usesAiWrite, type AiSettings, type AiSignal, type CampaignStep } from "@invytra/shared";
 import { AlertTriangle, Loader2, Sparkles } from "lucide-react";
 import { useState, useTransition } from "react";
 import { previewAiLinesAction } from "@/app/app/campaigns/actions";
@@ -32,15 +32,20 @@ export function Preview({
   const [lines, setLines] = useState<Record<string, AiPreviewLine>>({});
   const [aiError, setAiError] = useState<string | null>(null);
   const [writing, start] = useTransition();
-  const withAi = usesAiLine(steps);
+  const withLine = usesAiLine(steps);
+  const withWrite = usesAiWrite(steps);
+  const withAi = withLine || withWrite;
+  // The first step AI writes whole: its samples are previewed (the others look alike).
+  const writeStep = steps.findIndex((s) => (s.type === "INVITE" || s.type === "MESSAGE") && !!s.aiWrite);
+  const [written, setWritten] = useState<Record<string, AiPreviewLine>>({});
   const lead = sample[Math.min(i, sample.length - 1)];
   const texts = steps.flatMap((s, idx) =>
-    s.type === "INVITE" && s.note.trim()
-      ? [{ idx, label: "Invite note", text: s.note }]
-      : s.type === "MESSAGE" && s.text.trim()
-        ? [{ idx, label: "Message", text: s.text }]
+    s.type === "INVITE" && (s.note.trim() || s.aiWrite)
+      ? [{ idx, label: "Invite note", text: s.note, aiWrite: !!s.aiWrite }]
+      : s.type === "MESSAGE" && (s.text.trim() || s.aiWrite)
+        ? [{ idx, label: "Message", text: s.text, aiWrite: !!s.aiWrite }]
         : s.type === "COMMENT" && s.text.trim()
-          ? [{ idx, label: "Comment on their post", text: s.text }]
+          ? [{ idx, label: "Comment on their post", text: s.text, aiWrite: false }]
           : [],
   );
   if (!lead) return <p className="text-[15px] text-stone-500">Choose a lead list to preview your messages with a real person's details.</p>;
@@ -57,10 +62,19 @@ export function Preview({
     ai &&
     start(async () => {
       setAiError(null);
-      const r = await previewAiLinesAction({ listId: ai.listId, accountIds: ai.accountIds, ai: ai.settings, template: aiTemplate, limit: aiLimit });
-      if (!r.ok) return setAiError(r.error);
-      setLines(Object.fromEntries(r.value.map((x) => [x.leadId, x])));
+      if (withLine) {
+        const r = await previewAiLinesAction({ listId: ai.listId, accountIds: ai.accountIds, ai: ai.settings, template: aiTemplate, limit: aiLimit });
+        if (!r.ok) return setAiError(r.error);
+        setLines(Object.fromEntries(r.value.map((x) => [x.leadId, x])));
+      }
+      const ws = steps[writeStep];
+      if (ws && (ws.type === "INVITE" || ws.type === "MESSAGE")) {
+        const r = await previewAiLinesAction({ listId: ai.listId, accountIds: ai.accountIds, ai: ai.settings, template: "", limit: 300, write: { kind: ws.type === "INVITE" ? "note" : "message", guide: ws.type === "INVITE" ? ws.note : ws.text } });
+        if (!r.ok) return setAiError(r.error);
+        setWritten(Object.fromEntries(r.value.map((x) => [x.leadId, x])));
+      }
     });
+  const samples = Math.min(sample.length, 5) * ((withLine ? 1 : 0) + (withWrite ? 1 : 0));
 
   return (
     <div>
@@ -88,7 +102,7 @@ export function Preview({
             <p className="text-[14px] text-violet-900">
               {aiFor?.line
                 ? <>AI line from: <span className="font-semibold">{aiFor.signal === "fallback" ? "your fallback line" : AI_SIGNAL_LABEL[aiFor.signal as AiSignal] ?? "their profile"}</span></>
-                : aiFor?.note ?? "✦ AI line is written from each person's profile when it's sent."}
+                : aiFor?.note ?? (withLine ? "✦ AI line is written from each person's profile when it's sent." : "✦ AI writes these personally for each person, from their profile, when they're sent.")}
             </p>
             {ai && (
               <button
@@ -98,7 +112,7 @@ export function Preview({
                 className="inline-flex items-center gap-1.5 rounded-lg bg-violet-700 px-3 py-1.5 text-[14px] font-semibold text-white hover:bg-violet-800 disabled:opacity-60"
               >
                 {writing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
-                {writing ? "Reading their profiles…" : Object.keys(lines).length ? "Write again" : `Write AI lines for ${sample.length} ${sample.length === 1 ? "person" : "people"}`}
+                {writing ? "Reading their profiles…" : Object.keys(lines).length || Object.keys(written).length ? `Write again (${samples} AI credits)` : `Write AI samples for ${Math.min(sample.length, 5)} ${sample.length === 1 ? "person" : "people"} (${samples} AI credits)`}
               </button>
             )}
           </div>
@@ -107,6 +121,24 @@ export function Preview({
       )}
       <div className="space-y-3">
         {texts.map((t) => {
+          const sampleText = t.aiWrite && t.idx === writeStep && lead ? written[lead.id] : undefined;
+          if (t.aiWrite) {
+            return (
+              <div key={t.idx}>
+                <p className="mb-1 flex items-center gap-1.5 text-[13px] font-medium uppercase tracking-wide text-violet-500">
+                  Step {t.idx + 1} · {t.label} · <Sparkles className="h-3.5 w-3.5" aria-hidden /> written by AI for each person
+                </p>
+                {sampleText?.line ? (
+                  <p className="max-w-[560px] whitespace-pre-wrap rounded-2xl rounded-tl-md bg-violet-50 px-4 py-3 text-[15px] leading-relaxed text-stone-800 ring-1 ring-violet-200">{sampleText.line}</p>
+                ) : (
+                  <p className="max-w-[560px] rounded-2xl rounded-tl-md border border-dashed border-violet-300 px-4 py-3 text-[14.5px] leading-relaxed text-stone-500">
+                    {sampleText?.note ?? (t.idx === writeStep ? "Write AI samples above to see what this person would get." : "Written personally for each person, like the step above.")}
+                    {t.text.trim() && <span className="mt-1 block text-[13px] text-stone-400">Guide: {t.text}</span>}
+                  </p>
+                )}
+              </div>
+            );
+          }
           const filled = fillTemplate(t.text, vars, profileName);
           return (
             <div key={t.idx}>

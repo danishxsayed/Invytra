@@ -39,8 +39,8 @@ export type PlannedAction =
   | { type: "COMMENT_POST"; text: string }
   | { type: "EVENT_INVITE"; eventUrl: string }
   | { type: "WITHDRAW_INVITE" }
-  | { type: "CONNECTION_REQUEST"; note: string }
-  | { type: "MESSAGE"; text: string }
+  | { type: "CONNECTION_REQUEST"; note: string; aiWrite?: boolean }
+  | { type: "MESSAGE"; text: string; aiWrite?: boolean }
   | { type: "CHECK_CONNECTION" };
 
 /** What the lead needs next, or null if nothing (finished or stopped). */
@@ -61,9 +61,9 @@ export function plannedAction(steps: CampaignStep[], lead: FlowLead): PlannedAct
     case "EVENT":
       return { type: "EVENT_INVITE", eventUrl: s.eventUrl.trim() };
     case "INVITE":
-      return { type: "CONNECTION_REQUEST", note: s.note.trim() };
+      return { type: "CONNECTION_REQUEST", note: s.note.trim(), ...(s.aiWrite && { aiWrite: true }) };
     case "MESSAGE":
-      return { type: "MESSAGE", text: s.text.trim() };
+      return { type: "MESSAGE", text: s.text.trim(), ...(s.aiWrite && { aiWrite: true }) };
   }
 }
 

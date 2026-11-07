@@ -40,10 +40,16 @@ export function usesAiLine(steps: CampaignStep[]): boolean {
   return steps.some((s) => textOf(s).includes("{aiLine}"));
 }
 
+/** Whether any invite or message is written by AI for each person. */
+export function usesAiWrite(steps: CampaignStep[]): boolean {
+  return steps.some((s) => (s.type === "INVITE" || s.type === "MESSAGE") && !!s.aiWrite);
+}
+
 /** Problems with AI personalisation for this sequence (empty = fine). */
 export function aiProblems(steps: CampaignStep[], ai: AiSettings): string[] {
-  if (!usesAiLine(steps)) return [];
-  return ai.offer.trim() ? [] : ["Your messages use {aiLine}: describe what you offer in Configure → AI personalisation."];
+  if (ai.offer.trim()) return [];
+  if (usesAiWrite(steps)) return ["AI writes some of your notes or messages: describe what you offer in Configure → AI personalisation."];
+  return usesAiLine(steps) ? ["Your messages use {aiLine}: describe what you offer in Configure → AI personalisation."] : [];
 }
 
 /**

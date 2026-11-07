@@ -213,6 +213,59 @@ d("Unipile accounts", () => {
     expect(fb.status).toBe("SUCCEEDED");
     expect(fake.invites.find((x) => x.providerId === "P-MIA")?.message).toBe("Hi Mia, Always good to meet people in healthcare.");
     expect(await prisma.campaignLead.findUniqueOrThrow({ where: { id: "cl-mia" } })).toMatchObject({ aiSignal: "fallback" });
+    // Only Zoe's line used an AI credit: Mia's empty answer was refunded, the fallback is free.
+    expect(await prisma.aiCreditUse.findMany({ where: { workspaceId: WS }, select: { action: true, credits: true, ref: true } })).toEqual([{ action: "NOTE", credits: 1, ref: "cl-zoe" }]);
+  });
+
+  it("lets AI write the whole note or message for each person (1 AI credit each), and keeps sending without credits", async () => {
+    const ai = {
+      write: async () => ({ line: "Saw your post on remote hiring.", signal: "post" }),
+      writeMessage: async (ctx: { name: string }, _s: unknown, o: { kind: string; guide: string; maxChars: number }) =>
+        o.guide.includes("BAD") ? "Hi {firstName}" : `Hi ${ctx.name.split(" ")[0]}, ${o.kind === "note" ? "loved your post on remote hiring. Let's connect?" : "following up on remote hiring: worth a quick call?"}`,
+    };
+    fake.add({ slug: "ana-w", providerId: "P-ANA", first: "Ana", last: "Wu", distance: "SECOND_DEGREE" });
+    fake.add({ slug: "ben-k", providerId: "P-BEN", first: "Ben", last: "Ko", distance: "FIRST_DEGREE" });
+    fake.add({ slug: "cat-l", providerId: "P-CAT", first: "Cat", last: "Lee", distance: "SECOND_DEGREE" });
+    for (const [id, url] of [["cl-ana", "ana-w"], ["cl-ben", "ben-k"], ["cl-cat", "cat-l"]]) {
+      await prisma.campaignLead.create({ data: { id, campaignId: "uni-c", workspaceId: WS, profileUrl: `https://www.linkedin.com/in/${url}/`, accountId: ACC } });
+    }
+    const run = async (leadId: string, slug: string, type: "CONNECTION_REQUEST" | "MESSAGE", payload: Record<string, unknown>) => {
+      const id = `uni-a${++n}`;
+      await prisma.action.create({ data: { id, accountId: ACC, type, status: "QUEUED", targetUrl: `https://www.linkedin.com/in/${slug}/`, payload: payload as never, scheduledAt: new Date(Date.now() - 1000), campaignLeadId: leadId } });
+      await processAction({ prisma, session, pacing: memoryPacingStore(), ignoreWorkingHours: true, gapScale: 0.001, unipile: client, ai: ai as never }, id);
+      return prisma.action.findUniqueOrThrow({ where: { id } });
+    };
+    const used = () => prisma.aiCreditUse.count({ where: { workspaceId: WS } });
+    const before = await used();
+
+    const invite = await run("cl-ana", "ana-w", "CONNECTION_REQUEST", { note: "Ask about their hiring", aiWrite: true });
+    expect(invite.status).toBe("SUCCEEDED");
+    expect(fake.invites.find((x) => x.providerId === "P-ANA")?.message).toBe("Hi Ana, loved your post on remote hiring. Let's connect?");
+    expect((invite.payload as { result: { aiWritten?: boolean } }).result.aiWritten).toBe(true);
+
+    // Messages wait for an inbox read since the lead's last step: one just happened.
+    await prisma.campaignLead.update({ where: { id: "cl-ben" }, data: { lastActionAt: new Date(Date.now() - 3_600_000) } });
+    await prisma.action.create({ data: { accountId: ACC, type: "INBOX_SYNC", status: "SUCCEEDED", scheduledAt: new Date(), executedAt: new Date() } });
+    const msg = await run("cl-ben", "ben-k", "MESSAGE", { text: "Offer a call", aiWrite: true });
+    expect(msg.status).toBe("SUCCEEDED");
+    expect((msg.payload as { result: { aiWritten?: boolean; text?: string } }).result).toMatchObject({ aiWritten: true, text: "Hi Ben, following up on remote hiring: worth a quick call?" });
+    expect(await used()).toBe(before + 2);
+
+    // An answer that fails the checks: refunded, and the step's own text goes out.
+    const bad = await run("cl-cat", "cat-l", "CONNECTION_REQUEST", { note: "Hi {firstName}, BAD guide", aiWrite: true });
+    expect(bad.status).toBe("SUCCEEDED");
+    expect(fake.invites.find((x) => x.providerId === "P-CAT")?.message).toBe("Hi Cat, BAD guide");
+    expect(await used()).toBe(before + 2);
+
+    // Out of AI credits: {aiLine} is left out (no fallback), the rest still goes.
+    await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: 50, aiPeriod: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)), aiExtra: 0 } });
+    await prisma.campaign.update({ where: { id: "uni-c" }, data: { settings: { ai: { offer: "Clinic apps", tone: "friendly", fallback: "" } } } });
+    fake.add({ slug: "dan-p", providerId: "P-DAN", first: "Dan", last: "Park", distance: "SECOND_DEGREE" });
+    await prisma.campaignLead.create({ data: { id: "cl-dan", campaignId: "uni-c", workspaceId: WS, profileUrl: "https://www.linkedin.com/in/dan-p/", accountId: ACC } });
+    const broke = await run("cl-dan", "dan-p", "CONNECTION_REQUEST", { note: "Hi {firstName}, {aiLine} Happy to connect." });
+    expect(broke.status).toBe("SUCCEEDED");
+    expect(fake.invites.find((x) => x.providerId === "P-DAN")?.message).toBe("Hi Dan, Happy to connect.");
+    expect(await used()).toBe(before + 2);
   });
 });
 
