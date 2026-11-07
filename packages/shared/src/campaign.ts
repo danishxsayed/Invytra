@@ -1,4 +1,4 @@
-import { cardSchema } from "./card.js";
+import { cardSchema, unsignedCard } from "./card.js";
 import { z } from "zod";
 import type { Degree } from "./audience.js";
 import { outreachTextProblem } from "./text.js";
@@ -67,10 +67,11 @@ export function sequenceProblems(steps: CampaignStep[]): string[] {
   steps.forEach((s, i) => {
     const n = i + 1;
     if (s.type === "MESSAGE") {
-      if (s.card && !s.card.text.trim()) out.push(`Step ${n}: write what the handwritten card says.`);
+      if (s.card && !s.card.text.trim()) out.push(`Step ${n}: write what the handwritten note says.`);
       else if (s.card) {
         const p = outreachTextProblem(s.card.text);
-        if (p) out.push(`Step ${n}: the handwritten card ${p}.`);
+        if (p) out.push(`Step ${n}: the handwritten note ${p}.`);
+        else if (unsignedCard(s.card.text)) out.push(`Step ${n}: sign the handwritten note with your name (it still says "Your name").`);
       }
       if (!s.text.trim()) {
         if (!s.aiWrite && !s.card) out.push(`Step ${n}: write the message.`);

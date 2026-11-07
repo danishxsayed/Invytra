@@ -49,10 +49,11 @@ describe("sequence rules", () => {
     expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: " " }])).toEqual(["Step 1: write the message."]);
     expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "Hi {first}" }])[0]).toMatch(/unknown placeholder/);
     // A handwritten card can go alone, but it needs its own text.
-    expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", card: { text: "Hi {firstName}!", style: "cream", font: "casual" } }])).toEqual([]);
-    expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "Hello", card: { text: " ", style: "cream", font: "casual" } }])).toEqual(["Step 1: write what the handwritten card says."]);
-    expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "Hello", card: { text: "Hi {first}", style: "cream", font: "casual" } }])[0]).toMatch(/handwritten card contains unknown placeholder/);
+    expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", card: { text: "Hi {firstName}!", style: "lined", font: "neat" } }])).toEqual([]);
+    expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "Hello", card: { text: " ", style: "lined", font: "neat" } }])).toEqual(["Step 1: write what the handwritten note says."]);
+    expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "Hello", card: { text: "Hi {first}", style: "lined", font: "neat" } }])[0]).toMatch(/handwritten note contains unknown placeholder/);
     expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", aiWrite: true }])).toEqual([]);
+    expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", card: { text: "Hi!\n\nBest,\nYour name", style: "lined", font: "neat" } }])[0]).toMatch(/sign the handwritten note/);
     expect(sequenceProblems([{ type: "INVITE", delayDays: 0, note: "Hi {firstName}, …" }])[0]).toMatch(/note contains/);
   });
   it("presets need the person's own words before launch", () => {

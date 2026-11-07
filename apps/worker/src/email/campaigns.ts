@@ -1,4 +1,4 @@
-import { emailBody, hardBounce, openSecret, publicOrigin, refundAiCredits, renderCard, sendEmail, softBounce, spendAiCredits, unsubscribeToken, unsubscribeUrls, type CardFont, type CardStyle, type MailSender, type PrismaClient } from "@invytra/db";
+import { emailBody, hardBounce, openSecret, publicOrigin, refundAiCredits, renderCard, sendEmail, softBounce, spendAiCredits, unsubscribeToken, unsubscribeUrls, type MailSender, type PrismaClient } from "@invytra/db";
 import {
   AI_COSTS,
   emailSequenceSchema,
@@ -149,14 +149,14 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
       if (step.card) {
         const ct = renderEmailText(step.card.text, vars, rand);
         if (!ct.ok) {
-          await prisma.emailLead.update({ where: { id: lead.id }, data: { status: "SKIPPED", nextAt: null, reason: `No value for {{${ct.missing[0]}}} in the handwritten card (add a fallback like {{${ct.missing[0]}|there}})` } });
+          await prisma.emailLead.update({ where: { id: lead.id }, data: { status: "SKIPPED", nextAt: null, reason: `No value for {{${ct.missing[0]}}} in the handwritten note (add a fallback like {{${ct.missing[0]}|there}})` } });
           res.skipped++;
           continue;
         }
         spent = await spendAiCredits(prisma, c.workspaceId, AI_COSTS.HANDWRITTEN, "HANDWRITTEN", monthlyAiCredits, { ref: lead.id, now });
         if (spent) {
           try {
-            image = { png: await renderCard({ text: ct.text, style: step.card.style as CardStyle, font: step.card.font as CardFont }), alt: "Handwritten note" };
+            image = { png: await renderCard({ text: ct.text, style: step.card.style, font: step.card.font, ink: step.card.ink }), alt: "Handwritten note" };
           } catch {
             await refundAiCredits(prisma, c.workspaceId, spent);
             spent = null;

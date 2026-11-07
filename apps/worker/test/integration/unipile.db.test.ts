@@ -284,16 +284,16 @@ d("Unipile accounts", () => {
     await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: 0, aiPeriod: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)), aiExtra: 0 } });
     const before = await prisma.aiCreditUse.count({ where: { workspaceId: WS, action: "HANDWRITTEN" } });
 
-    const sent = await run("cl-eve", "eve-h", { text: "Hi {firstName}, a small note for you.", card: { text: "Thanks {firstName}!", style: "kraft", font: "casual" } });
+    const sent = await run("cl-eve", "eve-h", { text: "Hi {firstName}, a small note for you.", card: { text: "Thanks {firstName}!", style: "lined", font: "neat" } });
     expect(sent.status).toBe("SUCCEEDED");
     expect((sent.payload as { result: { card?: boolean } }).result.card).toBe(true);
     expect(fake.attachments.find((a) => a.providerId === "P-EVE")).toMatchObject({ type: "image/png" });
-    expect(fake.attachments.find((a) => a.providerId === "P-EVE")!.bytes).toBeGreaterThan(10_000);
+    expect(fake.attachments.find((a) => a.providerId === "P-EVE")!.bytes).toBeGreaterThan(5_000);
     expect(await prisma.aiCreditUse.count({ where: { workspaceId: WS, action: "HANDWRITTEN", credits: 2, ref: "cl-eve" } })).toBe(1);
 
     // No credits left: the message goes without the card.
     await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: 50, aiExtra: 0 } });
-    const plain = await run("cl-fay", "fay-j", { text: "Hi {firstName}, a small note for you.", card: { text: "Thanks!", style: "cream", font: "casual" } });
+    const plain = await run("cl-fay", "fay-j", { text: "Hi {firstName}, a small note for you.", card: { text: "Thanks!", style: "plain", font: "pen", ink: "black" } });
     expect(plain.status).toBe("SUCCEEDED");
     expect(fake.attachments.some((a) => a.providerId === "P-FAY")).toBe(false);
     expect(fake.chats.find((c) => c.providerId === "P-FAY")?.messages.at(-1)?.text).toBe("Hi Fay, a small note for you.");

@@ -185,7 +185,7 @@ d("email campaign engine", () => {
     await prisma.emailCampaign.create({
       data: {
         id: "ec-card", workspaceId: WS, name: "Cards", status: "ACTIVE", unsubscribeLink: false, launchedAt: now,
-        steps: [{ subject: "Hi", body: "Hi {firstName|there}, a note for you.", delayDays: 0, card: { text: "Thanks {firstName|friend}!", style: "sticky", font: "elegant" } }],
+        steps: [{ subject: "Hi", body: "Hi {firstName|there}, a note for you.", delayDays: 0, card: { text: "Thanks {firstName|friend}!", style: "lined", font: "quick" } }],
         mailboxes: { create: [{ emailAccountId: "em3" }] },
         leads: { create: [{ workspaceId: WS, email: "lia@card.co", firstName: "Lia", nextAt: now }, { workspaceId: WS, email: "max@card.co", firstName: "Max", nextAt: new Date(now.getTime() + 1) }] },
       },
@@ -193,7 +193,7 @@ d("email campaign engine", () => {
     const n0 = sent.length;
     expect(await tick()).toMatchObject({ sent: 1 });
     expect(sent[n0]).toMatchObject({ to: "lia@card.co" });
-    expect(sent[n0]!.image).toBeGreaterThan(10_000);
+    expect(sent[n0]!.image).toBeGreaterThan(5_000);
     expect(sent[n0]!.html).toContain('src="cid:card@invytra"');
     expect(await prisma.aiCreditUse.count({ where: { workspaceId: WS, action: "HANDWRITTEN", credits: 2 } })).toBe(1);
 

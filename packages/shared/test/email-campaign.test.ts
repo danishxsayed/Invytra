@@ -3,10 +3,10 @@ import { emailSequenceSchema } from "../src/email-campaign.js";
 
 describe("email sequence", () => {
   it("checks the handwritten card's text", () => {
-    const card = (text: string) => ({ text, style: "kraft" as const, font: "elegant" as const });
+    const card = (text: string) => ({ text, style: "plain" as const, font: "pen" as const });
     expect(emailSequenceSchema.safeParse([{ subject: "Hi", body: "x", delayDays: 0, card: card("Thanks {{first_name|there}}!") }]).success).toBe(true);
     const bad = emailSequenceSchema.safeParse([{ subject: "Hi", body: "x", delayDays: 0, card: card("  ") }]);
-    expect(bad.error!.issues.map((i) => i.message)).toEqual(["Email 1: write what the handwritten card says."]);
+    expect(bad.error!.issues.map((i) => i.message)).toEqual(["Email 1: write what the handwritten note says."]);
   });
 
   it("needs a first subject, text in each email, and a day between emails", () => {
