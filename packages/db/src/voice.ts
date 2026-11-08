@@ -24,9 +24,13 @@ export interface VoiceMaker {
 /** A plain-language reason the voice provider refused. */
 export class VoiceError extends Error {}
 
+export const DEFAULT_VOICE_MODEL = "eleven_v4_turbo";
+
 export class ElevenLabsVoice implements VoiceMaker {
   constructor(
     private readonly key: string,
+    /** Text-to-speech model: v4 Turbo costs half of v2/v4 per character and sounds natural. */
+    private readonly model = DEFAULT_VOICE_MODEL,
     private readonly base = "https://api.elevenlabs.io",
     private readonly fetchImpl: typeof fetch = fetch,
   ) {}
@@ -61,7 +65,7 @@ export class ElevenLabsVoice implements VoiceMaker {
   }
 
   async speak(voiceId: string, text: string): Promise<Buffer> {
-    const body = JSON.stringify({ text, model_id: "eleven_multilingual_v2", voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.15, use_speaker_boost: true } });
+    const body = JSON.stringify({ text, model_id: this.model, voice_settings: { stability: 0.5, similarity_boost: 0.85, style: 0.15, use_speaker_boost: true } });
     const res = await this.call("POST", `/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`, body, true);
     return Buffer.from(await res.arrayBuffer());
   }
@@ -73,10 +77,10 @@ export class ElevenLabsVoice implements VoiceMaker {
   }
 }
 
-/** The voice service from ELEVENLABS_API_KEY, or null when it isn't set. */
+/** The voice service from ELEVENLABS_API_KEY (model: ELEVENLABS_MODEL), or null when it isn't set. */
 export function voiceFromEnv(env: NodeJS.ProcessEnv = process.env): VoiceMaker | null {
   const key = env.ELEVENLABS_API_KEY?.trim();
-  return key ? new ElevenLabsVoice(key) : null;
+  return key ? new ElevenLabsVoice(key, env.ELEVENLABS_MODEL?.trim() || DEFAULT_VOICE_MODEL) : null;
 }
 
 /** Runs ffmpeg on stdin → stdout. Rejects when ffmpeg is missing or fails. */

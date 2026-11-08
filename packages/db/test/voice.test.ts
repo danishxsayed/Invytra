@@ -11,11 +11,12 @@ describe("voice notes", () => {
       if (url.includes("/text-to-speech/")) return new Response(new Uint8Array([1, 2, 3]));
       return new Response(JSON.stringify({ detail: { status: "quota_exceeded", message: "This request exceeds your quota" } }), { status: 401 });
     }) as unknown as typeof fetch;
-    const v = new ElevenLabsVoice("k-secret", "https://el.test", fake);
+    const v = new ElevenLabsVoice("k-secret", "eleven_v4_turbo", "https://el.test", fake);
     expect(await v.clone("Tahur", { data: Buffer.from("abc"), name: "s.webm", type: "audio/webm" })).toBe("v-123");
     expect((seen[0]!.body as FormData).get("name")).toBe("Tahur");
     expect([...(await v.speak("v-123", "Hi Alex"))]).toEqual([1, 2, 3]);
     expect(seen[1]!.url).toBe("https://el.test/v1/text-to-speech/v-123?output_format=mp3_44100_128");
+    expect(JSON.parse(String(seen[1]!.body)).model_id).toBe("eleven_v4_turbo");
     expect(seen.every((s) => s.key === "k-secret")).toBe(true);
     await expect(v.remove("v-123")).rejects.toThrow(VoiceError);
   });
