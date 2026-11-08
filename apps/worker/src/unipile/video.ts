@@ -1,4 +1,4 @@
-import { lipSyncFromEnv, personalVideo, videoPath, voiceFromEnv, type VoiceSample } from "@invytra/db";
+import { cachedVideo, lipSyncFromEnv, personalVideo, videoCacheName, videoPath, voiceFromEnv, type VoiceSample } from "@invytra/db";
 import { leadOf, paid, type Made } from "./card.js";
 import type { UnipileCtx } from "./work.js";
 
@@ -25,12 +25,14 @@ export async function videoNoteFor(ctx: UnipileCtx, campaignLeadId: string | nul
   if (!voice || !lipsync || !lead) return "NO_VIDEO";
   const rec = await ctx.prisma.videoRecording.findFirst({
     where: { id: videoId, workspaceId: lead.workspaceId },
-    select: { file: true, introMs: true, voice: { select: { providerVoiceId: true } } },
+    select: { id: true, file: true, introMs: true, voice: { select: { providerVoiceId: true } } },
   });
   if (!rec?.voice) return "NO_VIDEO";
   const providerVoiceId = rec.voice.providerVoiceId;
+  // Everyone with the same greeting ("Hi Priya,") gets the same video, made once.
+  const cacheName = videoCacheName(lead.workspaceId, rec.id, { introMs: rec.introMs, voice: providerVoiceId, greeting: intro });
   return paid(ctx, lead, "VIDEO", async () => ({
-    data: await personalVideo(videoPath(rec.file), rec.introMs, await voice.speak(providerVoiceId, intro), lipsync),
+    data: (await cachedVideo(cacheName, async () => personalVideo(videoPath(rec.file), rec.introMs, await voice.speak(providerVoiceId, intro), lipsync))).data,
     name: "video.mp4",
     type: "video/mp4",
   }));

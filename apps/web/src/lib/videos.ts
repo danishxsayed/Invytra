@@ -3,10 +3,13 @@ import path from "node:path";
 import {
   VideoError,
   VoiceError,
+  cachedVideo,
+  dropVideoCache,
   greetingEndMs,
   lipSyncFromEnv,
   personalVideo,
   prepareRecording,
+  videoCacheName,
   videoPath,
   voiceFromEnv,
   type LipSync,
@@ -97,6 +100,7 @@ export async function removeVideo(prisma: PrismaClient, workspaceId: string, id:
   if (!v) return { ok: false, error: "That video is already gone." };
   await prisma.videoRecording.delete({ where: { id: v.id } });
   for (const f of [v.file, v.poster, `${workspaceId}/try-${v.id}.mp4`]) if (f) await rm(videoPath(f), { force: true }).catch(() => undefined);
+  await dropVideoCache(workspaceId, v.id).catch(() => undefined);
   return { ok: true, value: undefined };
 }
 
@@ -122,7 +126,10 @@ export async function tryVideo(
   const paid = await chargeAi(prisma, workspaceId, "VIDEO", "video-try");
   if (!paid.ok) return paid;
   try {
-    const mp4 = await personalVideo(videoPath(v.file), v.introMs, await voice.speak(v.voice.providerVoiceId, line), lipsync);
+    const providerVoiceId = v.voice.providerVoiceId;
+    // Same cache as campaigns: trying "Hi Alex," twice makes it once.
+    const name = videoCacheName(workspaceId, v.id, { introMs: v.introMs, voice: providerVoiceId, greeting: line });
+    const { data: mp4 } = await cachedVideo(name, async () => personalVideo(videoPath(v.file), v.introMs, await voice.speak(providerVoiceId, line), lipsync));
     const file = `${workspaceId}/try-${v.id}.mp4`;
     await writeFile(videoPath(file), mp4);
     return { ok: true, value: { file } };

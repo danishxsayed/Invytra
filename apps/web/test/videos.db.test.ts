@@ -22,10 +22,12 @@ d("videos", () => {
   const src = (n: string) => path.join(dir, n);
   const consent = { name: "Hello founders", voiceId: "vc-video-a", consent: true };
   let fail = false;
+  let syncs = 0;
   const voice: VoiceMaker = { clone: async () => "x", speak: async () => readGreeting(), remove: async () => undefined };
   const lipsync: LipSync = {
     sync: async (video) => {
       if (fail) throw new VideoError("The lip-sync service account is out of credit.");
+      syncs++;
       return video;
     },
   };
@@ -94,10 +96,14 @@ d("videos", () => {
     expect(r).toEqual({ ok: true, value: { file: `${A}/try-${id}.mp4` } });
     expect(existsSync(videoPath(`${A}/try-${id}.mp4`))).toBe(true);
     expect(await used()).toBe(before + 15);
+    // The same greeting again: made once, reused.
+    expect((await tryVideo(prisma, A, id, "Hi Alex,", { voice, lipsync })).ok).toBe(true);
+    expect(syncs).toBe(1);
+    expect(await used()).toBe(before + 30);
     fail = true;
-    expect(await tryVideo(prisma, A, id, "Hi Alex,", { voice, lipsync })).toEqual({ ok: false, error: "The lip-sync service account is out of credit." });
+    expect(await tryVideo(prisma, A, id, "Hi Sam,", { voice, lipsync })).toEqual({ ok: false, error: "The lip-sync service account is out of credit." });
     fail = false;
-    expect(await used()).toBe(before + 15);
+    expect(await used()).toBe(before + 30);
     expect(await tryVideo(prisma, A, id, "Hi", { voice, lipsync: null })).toMatchObject({ ok: false, error: expect.stringContaining("aren't available") });
     expect(await tryVideo(prisma, B, id, "Hi", { voice, lipsync })).toEqual({ ok: false, error: "That video is gone." });
   }, 60_000);

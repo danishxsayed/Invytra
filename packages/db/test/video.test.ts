@@ -3,8 +3,8 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { SyncSoLipSync, VideoError, lipSyncFromEnv, type LipSync } from "../src/lipsync";
-import { greetingEndMs, personalVideo, prepareRecording, probeVideo, videoDir, videoPath } from "../src/video";
+import { HeyGenLipSync, SyncSoLipSync, VideoError, lipSyncFromEnv, type LipSync } from "../src/lipsync";
+import { cachedVideo, dropVideoCache, greetingEndMs, personalVideo, videoCacheName, prepareRecording, probeVideo, videoDir, videoPath } from "../src/video";
 
 const hasFfmpeg = (() => {
   try {
@@ -116,8 +116,71 @@ describe("sync.so lip-sync client", () => {
     await expect(slow.sync(Buffer.from(""), Buffer.from(""))).rejects.toThrow("too long");
   });
 
-  it("is off without SYNC_API_KEY", () => {
+  it("picks HeyGen when its key is set (or the one LIPSYNC_PROVIDER names), and is off without keys", () => {
     expect(lipSyncFromEnv({})).toBeNull();
     expect(lipSyncFromEnv({ SYNC_API_KEY: "x" })).toBeInstanceOf(SyncSoLipSync);
+    expect(lipSyncFromEnv({ HEYGEN_API_KEY: "h" })).toBeInstanceOf(HeyGenLipSync);
+    expect(lipSyncFromEnv({ HEYGEN_API_KEY: "h", SYNC_API_KEY: "x" })).toBeInstanceOf(HeyGenLipSync);
+    expect(lipSyncFromEnv({ HEYGEN_API_KEY: "h", SYNC_API_KEY: "x", LIPSYNC_PROVIDER: "sync" })).toBeInstanceOf(SyncSoLipSync);
+  });
+});
+
+describe("HeyGen lip-sync client", () => {
+  const ok = (data: unknown, status = 200) => new Response(JSON.stringify({ data }), { status, headers: { "content-type": "application/json" } });
+
+  it("uploads the clip and audio, starts a precision lip-sync, waits and downloads it", async () => {
+    const calls: { url: string; method: string; body?: BodyInit | null; key?: string }[] = [];
+    let polls = 0;
+    let assets = 0;
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method ?? "GET", body: init?.body, key: (init?.headers as Record<string, string> | undefined)?.["x-api-key"] });
+      if (url.endsWith("/v3/assets")) return ok({ asset_id: `as${++assets}`, url: "u", mime_type: "m", size_bytes: 1 });
+      if (url.endsWith("/v3/lipsyncs")) return ok({ lipsync_id: "ls1" });
+      if (url.endsWith("/v3/lipsyncs/ls1")) return ok(++polls < 2 ? { id: "ls1", status: "running" } : { id: "ls1", status: "completed", video_url: "https://files.heygen.ai/out.mp4" });
+      return new Response(Buffer.from("MP4"));
+    }) as typeof fetch;
+    const h = new HeyGenLipSync("hk", "precision", { fetch: fetchImpl, sleep: async () => undefined });
+    expect((await h.sync(Buffer.from("v"), Buffer.from("a"))).toString()).toBe("MP4");
+    const uploads = calls.filter((c) => c.url.endsWith("/v3/assets"));
+    expect(uploads).toHaveLength(2);
+    expect((uploads[0]!.body as FormData).get("file")).toBeInstanceOf(Blob);
+    const create = calls.find((c) => c.url.endsWith("/v3/lipsyncs"))!;
+    const body = JSON.parse(String(create.body));
+    expect(body).toMatchObject({ mode: "precision", enable_dynamic_duration: true, enable_watermark: false });
+    expect([body.video, body.audio].map((x: { type: string }) => x.type)).toEqual(["asset_id", "asset_id"]);
+    expect(new Set([body.video.asset_id, body.audio.asset_id])).toEqual(new Set(["as1", "as2"]));
+    expect(calls.filter((c) => c.url.includes("api.heygen.com")).every((c) => c.key === "hk")).toBe(true);
+    expect(calls.at(-1)!).toMatchObject({ url: "https://files.heygen.ai/out.mp4", key: undefined });
+  });
+
+  it("explains refusals and failed jobs in plain words", async () => {
+    const say = (r: () => Response) => new HeyGenLipSync("k", "speed", { fetch: (async () => r()) as typeof fetch, sleep: async () => undefined });
+    await expect(say(() => new Response('{"error":{"message":"bad"}}', { status: 401 })).sync(Buffer.from(""), Buffer.from(""))).rejects.toThrow("HEYGEN_API_KEY");
+    await expect(say(() => new Response('{"error":{"code":"insufficient_credit"}}', { status: 400 })).sync(Buffer.from(""), Buffer.from(""))).rejects.toThrow("out of credit");
+    let n = 0;
+    const failing = say(() => (n++ < 2 ? ok({ asset_id: "a" }) : n === 3 ? ok({ lipsync_id: "l" }) : ok({ status: "failed", failure_message: "No face detected" })));
+    await expect(failing.sync(Buffer.from(""), Buffer.from(""))).rejects.toThrow("No face detected");
+  });
+});
+
+describe("one video per greeting", () => {
+  it("makes it once, then reuses it; a different greeting, voice or length is a new video", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "vid-cache-"));
+    process.env.VIDEO_DIR = dir;
+    const key = { introMs: 1500, voice: "v1", greeting: "Hi Priya," };
+    const name = videoCacheName("ws", "rec1", key);
+    expect(name).toMatch(/^ws\/cache\/rec1-[0-9a-f]{20}\.mp4$/);
+    expect(videoCacheName("ws", "rec1", { ...key, greeting: "  Hi   Priya, " })).toBe(name);
+    expect(new Set([videoCacheName("ws", "rec1", { ...key, greeting: "Hi Raj," }), videoCacheName("ws", "rec1", { ...key, voice: "v2" }), videoCacheName("ws", "rec1", { ...key, introMs: 2000 })]).has(name)).toBe(false);
+    let made = 0;
+    const make = async () => (made++, Buffer.from("video"));
+    expect(await cachedVideo(name, make)).toEqual({ data: Buffer.from("video"), reused: false });
+    expect(await cachedVideo(name, make)).toEqual({ data: Buffer.from("video"), reused: true });
+    expect(made).toBe(1);
+    // A failed make keeps nothing.
+    await expect(cachedVideo(videoCacheName("ws", "rec1", { ...key, greeting: "Hi Bad," }), async () => Promise.reject(new VideoError("nope")))).rejects.toThrow("nope");
+    await dropVideoCache("ws", "rec1");
+    expect(await cachedVideo(name, make)).toMatchObject({ reused: false });
+    delete process.env.VIDEO_DIR;
   });
 });

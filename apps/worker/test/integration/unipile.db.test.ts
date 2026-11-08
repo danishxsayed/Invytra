@@ -434,5 +434,15 @@ d("Unipile accounts", () => {
     expect(await used()).toBe(30);
     const noVoice = await run("ned-d", { text: "", video: { videoId: "vr-novoice", intro: "Hi {firstName}," } });
     expect([noVoice.status, noVoice.error]).toEqual(["SKIPPED", "NO_VIDEO"]);
+
+    // Another Kim: the same "Hi Kim," video, made once (no new lip-sync), still 15 credits.
+    fake.add({ slug: "kim-z", providerId: "P-KIM2", first: "Kim", last: "Other", distance: "FIRST_DEGREE" });
+    await prisma.campaignLead.create({ data: { id: "cl-kim-z", campaignId: "uni-c", workspaceId: WS, profileUrl: "https://www.linkedin.com/in/kim-z/", accountId: ACC, lastActionAt: new Date(Date.now() - 3_600_000) } });
+    const before = synced;
+    const again = await run("kim-z", { text: "", video: { videoId: "vr-1", intro: "Hi {firstName}," } });
+    expect(again.status).toBe("SUCCEEDED");
+    expect(synced).toBe(before);
+    expect(fake.videoMessages.some((m) => m.providerId === "P-KIM2")).toBe(true);
+    expect(await used()).toBe(45);
   }, 90_000);
 });

@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { VideoError, type LipSync } from "./lipsync.js";
@@ -149,4 +150,50 @@ export async function personalVideo(recording: string, introMs: number, greeting
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+}
+
+/*
+ * One video per greeting: everyone called Priya gets the same "Hi Priya," video, made once.
+ * Kept in <workspace>/cache/<recording>-<hash>.mp4; unused ones go after 30 days.
+ */
+const CACHE_DAYS = 30;
+
+export function videoCacheName(workspaceId: string, recordingId: string, key: { introMs: number; voice: string; greeting: string }): string {
+  const greeting = key.greeting.trim().replace(/\s+/g, " ");
+  const hash = createHash("sha256").update(JSON.stringify([key.introMs, key.voice, greeting])).digest("hex").slice(0, 20);
+  return `${workspaceId}/cache/${recordingId}-${hash}.mp4`;
+}
+
+/** The cached video for this greeting, or `make()`'s (then kept). */
+export async function cachedVideo(name: string, make: () => Promise<Buffer>): Promise<{ data: Buffer; reused: boolean }> {
+  const file = videoPath(name);
+  try {
+    const data = await readFile(file);
+    const now = new Date();
+    await utimes(file, now, now).catch(() => undefined);
+    return { data, reused: true };
+  } catch {
+    // not made yet
+  }
+  const data = await make();
+  await mkdir(path.dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.tmp`;
+  await writeFile(tmp, data);
+  await rename(tmp, file);
+  await pruneVideoCache(path.dirname(file)).catch(() => undefined);
+  return { data, reused: false };
+}
+
+async function pruneVideoCache(dir: string, now = Date.now()): Promise<void> {
+  for (const f of await readdir(dir)) {
+    const full = path.join(dir, f);
+    if ((await stat(full)).mtimeMs < now - CACHE_DAYS * 86_400_000) await rm(full, { force: true });
+  }
+}
+
+/** Removes a recording's cached videos (when it's deleted). */
+export async function dropVideoCache(workspaceId: string, recordingId: string): Promise<void> {
+  const dir = videoPath(`${workspaceId}/cache/x`).replace(/\/x$/, "");
+  const files = await readdir(dir).catch(() => [] as string[]);
+  for (const f of files) if (f.startsWith(`${recordingId}-`)) await rm(path.join(dir, f), { force: true });
 }
