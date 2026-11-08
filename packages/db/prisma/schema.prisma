@@ -51,6 +51,7 @@ model Workspace {
   voices            VoiceClone[]
   billingProfile    BillingProfile?
   doNotContact      DoNotContact[]
+  people            Person[]
 
   @@map("workspaces")
 }
@@ -307,13 +308,17 @@ model Lead {
   /// Other columns from the uploaded file, for personalisation later
   extra       Json     @default("{}")
   createdAt   DateTime @default(now()) @map("created_at")
+  /// The workspace contact this person is (linked by the contacts sync)
+  personId    String?  @map("person_id")
 
   workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   list          LeadList       @relation(fields: [listId], references: [id], onDelete: Cascade)
   campaignLeads CampaignLead[]
+  person        Person?        @relation(fields: [personId], references: [id], onDelete: SetNull)
 
   @@unique([listId, profileUrl])
   @@index([workspaceId, profileUrl])
+  @@index([personId])
   @@index([listId, createdAt])
   @@map("leads")
 }
@@ -854,11 +859,16 @@ model EmailContact {
   createdAt      DateTime          @default(now()) @map("created_at")
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
+  /// The workspace contact this address belongs to (linked by the contacts sync)
+  personId  String?           @map("person_id")
+
   workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   lists     EmailListMember[]
   leads     EmailLead[]
+  person    Person?           @relation(fields: [personId], references: [id], onDelete: SetNull)
 
   @@unique([workspaceId, email])
+  @@index([personId])
   @@index([workspaceId, verification])
   @@map("email_contacts")
 }
@@ -1073,4 +1083,35 @@ model DoNotContact {
   @@unique([workspaceId, kind, value])
   @@index([workspaceId, createdAt])
   @@map("do_not_contact")
+}
+
+/// One person across every channel (Contacts): their LinkedIn profile, email and phone. LinkedIn
+/// leads and email contacts link to it (matched by LinkedIn profile or email address).
+model Person {
+  id           String   @id @default(cuid())
+  workspaceId  String   @map("workspace_id")
+  firstName    String?  @map("first_name")
+  lastName     String?  @map("last_name")
+  company      String?
+  title        String?
+  location     String?
+  /// LinkedIn profile slug (linkedin.com/in/<slug>), lowercased: one contact per profile
+  linkedinSlug String?  @map("linkedin_slug")
+  linkedinUrl  String?  @map("linkedin_url")
+  /// Lowercased: one contact per address
+  email        String?
+  phone        String?
+  photoUrl     String?  @map("photo_url")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  leads         Lead[]
+  emailContacts EmailContact[]
+
+  @@unique([workspaceId, linkedinSlug])
+  @@unique([workspaceId, email])
+  @@index([workspaceId, updatedAt])
+  @@map("people")
 }

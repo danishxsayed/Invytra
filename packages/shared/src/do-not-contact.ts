@@ -106,3 +106,6 @@ export function dncMatcher(entries: DncEntry[]) {
 
 /** The reason saved on a skipped lead. */
 export const DNC_REASON = "On your do-not-contact list";
+
+/** Saved on a lead stopped because the same person already replied on another channel. */
+export const REPLIED_ELSEWHERE = "Already replied on another channel";

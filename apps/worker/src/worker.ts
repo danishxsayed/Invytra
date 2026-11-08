@@ -18,7 +18,7 @@ import { emailCampaignTick } from "./email/campaigns.js";
 import { emailReplyTick } from "./email/replies.js";
 import { verifyTick } from "./email/verify.js";
 import { createRuntime } from "./runtime.js";
-import { unipileFromEnv } from "@invytra/db";
+import { syncPeople, unipileFromEnv } from "@invytra/db";
 
 const INBOX_EVERY_MIN = Number(process.env.INBOX_SYNC_EVERY_MINUTES ?? 20);
 const CONCURRENCY = Number(process.env.WORKER_CONCURRENCY ?? 3);
@@ -157,6 +157,23 @@ async function main() {
   await runWarmup();
   const warmupTimer = setInterval(runWarmup, 60_000);
 
+  // Contacts: link new LinkedIn leads and email contacts to one contact per person, every minute.
+  let syncing = false;
+  const runPeople = async () => {
+    if (syncing) return;
+    syncing = true;
+    try {
+      const n = await syncPeople(rt.prisma);
+      if (n) log(`Contacts: linked ${n} lead(s) and email contact(s)`);
+    } catch (e) {
+      log(`Contacts sync error: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      syncing = false;
+    }
+  };
+  void runPeople();
+  const peopleTimer = setInterval(runPeople, 60_000);
+
   // Email verification on its own loop: a deep mailbox check can take a minute, and it must
   // never hold up campaign emails or reply reading.
   let verifying = false;
@@ -225,6 +242,7 @@ async function main() {
     clearInterval(campaignTimer);
     clearInterval(replyTimer);
     clearInterval(warmupTimer);
+    clearInterval(peopleTimer);
     clearInterval(verifyTimer);
     await connect?.closeAll();
     await worker.close();

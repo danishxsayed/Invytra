@@ -108,6 +108,13 @@ d("email campaign engine", () => {
     await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "ACTIVE", steps: [{ subject: "Hi", body: "About {{pain_point}}", delayDays: 0 }] } });
     await prisma.emailAccount.updateMany({ where: { id: { in: ["em1", "em2"] } }, data: { nextSendAt: null } });
     const contact = await prisma.emailContact.create({ data: { workspaceId: WS, email: "unsub@z.co", subscribed: false } });
+    // The same person replied on LinkedIn: no email for them.
+    await prisma.person.create({ data: { id: "per-li", workspaceId: WS, linkedinSlug: "li-replied", email: "li@replied.co" } });
+    const liContact = await prisma.emailContact.create({ data: { workspaceId: WS, email: "li@replied.co", personId: "per-li" } });
+    await prisma.linkedinAccount.create({ data: { id: "acc-em-li", workspaceId: WS, label: "a", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE" } });
+    await prisma.leadList.create({ data: { id: "list-em-li", workspaceId: WS, name: "L", leads: { create: { workspaceId: WS, profileUrl: "https://www.linkedin.com/in/li-replied/", personId: "per-li" } } } });
+    const liLead = await prisma.lead.findFirstOrThrow({ where: { listId: "list-em-li" } });
+    await prisma.campaign.create({ data: { workspaceId: WS, name: "LI", listId: "list-em-li", status: "ACTIVE", steps: [], settings: {}, leads: { create: { workspaceId: WS, profileUrl: liLead.profileUrl, leadId: liLead.id, state: "REPLIED" } } } });
     await prisma.emailSuppression.create({ data: { workspaceId: WS, email: "@blocked.co", reason: "MANUAL" } });
     await prisma.emailVariable.create({ data: { workspaceId: WS, key: "pain_point", label: "Pain point", fallback: "slow months" } });
     await prisma.emailLead.createMany({
@@ -117,6 +124,7 @@ d("email campaign engine", () => {
         { workspaceId: WS, campaignId: "ec1", email: "ok@fine.co", nextAt: now },
         { workspaceId: WS, campaignId: "ec1", email: "ceo@customer.co", nextAt: now },
         { workspaceId: WS, campaignId: "ec1", email: "x@y.co", company: "Rival Pvt Ltd", nextAt: now },
+        { workspaceId: WS, campaignId: "ec1", email: "li@replied.co", contactId: liContact.id, nextAt: now },
       ],
     });
     // The workspace's do-not-contact list (shared with every channel): a domain and a company.
@@ -128,13 +136,14 @@ d("email campaign engine", () => {
     });
     now = new Date("2026-11-05T07:00:00Z");
     sent.length = 0;
-    expect(await tick()).toMatchObject({ skipped: 4, sent: 1 });
+    expect(await tick()).toMatchObject({ skipped: 5, sent: 1 });
+    expect(await lead("li@replied.co")).toMatchObject({ status: "SKIPPED", reason: "Already replied on another channel" });
     expect(await lead("ceo@customer.co")).toMatchObject({ status: "SKIPPED", reason: "On your do-not-contact list" });
     expect(await lead("x@y.co")).toMatchObject({ status: "SKIPPED", reason: "On your do-not-contact list" });
     expect(await lead("unsub@z.co")).toMatchObject({ status: "SKIPPED", reason: "Unsubscribed" });
     expect(await lead("anyone@blocked.co")).toMatchObject({ status: "SKIPPED", reason: "On the suppression list" });
     expect(sent[0]).toMatchObject({ to: "ok@fine.co", text: expect.stringContaining("About slow months") });
-    await prisma.emailLead.deleteMany({ where: { email: { in: ["unsub@z.co", "anyone@blocked.co", "ok@fine.co", "ceo@customer.co", "x@y.co"] } } });
+    await prisma.emailLead.deleteMany({ where: { email: { in: ["unsub@z.co", "anyone@blocked.co", "ok@fine.co", "ceo@customer.co", "x@y.co", "li@replied.co"] } } });
     await prisma.doNotContact.deleteMany({ where: { workspaceId: WS } });
     await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "COMPLETED" } });
   });

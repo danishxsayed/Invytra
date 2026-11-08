@@ -18,7 +18,11 @@ M3 (lead lists) and M4 (campaigns: sequence builder + worker engine in
 (inbox with needs-reply/done, activity filters, failure screenshots, weekly table) are built;
 multi-sender campaigns are built too (`campaign_senders`; each lead is assigned one sender in
 `campaign_leads.account_id` and keeps it; removed senders' uncontacted leads move to others);
-M6 go-live (server, domain, billing, team invites) is next. Phase 0's engine is done (`docs/PHASE-0-POC.md`); its
+Workspace level (hub, outside every channel; `apps/web/src/app/workspace/`): overview (weekly
+numbers, needs attention), unified inbox (LinkedIn + email), Contacts (`people`: one per person,
+linked by `syncPeople`; someone who replied on one channel isn't contacted on another),
+do-not-contact list (`do_not_contact`, checked by every channel), settings, billing (owner only,
+Razorpay). M6 go-live (server, domain, plan pricing, team invites) is next. Phase 0's engine is done (`docs/PHASE-0-POC.md`); its
 7-day soak test still needs spare accounts and proxies.
 
 ## Tech stack

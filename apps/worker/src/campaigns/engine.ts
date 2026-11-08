@@ -2,6 +2,7 @@ import { Prisma, type Campaign, type CampaignLead, type PrismaClient } from "@in
 import { loadDnc } from "./do-not-contact.js";
 import {
   DNC_REASON,
+  REPLIED_ELSEWHERE,
   audienceIsFiltered,
   audienceSkip,
   campaignSettingsSchema,
@@ -198,13 +199,24 @@ async function queueDueLeads(deps: EngineDeps, c: Campaign, now: Date): Promise<
     },
     orderBy: [{ nextAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }],
     take: 200,
-    include: { lead: { select: { email: true } } },
+    include: { lead: { select: { email: true, personId: true } } },
   });
+  // Same person, other channel: anyone who replied to an email campaign isn't also contacted here.
+  const people = [...new Set(due.map((l) => l.lead?.personId).filter((x): x is string => !!x))];
+  const repliedByEmail = people.length
+    ? new Set(
+        (await prisma.emailLead.findMany({ where: { workspaceId: c.workspaceId, status: "REPLIED", contact: { personId: { in: people } } }, select: { contact: { select: { personId: true } } } })).map((r) => r.contact!.personId!),
+      )
+    : new Set<string>();
 
   let queued = 0;
   for (const lead of due) {
     if (blocked({ profileUrl: lead.profileUrl, company: lead.company, email: lead.lead?.email })) {
       await prisma.campaignLead.update({ where: { id: lead.id }, data: { state: "SKIPPED", reason: DNC_REASON, nextAt: null } });
+      continue;
+    }
+    if (lead.lead?.personId && repliedByEmail.has(lead.lead.personId)) {
+      await prisma.campaignLead.update({ where: { id: lead.id }, data: { state: "SKIPPED", reason: REPLIED_ELSEWHERE, nextAt: null } });
       continue;
     }
     if (allFull() && lead.state !== "QUEUED") continue;

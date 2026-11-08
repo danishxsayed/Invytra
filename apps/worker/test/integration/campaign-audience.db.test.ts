@@ -102,4 +102,21 @@ d("campaign audience", () => {
     }
     expect(await lead("aud-dnc", "fine")).toMatchObject({ state: "IN_PROGRESS" });
   });
+
+  it("doesn't contact someone on LinkedIn who already replied to an email campaign", async () => {
+    await prisma.person.create({ data: { id: "per-x", workspaceId: WS, linkedinSlug: "replied-by-email", email: "x@acme.io" } });
+    await prisma.leadList.create({ data: { id: "list-x", workspaceId: WS, name: "X" } });
+    await prisma.lead.createMany({
+      data: [
+        { workspaceId: WS, listId: "list-x", profileUrl: U("replied-by-email"), firstName: "X", personId: "per-x" },
+        { workspaceId: WS, listId: "list-x", profileUrl: U("not-replied"), firstName: "Y" },
+      ],
+    });
+    const contact = await prisma.emailContact.create({ data: { workspaceId: WS, email: "x@acme.io", personId: "per-x" } });
+    await prisma.emailCampaign.create({ data: { workspaceId: WS, name: "E", status: "ACTIVE", leads: { create: { workspaceId: WS, email: "x@acme.io", contactId: contact.id, status: "REPLIED" } } } });
+    await campaign("aud-x", "list-x", {});
+    await tick();
+    expect(await lead("aud-x", "replied-by-email")).toMatchObject({ state: "SKIPPED", reason: "Already replied on another channel" });
+    expect(await lead("aud-x", "not-replied")).toMatchObject({ state: "IN_PROGRESS" });
+  });
 });

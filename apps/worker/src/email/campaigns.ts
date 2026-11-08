@@ -3,6 +3,7 @@ import { loadDnc } from "../campaigns/do-not-contact.js";
 import {
   AI_COSTS,
   DNC_REASON,
+  REPLIED_ELSEWHERE,
   emailSequenceSchema,
   monthlyAiCredits,
   localDayStart,
@@ -90,9 +91,14 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
       where: { campaignId: c.id, status: "ACTIVE", nextAt: { lte: now } },
       orderBy: { nextAt: "asc" },
       take: d.batch ?? 50,
-      include: { contact: { select: { subscribed: true, bounceStatus: true, verification: true, verifyDetail: true } } },
+      include: { contact: { select: { subscribed: true, bounceStatus: true, verification: true, verifyDetail: true, personId: true } } },
     });
     if (!due.length) continue;
+    // Same person, other channel: anyone who replied on LinkedIn isn't also emailed.
+    const people = [...new Set(due.map((l) => l.contact?.personId).filter((x): x is string => !!x))];
+    const repliedOnLinkedin = people.length
+      ? new Set((await prisma.campaignLead.findMany({ where: { workspaceId: c.workspaceId, state: "REPLIED", lead: { personId: { in: people } } }, select: { lead: { select: { personId: true } } } })).map((r) => r.lead!.personId!))
+      : new Set<string>();
     const [fallbacks, suppressed, blocked] = await Promise.all([
       prisma.emailVariable.findMany({ where: { workspaceId: c.workspaceId, fallback: { not: "" } }, select: { key: true, fallback: true } }).then((v) => Object.fromEntries(v.map((x) => [x.key, x.fallback]))),
       prisma.emailSuppression.findMany({ where: { workspaceId: c.workspaceId }, select: { email: true } }).then((r) => new Set(r.map((x) => x.email))),
@@ -110,6 +116,8 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
               ? "On the suppression list"
               : blocked({ email: lead.email, company: lead.company })
                 ? DNC_REASON
+                : lead.contact?.personId && repliedOnLinkedin.has(lead.contact.personId)
+                  ? REPLIED_ELSEWHERE
                 : lead.contact?.verification === "INVALID"
                   ? `Failed verification: ${lead.contact.verifyDetail ?? "invalid address"}`
                   : null;

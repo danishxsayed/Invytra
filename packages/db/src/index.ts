@@ -33,3 +33,4 @@ export * from "./handwritten.js";
 export * from "./voice.js";
 export * from "./razorpay.js";
 export * from "./billing.js";
+export * from "./people.js";
