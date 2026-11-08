@@ -1,5 +1,7 @@
 import { Prisma, type Campaign, type CampaignLead, type PrismaClient } from "@invytra/db";
+import { loadDnc } from "./do-not-contact.js";
 import {
+  DNC_REASON,
   audienceIsFiltered,
   audienceSkip,
   campaignSettingsSchema,
@@ -184,6 +186,9 @@ async function queueDueLeads(deps: EngineDeps, c: Campaign, now: Date): Promise<
   const loadRows = await prisma.campaignLead.groupBy({ by: ["accountId"], where: { campaignId: c.id, accountId: { not: null } }, _count: { _all: true } });
   const load = new Map<string, number>(loadRows.map((r) => [r.accountId!, r._count._all]));
 
+  // The workspace's do-not-contact list: checked before every step, so a person added later stops too.
+  const blocked = await loadDnc(prisma, c.workspaceId);
+
   const due = await prisma.campaignLead.findMany({
     where: {
       campaignId: c.id,
@@ -193,10 +198,15 @@ async function queueDueLeads(deps: EngineDeps, c: Campaign, now: Date): Promise<
     },
     orderBy: [{ nextAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }],
     take: 200,
+    include: { lead: { select: { email: true } } },
   });
 
   let queued = 0;
   for (const lead of due) {
+    if (blocked({ profileUrl: lead.profileUrl, company: lead.company, email: lead.lead?.email })) {
+      await prisma.campaignLead.update({ where: { id: lead.id }, data: { state: "SKIPPED", reason: DNC_REASON, nextAt: null } });
+      continue;
+    }
     if (allFull() && lead.state !== "QUEUED") continue;
     const started = !!(lead.invitedAt || lead.messagedAt || lead.connectedAt);
     let accountId = lead.accountId;

@@ -76,4 +76,30 @@ d("campaign audience", () => {
     await tick();
     expect((await actionFor("aud-3", "plain"))?.payload).not.toHaveProperty("audience");
   });
+
+  it("never contacts anyone on the workspace's do-not-contact list (profile, company or email domain)", async () => {
+    await prisma.leadList.create({ data: { id: "list-dnc", workspaceId: WS, name: "DNC" } });
+    await prisma.lead.createMany({
+      data: [
+        { workspaceId: WS, listId: "list-dnc", profileUrl: U("blocked-person"), firstName: "Blocked" },
+        { workspaceId: WS, listId: "list-dnc", profileUrl: U("at-customer"), firstName: "Cust", company: "Acme, Inc." },
+        { workspaceId: WS, listId: "list-dnc", profileUrl: U("by-domain"), firstName: "Dom", email: "dom@mail.globex.com" },
+        { workspaceId: WS, listId: "list-dnc", profileUrl: U("fine"), firstName: "Fine", company: "Initech" },
+      ],
+    });
+    await prisma.doNotContact.createMany({
+      data: [
+        { workspaceId: WS, kind: "LINKEDIN", value: "blocked-person", label: U("blocked-person") },
+        { workspaceId: WS, kind: "COMPANY", value: "acme", label: "Acme" },
+        { workspaceId: WS, kind: "DOMAIN", value: "globex.com", label: "globex.com" },
+      ],
+    });
+    await campaign("aud-dnc", "list-dnc", {});
+    await tick();
+    for (const slug of ["blocked-person", "at-customer", "by-domain"]) {
+      expect(await lead("aud-dnc", slug)).toMatchObject({ state: "SKIPPED", reason: "On your do-not-contact list" });
+      expect(await actionFor("aud-dnc", slug)).toBeNull();
+    }
+    expect(await lead("aud-dnc", "fine")).toMatchObject({ state: "IN_PROGRESS" });
+  });
 });

@@ -16,6 +16,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
         user={{ name: me.user.name, email: me.user.email }}
         overview={hubHref("/")}
         settings={hubHref("/settings")}
+        dnc={hubHref("/do-not-contact")}
         billing={canSeeBilling(me) ? hubHref("/billing") : null}
         credits={{ left: ai.left, href: creditsHref(me) }}
       />

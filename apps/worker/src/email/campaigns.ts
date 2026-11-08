@@ -1,6 +1,8 @@
 import { emailBody, hardBounce, openSecret, publicOrigin, refundAiCredits, renderCard, sendEmail, softBounce, spendAiCredits, unsubscribeToken, unsubscribeUrls, type MailSender, type PrismaClient } from "@invytra/db";
+import { loadDnc } from "../campaigns/do-not-contact.js";
 import {
   AI_COSTS,
+  DNC_REASON,
   emailSequenceSchema,
   monthlyAiCredits,
   localDayStart,
@@ -91,9 +93,10 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
       include: { contact: { select: { subscribed: true, bounceStatus: true, verification: true, verifyDetail: true } } },
     });
     if (!due.length) continue;
-    const [fallbacks, suppressed] = await Promise.all([
+    const [fallbacks, suppressed, blocked] = await Promise.all([
       prisma.emailVariable.findMany({ where: { workspaceId: c.workspaceId, fallback: { not: "" } }, select: { key: true, fallback: true } }).then((v) => Object.fromEntries(v.map((x) => [x.key, x.fallback]))),
       prisma.emailSuppression.findMany({ where: { workspaceId: c.workspaceId }, select: { email: true } }).then((r) => new Set(r.map((x) => x.email))),
+      loadDnc(prisma, c.workspaceId),
     ]);
     for (const lead of due) {
       // Never email someone who unsubscribed, hard-bounced or is on the suppression list (checked again at send time).
@@ -105,9 +108,11 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
             ? "Bounced before (hard bounce)"
             : suppressed.has(lead.email) || suppressed.has(`@${domain}`) || suppressed.has(domain)
               ? "On the suppression list"
-              : lead.contact?.verification === "INVALID"
-                ? `Failed verification: ${lead.contact.verifyDetail ?? "invalid address"}`
-                : null;
+              : blocked({ email: lead.email, company: lead.company })
+                ? DNC_REASON
+                : lead.contact?.verification === "INVALID"
+                  ? `Failed verification: ${lead.contact.verifyDetail ?? "invalid address"}`
+                  : null;
       if (stop) {
         await prisma.emailLead.update({ where: { id: lead.id }, data: { status: "SKIPPED", nextAt: null, reason: stop } });
         res.skipped++;

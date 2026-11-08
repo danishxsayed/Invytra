@@ -50,6 +50,7 @@ model Workspace {
   aiUsage           AiCreditUse[]
   voices            VoiceClone[]
   billingProfile    BillingProfile?
+  doNotContact      DoNotContact[]
 
   @@map("workspaces")
 }
@@ -1045,4 +1046,31 @@ model InvoiceCounter {
   last Int @default(1000)
 
   @@map("invoice_counter")
+}
+
+enum DncKind {
+  LINKEDIN
+  EMAIL
+  DOMAIN
+  COMPANY
+}
+
+/// The workspace's do-not-contact list: no channel ever contacts these people, domains or companies.
+model DoNotContact {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  kind        DncKind
+  /// Normalised (profile slug, lowercased email/domain, company key) for matching
+  value       String
+  /// As it was typed, for showing
+  label       String
+  note        String?
+  addedBy     String?  @map("added_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, kind, value])
+  @@index([workspaceId, createdAt])
+  @@map("do_not_contact")
 }

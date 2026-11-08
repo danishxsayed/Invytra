@@ -1,6 +1,6 @@
 "use client";
 
-import { CreditCard, LayoutGrid, LogOut, Menu, Settings, X } from "lucide-react";
+import { Ban, CreditCard, LayoutGrid, LogOut, Menu, Settings, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/app/(auth)/actions";
@@ -13,6 +13,7 @@ export interface WorkspaceNavProps {
   user: { name: string; email: string };
   overview: string;
   settings: string;
+  dnc: string;
   /** Only for the workspace owner. */
   billing: string | null;
   credits: { left: number; href: string | null };
@@ -57,6 +58,7 @@ export function WorkspaceNav(p: WorkspaceNavProps) {
       </div>
       <nav aria-label="Workspace" className="flex flex-col gap-1">
         {item(p.overview, "Workspace overview", <LayoutGrid className="h-[18px] w-[18px]" aria-hidden />)}
+        {item(p.dnc, "Do-not-contact list", <Ban className="h-[18px] w-[18px]" aria-hidden />)}
         {item(p.settings, "Workspace settings", <Settings className="h-[18px] w-[18px]" aria-hidden />)}
         {p.billing && item(p.billing, "Billing", <CreditCard className="h-[18px] w-[18px]" aria-hidden />)}
       </nav>

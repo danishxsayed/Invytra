@@ -115,15 +115,27 @@ d("email campaign engine", () => {
         { workspaceId: WS, campaignId: "ec1", email: "unsub@z.co", contactId: contact.id, nextAt: now },
         { workspaceId: WS, campaignId: "ec1", email: "anyone@blocked.co", nextAt: now },
         { workspaceId: WS, campaignId: "ec1", email: "ok@fine.co", nextAt: now },
+        { workspaceId: WS, campaignId: "ec1", email: "ceo@customer.co", nextAt: now },
+        { workspaceId: WS, campaignId: "ec1", email: "x@y.co", company: "Rival Pvt Ltd", nextAt: now },
+      ],
+    });
+    // The workspace's do-not-contact list (shared with every channel): a domain and a company.
+    await prisma.doNotContact.createMany({
+      data: [
+        { workspaceId: WS, kind: "DOMAIN", value: "customer.co", label: "customer.co" },
+        { workspaceId: WS, kind: "COMPANY", value: "rival", label: "Rival" },
       ],
     });
     now = new Date("2026-11-05T07:00:00Z");
     sent.length = 0;
-    expect(await tick()).toMatchObject({ skipped: 2, sent: 1 });
+    expect(await tick()).toMatchObject({ skipped: 4, sent: 1 });
+    expect(await lead("ceo@customer.co")).toMatchObject({ status: "SKIPPED", reason: "On your do-not-contact list" });
+    expect(await lead("x@y.co")).toMatchObject({ status: "SKIPPED", reason: "On your do-not-contact list" });
     expect(await lead("unsub@z.co")).toMatchObject({ status: "SKIPPED", reason: "Unsubscribed" });
     expect(await lead("anyone@blocked.co")).toMatchObject({ status: "SKIPPED", reason: "On the suppression list" });
     expect(sent[0]).toMatchObject({ to: "ok@fine.co", text: expect.stringContaining("About slow months") });
-    await prisma.emailLead.deleteMany({ where: { email: { in: ["unsub@z.co", "anyone@blocked.co", "ok@fine.co"] } } });
+    await prisma.emailLead.deleteMany({ where: { email: { in: ["unsub@z.co", "anyone@blocked.co", "ok@fine.co", "ceo@customer.co", "x@y.co"] } } });
+    await prisma.doNotContact.deleteMany({ where: { workspaceId: WS } });
     await prisma.emailCampaign.update({ where: { id: "ec1" }, data: { status: "COMPLETED" } });
   });
 
