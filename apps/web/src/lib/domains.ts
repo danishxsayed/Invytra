@@ -50,10 +50,13 @@ export function channelOrigin(id: ChannelId, cfg = domainConfig()): string {
   return cfg.root ? `${cfg.protocol}//${c.subdomain}.${rootHost(cfg)}${portOf(cfg)}` : "";
 }
 
+/** Pages of the hub other than its home (served from /workspace/<page>). */
+export const HUB_PAGES = ["/credits", "/voices", "/settings", "/billing"];
+
 /** Link to a page of the hub, e.g. hubHref("/") → "https://app.invytra.com/" or "/workspace". */
 export function hubHref(path = "/", cfg = domainConfig()): string {
   // Single-host mode: the hub's "/" is /workspace ("/?denied=x" → "/workspace?denied=x").
-  if (!cfg.root) return path === "/" || path.startsWith("/?") ? `/workspace${path.slice(1)}` : path.startsWith("/credits") || path.startsWith("/voices") ? `/workspace${path}` : path;
+  if (!cfg.root) return path === "/" || path.startsWith("/?") ? `/workspace${path.slice(1)}` : HUB_PAGES.some((p) => path === p || path.startsWith(`${p}/`) || path.startsWith(`${p}?`) || path.startsWith(`${p}#`)) ? `/workspace${path}` : path;
   return `${hubOrigin(cfg)}${path}`;
 }
 

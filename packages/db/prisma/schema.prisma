@@ -49,6 +49,7 @@ model Workspace {
   verifyPurchases   VerifyCreditPurchase[]
   aiUsage           AiCreditUse[]
   voices            VoiceClone[]
+  billingProfile    BillingProfile?
 
   @@map("workspaces")
 }
@@ -963,6 +964,14 @@ model VerifyCreditPurchase {
   paymentRef  String?              @map("payment_ref")
   createdAt   DateTime             @default(now()) @map("created_at")
   paidAt      DateTime?            @map("paid_at")
+  /// The Razorpay order this payment goes through (null: paid by hand / before Razorpay)
+  razorpayOrderId String?          @unique @map("razorpay_order_id")
+  /// How it was paid, as Razorpay reports it (card, upi, netbanking …)
+  method          String?
+  /// Given when it's paid: INV-<year>-<number>, one sequence for all workspaces
+  invoiceNumber   String?          @unique @map("invoice_number")
+  /// Who it was billed to and by, frozen when paid (later edits to billing details don't change it)
+  invoice         Json?
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -1003,4 +1012,33 @@ model VoiceClone {
 
   @@index([workspaceId])
   @@map("voice_clones")
+}
+
+/// Who a workspace's invoices are made out to (owner-edited on the Billing page).
+model BillingProfile {
+  workspaceId String   @id @map("workspace_id")
+  legalName   String   @map("legal_name")
+  email       String
+  addressLine1 String  @map("address_line1")
+  addressLine2 String? @map("address_line2")
+  city        String
+  state       String?
+  postalCode  String?  @map("postal_code")
+  /// ISO 3166 two-letter code (IN, US …)
+  country     String
+  /// Indian GST number, when the customer has one (shown on invoices)
+  gstin       String?
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("billing_profiles")
+}
+
+/// Hands out invoice numbers in order (one row, id 1), shared by all workspaces.
+model InvoiceCounter {
+  id   Int @id @default(1)
+  last Int @default(1000)
+
+  @@map("invoice_counter")
 }

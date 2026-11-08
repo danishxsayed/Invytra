@@ -3,7 +3,7 @@
 import { Check, Loader2, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { changePasswordAction, renameWorkspaceAction, saveProfileAction, signOutOthersAction } from "@/app/app/settings/actions";
+import { changePasswordAction, renameWorkspaceAction, saveProfileAction, signOutOthersAction } from "@/app/workspace/settings/actions";
 import { btn } from "./AccountControls";
 import { Field, inputCls } from "./fields";
 

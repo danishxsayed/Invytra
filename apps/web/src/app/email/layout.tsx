@@ -1,3 +1,4 @@
+import { creditsHref } from "@/lib/workspace-nav";
 import { LayoutGrid } from "lucide-react";
 import { EmailNav } from "@/components/email/EmailNav";
 import { ChannelLogo } from "@/components/ChannelLogo";
@@ -22,7 +23,7 @@ export default async function EmailLayout({ children }: { children: React.ReactN
             <span className="hidden truncate rounded-full bg-stone-100 px-2.5 py-0.5 text-[13px] font-medium text-stone-600 sm:inline">{me.workspace.name}</span>
           </div>
           <EmailNav needsReply={needs} />
-          <CreditsChip left={ai.left} href={hubHref("/credits")} compact className="ml-auto" />
+          <CreditsChip left={ai.left} href={creditsHref(me)} compact className="ml-auto" />
           <a href={hubHref("/")} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 px-3 py-1.5 text-[14px] font-medium text-stone-600 hover:border-stone-300 hover:bg-stone-50">
             <LayoutGrid className="h-4 w-4 text-stone-400" aria-hidden /> All channels
           </a>

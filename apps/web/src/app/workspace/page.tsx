@@ -1,15 +1,11 @@
 import { prisma } from "@invytra/db";
 import { CHANNELS, canUseChannel, channelById } from "@invytra/shared";
-import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, LogOut, Mic, Plug, Settings } from "lucide-react";
-import { logout } from "@/app/(auth)/actions";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, Plug } from "lucide-react";
 import { ChannelLogo } from "@/components/ChannelLogo";
-import { LogoMark } from "@/components/LogoMark";
-import { Avatar, cx } from "@/components/ui";
+import { cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { channelSetup, type ChannelSetup } from "@/lib/channel-status";
 import { channelHref, hubHref } from "@/lib/domains";
-import { CreditsChip } from "@/components/credits/CreditsChip";
-import { getAiBalance } from "@/lib/ai-credits";
 
 export const metadata = { title: "Your workspace" };
 export const dynamic = "force-dynamic";
@@ -33,41 +29,10 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
       return { c, usable, setup: usable ? await channelSetup(prisma, me.workspace.id, c.id) : null };
     }),
   );
-  const ai = await getAiBalance(prisma, me.workspace.id);
   const notice = q.soon ? channelById(q.soon) : q.denied ? channelById(q.denied) : undefined;
-  const settingsHref = channelHref("linkedin", "/app/settings");
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-stone-200/70 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <LogoMark size={32} />
-            <span className="text-[18px] font-semibold tracking-tight text-stone-900">Invytra</span>
-            <span className="hidden truncate rounded-full bg-stone-100 px-2.5 py-0.5 text-[13px] font-medium text-stone-600 sm:inline">{me.workspace.name}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <CreditsChip left={ai.left} href={hubHref("/credits")} className="mr-1" />
-            <a href={hubHref("/voices")} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[14px] font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900">
-              <Mic className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">Your voice</span>
-            </a>
-            <a href={settingsHref} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[14px] font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900">
-              <Settings className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">Settings</span>
-            </a>
-            <span className="mx-1 hidden items-center gap-2 sm:flex">
-              <Avatar name={me.user.name} size="sm" />
-              <span className="max-w-[160px] truncate text-[14px] font-medium text-stone-800">{me.user.name}</span>
-            </span>
-            <form action={logout}>
-              <button className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[14px] font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900" title="Sign out">
-                <LogOut className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">Sign out</span>
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <div>
         <h1 className="text-[30px] font-semibold tracking-tight text-stone-900">Your workspace</h1>
         <p className="mt-1 text-[16px] text-stone-500">Every outreach channel in one place. One sign-in for all of them.</p>
 
@@ -131,7 +96,6 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
             );
           })}
         </ul>
-      </main>
     </div>
   );
 }

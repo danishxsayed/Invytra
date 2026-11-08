@@ -39,7 +39,7 @@ interface Props {
   /** The workspace hub with every outreach channel (another subdomain when ROOT_DOMAIN is set). */
   hubHref?: string;
   /** AI credits left and the Credits page link. */
-  aiCredits?: { left: number; href: string };
+  aiCredits?: { left: number; href: string | null };
 }
 
 const NAV: { href: string; label: string; icon: typeof Settings; soon?: boolean }[] = [
@@ -49,7 +49,6 @@ const NAV: { href: string; label: string; icon: typeof Settings; soon?: boolean 
   { href: "/app/inbox", label: "Inbox", icon: Inbox },
   { href: "/app/activity", label: "Activity", icon: Activity },
   { href: "/app/accounts", label: "Accounts", icon: Users },
-  { href: "/app/settings", label: "Settings", icon: Settings },
 ];
 
 function Logo() {

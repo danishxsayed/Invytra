@@ -1,3 +1,4 @@
+import { creditsHref } from "@/lib/workspace-nav";
 import { prisma } from "@invytra/db";
 import { cookies } from "next/headers";
 import { MainFrame } from "@/components/MainFrame";
@@ -14,7 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [accounts, needsReply, jar, ai] = await Promise.all([sidebarAccounts(prisma, me.workspace.id), needsReplyCount(prisma, me.workspace.id), cookies(), getAiBalance(prisma, me.workspace.id)]);
   return (
     <div className="min-h-screen lg:flex">
-      <Sidebar workspace={me.workspace.name} user={{ name: me.user.name, email: me.user.email }} accounts={accounts} needsReply={needsReply} collapsed={jar.get(SIDEBAR_COOKIE)?.value === "collapsed"} hubHref={hubHref("/")} aiCredits={{ left: ai.left, href: hubHref("/credits") }} />
+      <Sidebar workspace={me.workspace.name} user={{ name: me.user.name, email: me.user.email }} accounts={accounts} needsReply={needsReply} collapsed={jar.get(SIDEBAR_COOKIE)?.value === "collapsed"} hubHref={hubHref("/")} aiCredits={{ left: ai.left, href: creditsHref(me) }} />
       <main className="min-w-0 flex-1">
         <MainFrame>{children}</MainFrame>
       </main>

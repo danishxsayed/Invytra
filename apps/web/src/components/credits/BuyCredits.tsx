@@ -4,7 +4,8 @@ import { Check, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { AI_PACKS, VERIFY_PACKS, usd } from "@invytra/shared";
-import { cancelCreditOrderAction, orderCreditPackAction } from "@/app/workspace/credits/actions";
+import { cancelCreditOrderAction, confirmCheckoutAction, startCheckoutAction } from "@/app/workspace/billing/actions";
+import { payWithRazorpay } from "./razorpay-checkout";
 import { btn } from "../AccountControls";
 import { Modal } from "../Modal";
 import { cx } from "../ui";
@@ -19,25 +20,27 @@ export interface CreditOrder {
 
 const n = (v: number) => v.toLocaleString("en-US");
 
-/** Choosing an extra credit pack (verification or AI). Until card payment is live, an order is saved and completed by our team. */
+/** Choosing and paying for an extra credit pack (verification or AI) with Razorpay. Without Razorpay set up, the order waits for our team. */
 export function BuyCredits({ kind, orders, onClose }: { kind: "VERIFY" | "AI"; orders: CreditOrder[]; onClose: () => void }) {
   const packs = kind === "AI" ? AI_PACKS : VERIFY_PACKS;
   const what = kind === "AI" ? "AI" : "verification";
   const router = useRouter();
   const [busy, start] = useTransition();
   const [choice, setChoice] = useState(packs[0]!.id);
-  const [done, setDone] = useState<{ credits: number; priceCents: number } | null>(null);
+  const [done, setDone] = useState<{ credits: number; priceCents: number; paid: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pending = orders.filter((o) => o.status === "PENDING");
 
   if (done) {
     return (
-      <Modal title="Order saved" onClose={onClose}>
+      <Modal title={done.paid ? "Payment received" : "Order saved"} onClose={onClose}>
         <div className="space-y-4 text-[15px] text-stone-600">
           <p className="flex items-start gap-2">
             <Check className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden />
             <span>
-              {n(done.credits)} {what} credits for {usd(done.priceCents)}. Card payment is coming soon; until then our team will contact you to complete the payment, and the credits are added as soon as it's paid.
+              {done.paid
+                ? `${n(done.credits)} ${what} credits are in your workspace. The invoice is on the Billing page.`
+                : `${n(done.credits)} ${what} credits for ${usd(done.priceCents)}. Our team will contact you to complete the payment, and the credits are added as soon as it's paid.`}
             </span>
           </p>
           <div className="flex justify-end">
@@ -108,10 +111,28 @@ export function BuyCredits({ kind, orders, onClose }: { kind: "VERIFY" | "AI"; o
             onClick={() =>
               start(async () => {
                 setError(null);
-                const r = await orderCreditPackAction(choice);
+                const r = await startCheckoutAction(choice);
                 if (!r.ok) return setError(r.error);
-                setDone(r.value);
-                router.refresh();
+                const c = r.value;
+                if (c.kind === "manual") {
+                  setDone({ credits: c.credits, priceCents: c.priceCents, paid: false });
+                  return router.refresh();
+                }
+                try {
+                  const paid = await payWithRazorpay(c);
+                  if (!paid) {
+                    // Closed without paying: the order stays open (it can be paid or cancelled later).
+                    router.refresh();
+                    return setError("Payment not finished. Your order is saved below; you can pay again or cancel it.");
+                  }
+                  const ok = await confirmCheckoutAction({ purchaseId: c.purchaseId, orderId: paid.razorpay_order_id, paymentId: paid.razorpay_payment_id, signature: paid.razorpay_signature });
+                  if (!ok.ok) return setError(ok.error);
+                  setDone({ credits: ok.value.credits, priceCents: 0, paid: true });
+                  router.refresh();
+                } catch (e) {
+                  router.refresh();
+                  setError(e instanceof Error && e.message !== "blocked" ? e.message : "The payment window couldn't open. Check your connection or ad blocker and try again.");
+                }
               })
             }
           >

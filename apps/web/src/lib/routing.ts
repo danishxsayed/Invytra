@@ -1,10 +1,9 @@
 import { CHANNELS } from "@invytra/shared";
-import { hostKind, channelOrigin, domainConfig, hubOrigin, siteOrigin, type DomainConfig } from "./domains";
+import { HUB_PAGES, hostKind, channelOrigin, domainConfig, hubOrigin, siteOrigin, type DomainConfig } from "./domains";
 
 export type RouteDecision = { type: "next" } | { type: "rewrite"; path: string } | { type: "redirect"; url: string };
 
-/** Pages of the hub other than its home (served from /workspace/<page>). */
-export const HUB_PAGES = ["/credits", "/voices"];
+export { HUB_PAGES };
 const AUTH_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
 const is = (path: string, base: string) => path === base || path.startsWith(`${base}/`);
 

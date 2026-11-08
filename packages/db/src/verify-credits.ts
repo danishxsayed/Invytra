@@ -1,3 +1,4 @@
+import { completePurchase } from "./billing.js";
 import type { PrismaClient } from "@prisma/client";
 
 /*
@@ -41,15 +42,10 @@ export async function verifyCreditsLeft(prisma: PrismaClient, workspaceId: strin
 }
 
 /**
- * Marks a purchase paid and adds its credits (verification or AI, by its kind), once (a second call changes nothing).
- * Returns the credits added (0 if it was already paid or cancelled).
+ * Marks a purchase paid and adds its credits (verification or AI, by its kind), once (a second
+ * call changes nothing), with an invoice number. Returns the credits added (0 if it was already
+ * paid or cancelled).
  */
 export async function markVerifyPurchasePaid(prisma: PrismaClient, purchaseId: string, paymentRef: string | null, now = new Date()): Promise<number> {
-  return prisma.$transaction(async (tx) => {
-    const p = await tx.verifyCreditPurchase.updateMany({ where: { id: purchaseId, status: "PENDING" }, data: { status: "PAID", paidAt: now, paymentRef } });
-    if (!p.count) return 0;
-    const row = await tx.verifyCreditPurchase.findUniqueOrThrow({ where: { id: purchaseId } });
-    await tx.workspace.update({ where: { id: row.workspaceId }, data: row.kind === "AI" ? { aiExtra: { increment: row.credits } } : { verifyExtra: { increment: row.credits } } });
-    return row.credits;
-  });
+  return completePurchase(prisma, purchaseId, { ref: paymentRef ?? "manual" }, undefined, now);
 }
