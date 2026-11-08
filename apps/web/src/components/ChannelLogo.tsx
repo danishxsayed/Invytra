@@ -10,18 +10,18 @@ const LOGO: Record<ChannelId, { icon: typeof Mail; cls: string }> = {
 };
 
 /** A channel's mark on its hub card. */
-export function ChannelLogo({ id, muted, size = "md" }: { id: ChannelId; muted?: boolean; size?: "sm" | "md" }) {
+export function ChannelLogo({ id, muted, size = "md" }: { id: ChannelId; muted?: boolean; size?: "xs" | "sm" | "md" }) {
   const l = LOGO[id];
   return (
     <span
       aria-hidden
       className={cx(
         "flex shrink-0 items-center justify-center rounded-xl",
-        size === "md" ? "h-12 w-12" : "h-8 w-8 rounded-lg",
+        size === "md" ? "h-12 w-12" : size === "sm" ? "h-8 w-8 rounded-lg" : "h-[18px] w-[18px] rounded-[5px]",
         muted ? "bg-stone-200 text-stone-400" : l.cls,
       )}
     >
-      <l.icon className={size === "md" ? "h-6 w-6" : "h-4 w-4"} />
+      <l.icon className={size === "md" ? "h-6 w-6" : size === "sm" ? "h-4 w-4" : "h-2.5 w-2.5"} />
     </span>
   );
 }

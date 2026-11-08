@@ -51,7 +51,7 @@ export function channelOrigin(id: ChannelId, cfg = domainConfig()): string {
 }
 
 /** Pages of the hub other than its home (served from /workspace/<page>). */
-export const HUB_PAGES = ["/credits", "/voices", "/settings", "/billing", "/do-not-contact"];
+export const HUB_PAGES = ["/credits", "/voices", "/settings", "/billing", "/do-not-contact", "/inbox"];
 
 /** Link to a page of the hub, e.g. hubHref("/") → "https://app.invytra.com/" or "/workspace". */
 export function hubHref(path = "/", cfg = domainConfig()): string {

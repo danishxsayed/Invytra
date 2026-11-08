@@ -57,6 +57,7 @@ function whereFor(workspaceId: string, { filter = "needs_reply", accountId, camp
 const LEAD_SELECT = {
   id: true,
   profileUrl: true,
+  lead: { select: { photoUrl: true } },
   title: true,
   company: true,
   state: true,

@@ -99,7 +99,7 @@ export async function needsAttention(prisma: PrismaClient, me: CurrentUser, now 
     if (v.left < LOW_VERIFY) out.push({ id: "verify", tone: "warn", title: v.left === 0 ? "No email verification credits left" : `Only ${v.left} verification credits left`, detail: "New contacts can't be checked before sending.", action: billing("Add credits", "#credits") });
   }
 
-  if (waitingLi) out.push({ id: "li-replies", tone: "info", title: `${waitingLi} LinkedIn conversation${waitingLi === 1 ? "" : "s"} waiting for your reply`, detail: "They wrote last and it isn't marked done.", action: { label: "Open inbox", href: channelHref("linkedin", "/app/inbox") } });
-  if (waitingEmail) out.push({ id: "em-replies", tone: "info", title: `${waitingEmail} unread email repl${waitingEmail === 1 ? "y" : "ies"}`, detail: "Replies to your email campaigns.", action: { label: "Open inbox", href: channelHref("email", "/email/inbox") } });
+  if (waitingLi) out.push({ id: "li-replies", tone: "info", title: `${waitingLi} LinkedIn conversation${waitingLi === 1 ? "" : "s"} waiting for your reply`, detail: "They wrote last and it isn't marked done.", action: { label: "Open inbox", href: hubHref("/inbox?ch=linkedin") } });
+  if (waitingEmail) out.push({ id: "em-replies", tone: "info", title: `${waitingEmail} unread email repl${waitingEmail === 1 ? "y" : "ies"}`, detail: "Replies to your email campaigns.", action: { label: "Open inbox", href: hubHref("/inbox?ch=email") } });
   return out;
 }

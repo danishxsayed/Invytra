@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, CreditCard, LayoutGrid, LogOut, Menu, Settings, X } from "lucide-react";
+import { Ban, CreditCard, Inbox, LayoutGrid, LogOut, Menu, Settings, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/app/(auth)/actions";
@@ -14,6 +14,7 @@ export interface WorkspaceNavProps {
   overview: string;
   settings: string;
   dnc: string;
+  inbox: { href: string; waiting: number };
   /** Only for the workspace owner. */
   billing: string | null;
   credits: { left: number; href: string | null };
@@ -33,7 +34,7 @@ export function WorkspaceNav(p: WorkspaceNavProps) {
     const here = path.replace(/^\/workspace(?=\/|$)/, "") || "/";
     return page === "/" ? here === "/" : here === page || here.startsWith(`${page}/`);
   };
-  const item = (href: string, label: string, icon: React.ReactNode) => (
+  const item = (href: string, label: string, icon: React.ReactNode, badge?: number) => (
     <a
       href={href}
       aria-current={at(href) ? "page" : undefined}
@@ -44,6 +45,7 @@ export function WorkspaceNav(p: WorkspaceNavProps) {
     >
       {icon}
       <span className="min-w-0 flex-1 truncate">{label}</span>
+      {!!badge && <span className="rounded-full bg-stone-900 px-2 py-0.5 text-[12px] font-semibold text-white">{badge > 99 ? "99+" : badge}</span>}
     </a>
   );
 
@@ -58,6 +60,7 @@ export function WorkspaceNav(p: WorkspaceNavProps) {
       </div>
       <nav aria-label="Workspace" className="flex flex-col gap-1">
         {item(p.overview, "Workspace overview", <LayoutGrid className="h-[18px] w-[18px]" aria-hidden />)}
+        {item(p.inbox.href, "Inbox", <Inbox className="h-[18px] w-[18px]" aria-hidden />, p.inbox.waiting)}
         {item(p.dnc, "Do-not-contact list", <Ban className="h-[18px] w-[18px]" aria-hidden />)}
         {item(p.settings, "Workspace settings", <Settings className="h-[18px] w-[18px]" aria-hidden />)}
         {p.billing && item(p.billing, "Billing", <CreditCard className="h-[18px] w-[18px]" aria-hidden />)}
