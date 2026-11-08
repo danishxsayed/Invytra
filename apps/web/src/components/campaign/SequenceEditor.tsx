@@ -6,6 +6,7 @@ import { cx } from "../ui";
 import { TextTemplate } from "./TextTemplate";
 import { AiWriteToggle } from "./AiWriteToggle";
 import { CardEditor } from "./CardEditor";
+import { VoiceNoteEditor } from "./VoiceNoteEditor";
 
 const ICON = { VISIT: Eye, INVITE: UserPlus, MESSAGE: MessageSquare, LIKE_POST: ThumbsUp, FOLLOW: Plus, COMMENT: MessageCircle, EVENT: CalendarPlus } as const;
 const TONE = {
@@ -224,6 +225,7 @@ export function SequenceEditor({
                         placeholder={s.aiWrite ? "e.g. Thank them for connecting, refer to their work, offer a free 15-minute audit, link: https://…" : "Write your message…"}
                       />
                       <CardEditor card={s.card} onChange={(card) => set(i, { card })} />
+                      <VoiceNoteEditor voice={s.voice} onChange={(voice) => set(i, { voice })} />
                     </div>
                   )}
                 </div>

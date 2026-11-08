@@ -30,3 +30,4 @@ export * from "./verify.js";
 export * from "./verify-credits.js";
 export * from "./ai-credits.js";
 export * from "./handwritten.js";
+export * from "./voice.js";

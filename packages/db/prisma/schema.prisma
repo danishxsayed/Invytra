@@ -48,6 +48,7 @@ model Workspace {
   emailSuppressions EmailSuppression[]
   verifyPurchases   VerifyCreditPurchase[]
   aiUsage           AiCreditUse[]
+  voices            VoiceClone[]
 
   @@map("workspaces")
 }
@@ -981,4 +982,22 @@ model AiCreditUse {
 
   @@index([workspaceId, createdAt])
   @@map("ai_credit_uses")
+}
+
+/// A voice copied from a recording of the customer (for voice notes). The recording itself isn't
+/// kept: it goes to the voice provider, which keeps the copy under providerVoiceId.
+model VoiceClone {
+  id              String   @id @default(cuid())
+  workspaceId     String   @map("workspace_id")
+  name            String
+  providerVoiceId String   @map("provider_voice_id")
+  /// When and by whom "this is my own voice and I agree" was confirmed
+  consentAt       DateTime @map("consent_at")
+  consentByUserId String   @map("consent_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("voice_clones")
 }

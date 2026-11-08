@@ -24,5 +24,5 @@ export default {
     return cfg;
   },
   // Lead lists are uploaded as CSV text (up to 5 MB, see LEAD_IMPORT in @invytra/shared).
-  experimental: { serverActions: { bodySizeLimit: "6mb" } },
+  experimental: { serverActions: { bodySizeLimit: "12mb" } },
 };

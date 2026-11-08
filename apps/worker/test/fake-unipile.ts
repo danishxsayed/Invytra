@@ -31,6 +31,10 @@ export class FakeUnipile {
   rejectNotes = false;
   /** Images sent with a new message (handwritten cards). */
   attachments: { providerId: string; type: string; bytes: number }[] = [];
+  /** Voice messages sent. */
+  voiceMessages: { providerId: string; type: string; bytes: number }[] = [];
+  /** Make sending a voice message fail. */
+  failVoice = false;
   private n = 0;
 
   add(p: FakePerson) {
@@ -104,6 +108,9 @@ export class FakeUnipile {
       if (!chat) this.chats.push((chat = { id: `chat${++this.n}`, providerId: p.providerId, name: `${p.first} ${p.last}`, messages: [] }));
       const att = body.attachments as unknown;
       if (att instanceof Blob) this.attachments.push({ providerId: p.providerId, type: att.type, bytes: (await att.arrayBuffer()).byteLength });
+      const vm = body.voice_message as unknown;
+      if (this.failVoice && vm instanceof Blob) return json(500, { type: "errors/unexpected", title: "voice failed" });
+      if (vm instanceof Blob) this.voiceMessages.push({ providerId: p.providerId, type: vm.type, bytes: (await vm.arrayBuffer()).byteLength });
       chat.messages.push({ id: `msg${++this.n}`, text: String(body.text ?? ""), ts: new Date(Date.now() + this.n).toISOString(), mine: true });
       return json(201, { chat_id: chat.id });
     }

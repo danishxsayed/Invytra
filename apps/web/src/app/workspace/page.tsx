@@ -1,6 +1,6 @@
 import { prisma } from "@invytra/db";
 import { CHANNELS, canUseChannel, channelById } from "@invytra/shared";
-import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, LogOut, Plug, Settings } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, LogOut, Mic, Plug, Settings } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
 import { ChannelLogo } from "@/components/ChannelLogo";
 import { LogoMark } from "@/components/LogoMark";
@@ -48,6 +48,9 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
           </div>
           <div className="flex items-center gap-1.5">
             <CreditsChip left={ai.left} href={hubHref("/credits")} className="mr-1" />
+            <a href={hubHref("/voices")} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[14px] font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900">
+              <Mic className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">Your voice</span>
+            </a>
             <a href={settingsHref} className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[14px] font-medium text-stone-600 hover:bg-stone-100 hover:text-stone-900">
               <Settings className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">Settings</span>
             </a>

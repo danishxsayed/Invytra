@@ -1,7 +1,8 @@
-import { UnipileError, isPersonChat, type AiLineWriter, type LinkedinAccount, type PrismaClient, type UnipileClient, type UnipileUser } from "@invytra/db";
+import { UnipileError, isPersonChat, type AiLineWriter, type LinkedinAccount, type PrismaClient, type UnipileClient, type UnipileUser, type VoiceMaker } from "@invytra/db";
 import {
   COMMENT_MAX,
   MESSAGE_MAX,
+  VOICE_SCRIPT_MAX,
   NOTE_MAX,
   RESULTS_PER_PAGE,
   audienceSkip,
@@ -20,7 +21,7 @@ import type { InboxThread, ThreadMessage } from "../linkedin/inbox.js";
 import type { ConnectionStatus } from "../linkedin/profile.js";
 import { companyFromHeadline, type FoundPerson } from "../linkedin/search.js";
 import { NO_AI_LINE, NO_CREDITS, aiLineFor, aiWriteFor } from "./ai-line.js";
-import { cardImageFor, cardOf } from "./card.js";
+import { VoiceError, cardImageFor, cardOf, voiceNoteFor, voiceOf, type Made } from "./card.js";
 
 /**
  * Every campaign action for an account connected through Unipile: the same inputs and
@@ -31,6 +32,8 @@ export interface UnipileCtx {
   client: UnipileClient;
   /** Writes {aiLine}; undefined = from OPENAI_API_KEY, null = no AI. */
   ai?: AiLineWriter | null;
+  /** Reads voice notes; undefined = from ELEVENLABS_API_KEY, null = none. */
+  voice?: VoiceMaker | null;
   /** The account's id at Unipile. */
   accountId: string;
   account: Pick<LinkedinAccount, "id" | "timezone">;
@@ -208,27 +211,66 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
         const status = statusOf(u);
         if (status !== "CONNECTED") return { outcome: "SKIPPED", reason: `NOT_CONNECTED (${status})`, data };
         const guide = String(p.text ?? "").trim();
-        // A handwritten card for this person: its text filled in like a message (2 AI credits).
+        const vars = varsOf(p);
+        // Extras made for this person (paid in AI credits; paid back if not sent): a handwritten note, a voice note.
         const card = cardOf(p);
-        let image: Buffer | undefined;
-        if (card) {
-          const cardText = fillTemplate(card.text.trim(), varsOf(p), fullName(u));
-          if (cardText === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
-          const png = await cardImageFor(ctx, spec.campaignLeadId, { ...card, text: cardText });
-          if (png !== "NO_CREDITS") image = png;
-        }
+        const voiceAsk = voiceOf(p);
+        const cardText = card ? fillTemplate(card.text.trim(), vars, fullName(u)) : "";
+        if (cardText === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
+        const script = voiceAsk ? await fillFor(ctx, spec, voiceAsk.script.trim(), u, VOICE_SCRIPT_MAX) : "";
+        if (script === "skip") return { outcome: "SKIPPED", reason: NO_AI_LINE, data };
+        if (script === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
         const written = p.aiWrite === true ? await aiWriteFor(ctx, { campaignLeadId: spec.campaignLeadId, providerId: u.provider_id, guide, kind: "message", maxChars: Math.min(MESSAGE_MAX, 1200) }) : null;
-        if (!written && !guide && !image) return { outcome: "SKIPPED", reason: card ? "NO_AI_CREDITS" : "NO_AI_TEXT", data };
         const text = written ?? (guide ? await fillFor(ctx, spec, guide, u, MESSAGE_MAX) : "");
         if (text === "skip") return { outcome: "SKIPPED", reason: NO_AI_LINE, data };
         if (text === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
-        try {
-          await ctx.client.startChat(ctx.accountId, u.provider_id, text, image && { png: image, name: "note.png" });
-        } catch (e) {
-          if (e instanceof UnipileError && e.status === 422 && /no_connection/.test(e.type)) return { outcome: "SKIPPED", reason: "NOT_CONNECTED (NOT_CONNECTED)", data };
-          throw e;
+
+        const made = card ? await cardImageFor(ctx, spec.campaignLeadId, { ...card, text: cardText }) : null;
+        const image = made && made !== "NO_CREDITS" ? made : null;
+        let voice: Made<{ data: Buffer; name: string; type: string }> | null = null;
+        let voiceProblem = "";
+        if (voiceAsk) {
+          try {
+            const v = await voiceNoteFor(ctx, spec.campaignLeadId, voiceAsk.voiceId, script);
+            if (v === "NO_CREDITS") voiceProblem = "NO_AI_CREDITS";
+            else if (v === "NO_VOICE") voiceProblem = "NO_VOICE";
+            else voice = v;
+          } catch (e) {
+            // Something else is going: send it without the voice note. Nothing else: the action fails (and is retried).
+            if (!(text || image)) throw e;
+            voiceProblem = e instanceof VoiceError ? e.message : "VOICE_FAILED";
+          }
         }
-        return { outcome: "DONE", data: { ...data, ...(written && { aiWritten: true, text }), ...(image && { card: true }) } };
+        if (!text && !image && !voice) return { outcome: "SKIPPED", reason: voiceProblem || (card ? "NO_AI_CREDITS" : "NO_AI_TEXT"), data };
+
+        const notConnected = (e: unknown) => e instanceof UnipileError && e.status === 422 && /no_connection/.test(e.type);
+        if (text || image) {
+          try {
+            await ctx.client.startChat(ctx.accountId, u.provider_id, text, image ? { png: image.value, name: "note.png" } : undefined);
+          } catch (e) {
+            await image?.refund();
+            await voice?.refund();
+            if (notConnected(e)) return { outcome: "SKIPPED", reason: "NOT_CONNECTED (NOT_CONNECTED)", data };
+            throw e;
+          }
+        }
+        if (voice) {
+          try {
+            await ctx.client.startChat(ctx.accountId, u.provider_id, "", undefined, voice.value);
+          } catch (e) {
+            await voice.refund();
+            if (!(text || image)) {
+              if (notConnected(e)) return { outcome: "SKIPPED", reason: "NOT_CONNECTED (NOT_CONNECTED)", data };
+              throw e;
+            }
+            voiceProblem = e instanceof UnipileError ? `VOICE_NOT_SENT (${e.status})` : "VOICE_NOT_SENT";
+            voice = null;
+          }
+        }
+        return {
+          outcome: "DONE",
+          data: { ...data, ...(written && { aiWritten: true, text }), ...(image && { card: true }), ...(voice && { voice: true }), ...(voiceProblem && { voiceProblem }) },
+        };
       };
 
     case "LIKE_POST":

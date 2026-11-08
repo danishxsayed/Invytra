@@ -1,4 +1,5 @@
 import { cardSchema, unsignedCard } from "./card.js";
+import { scriptHasLink, voiceNoteSchema } from "./voice.js";
 import { z } from "zod";
 import type { Degree } from "./audience.js";
 import { outreachTextProblem } from "./text.js";
@@ -43,8 +44,15 @@ export const stepSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("EVENT"), delayDays: delay, eventUrl: z.string().max(300) }),
   /** aiWrite: AI writes the note for each person from their profile, using the note as its guide. */
   z.object({ type: z.literal("INVITE"), delayDays: delay, note: z.string().max(NOTE_MAX, `Notes can be at most ${NOTE_MAX} characters`), aiWrite: z.boolean().optional() }),
-  /** card: a handwritten card image sent with the message (2 AI credits each). */
-  z.object({ type: z.literal("MESSAGE"), delayDays: delay, text: z.string().max(MESSAGE_MAX, `Messages can be at most ${MESSAGE_MAX} characters`), aiWrite: z.boolean().optional(), card: cardSchema.optional() }),
+  /** card: a handwritten note image sent with the message (2 AI credits each). voice: a voice note in the customer's voice (5 each). */
+  z.object({
+    type: z.literal("MESSAGE"),
+    delayDays: delay,
+    text: z.string().max(MESSAGE_MAX, `Messages can be at most ${MESSAGE_MAX} characters`),
+    aiWrite: z.boolean().optional(),
+    card: cardSchema.optional(),
+    voice: voiceNoteSchema.optional(),
+  }),
 ]);
 export type CampaignStep = z.infer<typeof stepSchema>;
 
@@ -67,6 +75,15 @@ export function sequenceProblems(steps: CampaignStep[]): string[] {
   steps.forEach((s, i) => {
     const n = i + 1;
     if (s.type === "MESSAGE") {
+      if (s.voice) {
+        if (!s.voice.voiceId) out.push(`Step ${n}: pick the voice for the voice note.`);
+        if (!s.voice.script.trim()) out.push(`Step ${n}: write what the voice note says.`);
+        else {
+          const p = outreachTextProblem(s.voice.script);
+          if (p) out.push(`Step ${n}: the voice note ${p}.`);
+          else if (scriptHasLink(s.voice.script)) out.push(`Step ${n}: links don't work in a voice note; put the link in the message instead.`);
+        }
+      }
       if (s.card && !s.card.text.trim()) out.push(`Step ${n}: write what the handwritten note says.`);
       else if (s.card) {
         const p = outreachTextProblem(s.card.text);
@@ -74,7 +91,7 @@ export function sequenceProblems(steps: CampaignStep[]): string[] {
         else if (unsignedCard(s.card.text)) out.push(`Step ${n}: sign the handwritten note with your name (it still says "Your name").`);
       }
       if (!s.text.trim()) {
-        if (!s.aiWrite && !s.card) out.push(`Step ${n}: write the message.`);
+        if (!s.aiWrite && !s.card && !s.voice) out.push(`Step ${n}: write the message.`);
       } else {
         const p = outreachTextProblem(s.text);
         if (p) out.push(`Step ${n}: the message ${p}.`);

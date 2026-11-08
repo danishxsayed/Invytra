@@ -4,7 +4,7 @@ import { hostKind, channelOrigin, domainConfig, hubOrigin, siteOrigin, type Doma
 export type RouteDecision = { type: "next" } | { type: "rewrite"; path: string } | { type: "redirect"; url: string };
 
 /** Pages of the hub other than its home (served from /workspace/<page>). */
-export const HUB_PAGES = ["/credits"];
+export const HUB_PAGES = ["/credits", "/voices"];
 const AUTH_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
 const is = (path: string, base: string) => path === base || path.startsWith(`${base}/`);
 

@@ -68,7 +68,15 @@ async function checkRefs(prisma: PrismaClient, workspaceId: string, input: Campa
   if (input.listId && !(await prisma.leadList.findFirst({ where: { id: input.listId, workspaceId }, select: { id: true } }))) {
     return "Choose one of your lead lists.";
   }
-  return null;
+  return (await missingVoice(prisma, workspaceId, input.steps)) ?? null;
+}
+
+/** A voice note step whose voice isn't one of this workspace's (deleted, or not theirs). */
+async function missingVoice(prisma: PrismaClient, workspaceId: string, steps: CampaignInput["steps"]): Promise<string | null> {
+  const wanted = [...new Set(steps.flatMap((s) => (s.type === "MESSAGE" && s.voice?.voiceId ? [s.voice.voiceId] : [])))];
+  if (!wanted.length) return null;
+  const have = await prisma.voiceClone.count({ where: { workspaceId, id: { in: wanted } } });
+  return have === wanted.length ? null : "A voice note uses a voice that's been deleted. Pick one of your voices.";
 }
 
 export async function createCampaign(prisma: PrismaClient, workspaceId: string, input: CampaignInput): Promise<Result<string>> {
@@ -142,6 +150,8 @@ export async function launchProblems(prisma: PrismaClient, workspaceId: string, 
     out.push("The lead list is empty.");
   }
   out.push(...sequenceProblems(c.steps), ...audienceProblems(c.steps, c.settings), ...aiProblems(c.steps, c.settings.ai));
+  const voice = await missingVoice(prisma, workspaceId, c.steps);
+  if (voice) out.push(voice);
   return out;
 }
 

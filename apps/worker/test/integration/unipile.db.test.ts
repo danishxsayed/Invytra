@@ -1,5 +1,5 @@
 /** Accounts connected through Unipile run their actions through its API (only with TEST_DATABASE_URL). */
-import { PrismaClient, UnipileClient } from "@invytra/db";
+import { PrismaClient, UnipileClient, VoiceError } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AccountLock } from "../../src/browser/account-lock.js";
 import type { SessionManagerDeps } from "../../src/browser/session-manager.js";
@@ -298,5 +298,65 @@ d("Unipile accounts", () => {
     expect(fake.attachments.some((a) => a.providerId === "P-FAY")).toBe(false);
     expect(fake.chats.find((c) => c.providerId === "P-FAY")?.messages.at(-1)?.text).toBe("Hi Fay, a small note for you.");
     expect(await prisma.aiCreditUse.count({ where: { workspaceId: WS, action: "HANDWRITTEN" } })).toBe(before + 1);
+  });
+
+  it("sends a voice note in the customer's voice (5 AI credits), with or without text, and pays back what isn't sent", async () => {
+    const spoken: { voiceId: string; text: string }[] = [];
+    let refuse = false;
+    const voice = {
+      clone: async () => "v",
+      speak: async (voiceId: string, text: string) => {
+        if (refuse) throw new VoiceError("The voice service account is out of characters this month.");
+        spoken.push({ voiceId, text });
+        return Buffer.from("ID3 fake mp3 audio");
+      },
+      remove: async () => undefined,
+    };
+    await prisma.voiceClone.create({ data: { id: "vc-1", workspaceId: WS, name: "Tahur", providerVoiceId: "el-voice-1", consentAt: new Date(), consentByUserId: "u1" } });
+    const people = [["gus-k", "P-GUS", "Gus"], ["hal-m", "P-HAL", "Hal"], ["ivy-n", "P-IVY", "Ivy"], ["jo-p", "P-JO", "Jo"]] as const;
+    for (const [slug, pid, first] of people) {
+      fake.add({ slug, providerId: pid, first, last: "Test", distance: "FIRST_DEGREE" });
+      await prisma.campaignLead.create({ data: { id: `cl-${slug}`, campaignId: "uni-c", workspaceId: WS, profileUrl: `https://www.linkedin.com/in/${slug}/`, accountId: ACC, lastActionAt: new Date(Date.now() - 3_600_000) } });
+    }
+    const run = async (slug: string, payload: Record<string, unknown>) => {
+      const id = `uni-a${++n}`;
+      await prisma.action.create({ data: { accountId: ACC, type: "INBOX_SYNC", status: "SUCCEEDED", scheduledAt: new Date(), executedAt: new Date() } });
+      await prisma.action.create({ data: { id, accountId: ACC, type: "MESSAGE", status: "QUEUED", targetUrl: `https://www.linkedin.com/in/${slug}/`, payload: payload as never, scheduledAt: new Date(Date.now() - 1000), campaignLeadId: `cl-${slug}` } });
+      await processAction({ prisma, session, pacing: memoryPacingStore(), ignoreWorkingHours: true, gapScale: 0.001, unipile: client, voice }, id);
+      return prisma.action.findUniqueOrThrow({ where: { id } });
+    };
+    const used = (action: string) => prisma.aiCreditUse.aggregate({ where: { workspaceId: WS, action }, _sum: { credits: true } }).then((r) => r._sum.credits ?? 0);
+    await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: 0, aiExtra: 0, aiPeriod: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)) } });
+    const v0 = await used("VOICE");
+
+    // Voice note alone: read with their name, sent as a voice message.
+    const alone = await run("gus-k", { text: "", voice: { voiceId: "vc-1", script: "Hey {firstName}, quick hello from me!" } });
+    expect([alone.status, alone.error]).toEqual(["SUCCEEDED", null]);
+    expect(spoken.at(-1)).toEqual({ voiceId: "el-voice-1", text: "Hey Gus, quick hello from me!" });
+    expect(fake.voiceMessages.filter((m) => m.providerId === "P-GUS")).toHaveLength(1);
+    expect(fake.voiceMessages.at(-1)!.type).toMatch(/^audio\//);
+    expect(await used("VOICE")).toBe(v0 + 5);
+
+    // With text: the text first, then the voice note.
+    await run("hal-m", { text: "Hi {firstName}, sent you a voice note.", voice: { voiceId: "vc-1", script: "Hi {firstName}!" } });
+    expect(fake.chats.find((c) => c.providerId === "P-HAL")?.messages.map((m) => m.text)).toEqual(["Hi Hal, sent you a voice note.", ""]);
+    expect(await used("VOICE")).toBe(v0 + 10);
+
+    // The voice message fails to send: the text still went, the 5 credits come back.
+    fake.failVoice = true;
+    const half = await run("ivy-n", { text: "Hello {firstName}", voice: { voiceId: "vc-1", script: "Hi!" } });
+    fake.failVoice = false;
+    expect(half.status).toBe("SUCCEEDED");
+    expect((half.payload as { result: { voiceProblem?: string } }).result.voiceProblem).toMatch(/VOICE_NOT_SENT/);
+    expect(await used("VOICE")).toBe(v0 + 10);
+
+    // The voice service refuses and there's nothing else: fails, credits back. A deleted voice: skipped.
+    refuse = true;
+    const refused = await run("jo-p", { text: "", voice: { voiceId: "vc-1", script: "Hi!" } });
+    refuse = false;
+    expect(refused.status).not.toBe("SUCCEEDED");
+    expect(await used("VOICE")).toBe(v0 + 10);
+    const gone = await run("jo-p", { text: "", voice: { voiceId: "vc-deleted", script: "Hi!" } });
+    expect(gone.status).toBe("SKIPPED");
   });
 });

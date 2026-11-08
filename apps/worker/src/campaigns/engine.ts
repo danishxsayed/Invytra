@@ -295,6 +295,8 @@ async function enqueueStep(
   if ((plan.type === "CONNECTION_REQUEST" || plan.type === "MESSAGE") && plan.aiWrite) payload.aiWrite = true;
   // A handwritten card drawn for this person and sent with the message (2 AI credits).
   if (plan.type === "MESSAGE" && plan.card) payload.card = plan.card;
+  // A voice note in the customer's own voice (5 AI credits).
+  if (plan.type === "MESSAGE" && plan.voice) payload.voice = plan.voice;
   // {aiLine}: written when it goes out (accounts through Unipile); the fallback line otherwise.
   const ai = campaignSettingsSchema.safeParse(c.settings).data?.ai;
   if (ai?.fallback && [payload.note, payload.text].some((t) => typeof t === "string" && t.includes("{aiLine}"))) payload.aiFallback = ai.fallback;
