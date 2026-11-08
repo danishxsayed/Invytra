@@ -60,12 +60,16 @@ export type CampaignFull = Awaited<ReturnType<typeof getCampaign>>;
 const senderIds = (input: CampaignInput) => [...new Set(input.accountIds ?? [])];
 
 /** Accounts and list must belong to the same workspace. */
-async function checkRefs(prisma: PrismaClient, workspaceId: string, input: CampaignInput): Promise<string | null> {
+async function checkRefs(prisma: PrismaClient, workspaceId: string, input: CampaignInput, campaignId?: string): Promise<string | null> {
   const ids = senderIds(input);
   if (ids.length > MAX_SENDERS) return `Use at most ${MAX_SENDERS} senders in one campaign.`;
   if (ids.length && (await prisma.linkedinAccount.count({ where: { id: { in: ids }, workspaceId } })) !== ids.length) {
     return "Choose from your own LinkedIn accounts.";
   }
+  // Only connected accounts can be chosen (ones already sending in this campaign may stay while they reconnect).
+  const already = campaignId ? new Set((await prisma.campaignSender.findMany({ where: { campaignId }, select: { accountId: true } })).map((s) => s.accountId)) : new Set<string>();
+  const off = ids.length ? await prisma.linkedinAccount.findFirst({ where: { id: { in: ids.filter((i) => !already.has(i)) }, workspaceId, status: { not: "ACTIVE" } }, select: { label: true } }) : null;
+  if (off) return `“${off.label}” isn't connected. Reconnect it in Accounts, or choose another account.`;
   if (input.listId && !(await prisma.leadList.findFirst({ where: { id: input.listId, workspaceId }, select: { id: true } }))) {
     return "Choose one of your lead lists.";
   }
@@ -106,7 +110,7 @@ export async function createCampaign(prisma: PrismaClient, workspaceId: string, 
  */
 export async function updateCampaign(prisma: PrismaClient, workspaceId: string, id: string, input: CampaignInput): Promise<Result> {
   const current = await getCampaign(prisma, workspaceId, id);
-  const bad = await checkRefs(prisma, workspaceId, input);
+  const bad = await checkRefs(prisma, workspaceId, input, current.id);
   if (bad) return { ok: false, error: bad };
   if (current.status !== "DRAFT") {
     const reordered = current.steps.some((s, i) => input.steps[i]?.type !== s.type);

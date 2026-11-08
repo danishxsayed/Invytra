@@ -46,6 +46,7 @@ d("campaigns", () => {
       data: [
         { id: "acc-camp-a", workspaceId: A, label: "a", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE" },
         { id: "acc-camp-b", workspaceId: B, label: "b", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE" },
+        { id: "acc-camp-off", workspaceId: A, label: "Offline", proxyUrl: "", workingHours: {}, limits: {}, status: "DISCONNECTED" },
       ],
     });
     await prisma.leadList.createMany({ data: [{ id: "list-camp-a", workspaceId: A, name: "LA" }, { id: "list-camp-b", workspaceId: B, name: "LB" }] });
@@ -59,6 +60,8 @@ d("campaigns", () => {
   it("creates a draft with its own account and list only", async () => {
     expect(await createCampaign(prisma, A, input({ accountIds: ["acc-camp-a", "acc-camp-b"] }))).toMatchObject({ ok: false });
     expect(await createCampaign(prisma, A, input({ listId: "list-camp-b" }))).toMatchObject({ ok: false });
+    // Only connected accounts can be chosen.
+    expect(await createCampaign(prisma, A, input({ accountIds: ["acc-camp-off"] }))).toEqual({ ok: false, error: "“Offline” isn't connected. Reconnect it in Accounts, or choose another account." });
     const r = await createCampaign(prisma, A, input());
     expect(r.ok).toBe(true);
     id = r.ok ? r.value : "";
@@ -116,5 +119,12 @@ d("campaigns", () => {
     expect(await setCampaignStatus(prisma, A, id, "PAUSED")).toMatchObject({ ok: true });
     expect(await deleteCampaign(prisma, A, id)).toMatchObject({ ok: true });
     expect(await prisma.action.findUnique({ where: { id: queued.id } })).toMatchObject({ status: "SKIPPED", error: "CANCELLED", campaignLeadId: null });
+  });
+
+  it("a sender that disconnects later can stay on its campaign (but can't be added to another)", async () => {
+    const r = await createCampaign(prisma, A, input({ name: "Keeps sender" }));
+    const cid = r.ok ? r.value : "";
+    await prisma.campaignSender.create({ data: { campaignId: cid, accountId: "acc-camp-off" } }).catch(() => undefined);
+    expect(await updateCampaign(prisma, A, cid, input({ name: "Keeps sender", accountIds: ["acc-camp-a", "acc-camp-off"] }))).toMatchObject({ ok: true });
   });
 });

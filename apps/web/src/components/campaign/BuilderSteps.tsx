@@ -57,25 +57,40 @@ export function DetailsStep({
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {accounts.map((a) => {
               const on = accountIds.includes(a.id);
+              // Only connected accounts can be chosen; one already chosen can still be unticked.
+              const off = a.status !== "ACTIVE" && !on;
               return (
                 <label
                   key={a.id}
+                  title={off ? "Not connected: reconnect it in Accounts to send from it." : undefined}
                   className={cx(
-                    "flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-2.5 transition",
-                    on ? "border-stone-900 bg-white ring-1 ring-stone-900" : "border-stone-200 bg-stone-50/60 hover:border-stone-300",
+                    "flex items-center gap-3 rounded-xl border px-3.5 py-2.5 transition",
+                    off ? "cursor-not-allowed border-stone-200 bg-stone-100/70 opacity-70" : "cursor-pointer",
+                    !off && (on ? "border-stone-900 bg-white ring-1 ring-stone-900" : "border-stone-200 bg-stone-50/60 hover:border-stone-300"),
                   )}
                 >
-                  <input type="checkbox" className="sr-only" checked={on} onChange={() => onToggle(a.id)} />
+                  <input type="checkbox" className="sr-only" checked={on} disabled={off} onChange={() => onToggle(a.id)} />
                   <span aria-hidden className={cx("flex h-5 w-5 shrink-0 items-center justify-center rounded-md border", on ? "border-stone-900 bg-stone-900 text-white" : "border-stone-300 bg-white")}>
                     {on && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-semibold text-stone-900">{a.label}</span>
                     <span className="block truncate text-[13px] text-stone-500">
-                      {a.profileName ? `${a.profileName} · ` : ""}
-                      <span className={a.status === "ACTIVE" ? "" : "text-amber-700"}>{STATUS_TEXT[a.status] ?? a.status}</span> · {inviteLimit(a)} invites/day
+                      {a.status === "ACTIVE" ? (
+                        <>
+                          {a.profileName ? `${a.profileName} · ` : ""}
+                          {STATUS_TEXT.ACTIVE} · {inviteLimit(a)} invites/day
+                        </>
+                      ) : (
+                        <span className="font-medium text-amber-700">{STATUS_TEXT[a.status] ?? a.status}</span>
+                      )}
                     </span>
                   </span>
+                  {a.status !== "ACTIVE" && (
+                    <Link href={`/app/accounts/${a.id}`} className="shrink-0 text-[13px] font-semibold text-brand-800 underline" onClick={(e) => e.stopPropagation()}>
+                      Reconnect
+                    </Link>
+                  )}
                 </label>
               );
             })}

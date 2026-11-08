@@ -13,7 +13,7 @@ import {
 } from "@invytra/shared";
 import { AlertCircle, ArrowLeft, ArrowRight, Loader2, Rocket } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { saveCampaignAction } from "@/app/app/campaigns/actions";
 import type { BuilderOptions } from "@/lib/campaigns";
 import { stepLabel } from "@/lib/campaign-text";
@@ -21,6 +21,7 @@ import { btn } from "../AccountControls";
 import { ImportLeads } from "../ImportLeads";
 import { Card, cx } from "../ui";
 import { DetailsStep, LaunchModal, LeadsStep, inviteLimit } from "./BuilderSteps";
+import { LeaveGuard } from "./LeaveGuard";
 import { ConfigureStep } from "./ConfigureStep";
 import { Preview } from "./Preview";
 import { SequenceEditor } from "./SequenceEditor";
@@ -55,7 +56,8 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
   const router = useRouter();
   const launched = !!initial && initial.status !== "DRAFT";
   const [name, setName] = useState(initial?.name ?? "");
-  const [accountIds, setAccountIds] = useState<string[]>(initial?.accountIds ?? (options.accounts.length === 1 ? [options.accounts[0]!.id] : []));
+  const connected = options.accounts.filter((a) => a.status === "ACTIVE");
+  const [accountIds, setAccountIds] = useState<string[]>(initial?.accountIds ?? (connected.length === 1 ? [connected[0]!.id] : []));
   const [listId, setListId] = useState(initial?.listId ?? presetListId ?? "");
   const [steps, setSteps] = useState<CampaignStep[]>(initial?.steps ?? []);
   const [settings, setSettings] = useState<CampaignSettings>(initial?.settings ?? NEW_SETTINGS);
@@ -67,6 +69,11 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
   const [pending, start] = useTransition();
   const [importing, setImporting] = useState(false);
 
+  // Unsaved changes: compared with what the page opened with.
+  const snapshot = JSON.stringify({ name, accountIds, listId, steps, settings });
+  const opened = useRef(snapshot);
+  const dirty = snapshot !== opened.current;
+
   const senders = options.accounts.filter((a) => accountIds.includes(a.id));
   const list = options.lists.find((l) => l.id === listId);
 
@@ -75,8 +82,8 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
     const details: string[] = [];
     if (!name.trim()) details.push("Give the campaign a name.");
     if (senders.length === 0) details.push("Choose at least one LinkedIn account to send from.");
-    else if (senders.every((a) => a.status === "DISCONNECTED")) {
-      details.push(senders.length === 1 ? `Connect “${senders[0]!.label}” to LinkedIn first.` : "Connect at least one of the chosen accounts to LinkedIn first.");
+    else if (senders.every((a) => a.status !== "ACTIVE")) {
+      details.push(senders.length === 1 ? `Reconnect “${senders[0]!.label}” first, or choose a connected account.` : "Choose at least one connected account.");
     }
     const leads: string[] = [];
     if (!listId) leads.push("Choose a lead list.");
@@ -110,12 +117,21 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  /** Saves as a draft (or saves a launched campaign's changes), then leaves for `href`. */
+  const saveAndGo = async (href: string): Promise<string | null> => {
+    const r = await saveCampaignAction(initial?.id ?? null, { name, accountIds, listId: listId || null, steps, settings }, false);
+    if (!r.ok) return r.error;
+    location.assign(href);
+    return null;
+  };
+
   const save = (launch: boolean) => {
     if (launch) primeSound();
     start(async () => {
       setError(null);
       const r = await saveCampaignAction(initial?.id ?? null, { name, accountIds, listId: listId || null, steps, settings }, launch);
       if (!r.ok) return setError(r.error);
+      opened.current = snapshot;
       setConfirm(false);
       if (r.value.launchError) setError(`Saved as a draft. ${r.value.launchError}`);
       else if (launch) playLaunchSound();
@@ -136,6 +152,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
 
   return (
     <div className="grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)]">
+      <LeaveGuard dirty={dirty && !pending} launched={launched} canSave={name.trim() ? null : "give the campaign a name first (step 1)."} onSaveAndGo={saveAndGo} />
       <div className="min-w-0 lg:sticky lg:top-6 lg:self-start">
         <Stepper steps={STEPS} current={current} done={done} canOpen={canOpen} onOpen={go} />
       </div>
