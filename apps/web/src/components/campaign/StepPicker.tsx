@@ -58,7 +58,7 @@ function newStep(kind: Kind, steps: CampaignStep[]): CampaignStep {
   if (kind === "INVITE") return { type: "INVITE", delayDays: days, note: "" };
   if (kind === "MESSAGE") return { type: "MESSAGE", delayDays: days, text: "" };
   // A message step that sends a voice note (the voice is picked in the step; text is optional).
-  if (kind === "VOICE") return { type: "MESSAGE", delayDays: days, text: "", voice: { voiceId: "", script: VOICE_STARTER } };
+  if (kind === "VOICE") return { type: "MESSAGE", delayDays: days, text: "", voice: { voiceId: "", script: VOICE_STARTER }, voiceOnly: true };
   if (kind === "FOLLOW") return { type: "FOLLOW", delayDays: days };
   if (kind === "LIKE_POST") return { type: "LIKE_POST", delayDays: days };
   if (kind === "COMMENT") return { type: "COMMENT", delayDays: days, text: "" };

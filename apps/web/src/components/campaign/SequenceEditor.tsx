@@ -78,7 +78,7 @@ export function SequenceEditor({
 
       <ol className="relative space-y-3 before:absolute before:bottom-6 before:left-[19px] before:top-6 before:w-px before:bg-stone-200">
         {steps.map((s, i) => {
-          const voiceOnly = s.type === "MESSAGE" && !!s.voice && !s.text.trim();
+          const voiceOnly = s.type === "MESSAGE" && (!!s.voiceOnly || (!!s.voice && !s.text.trim()));
           const Icon = s.type === "MESSAGE" && s.voice ? Mic : ICON[s.type];
           const prev = steps[i - 1];
           const n = s.type === "MESSAGE" ? ++messageNo : 0;
@@ -214,7 +214,12 @@ export function SequenceEditor({
                       skipped and the sequence carries on.
                     </p>
                   )}
-                  {s.type === "MESSAGE" && (
+                  {s.type === "MESSAGE" && s.voiceOnly && (
+                    <div className="mt-3">
+                      <VoiceNoteEditor fixed voice={s.voice ?? { voiceId: "", script: "" }} onChange={(voice) => voice && set(i, { voice, text: "", aiWrite: undefined, card: undefined })} />
+                    </div>
+                  )}
+                  {s.type === "MESSAGE" && !s.voiceOnly && (
                     <div className="mt-3">
                       <AiWriteToggle kind="message" on={!!s.aiWrite} onChange={(v) => set(i, { aiWrite: v || undefined })} />
                       <TextTemplate

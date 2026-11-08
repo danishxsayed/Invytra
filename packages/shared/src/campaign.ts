@@ -52,6 +52,8 @@ export const stepSchema = z.discriminatedUnion("type", [
     aiWrite: z.boolean().optional(),
     card: cardSchema.optional(),
     voice: voiceNoteSchema.optional(),
+    /** A "Send voice message" step: only the voice note (no text, AI writer or handwritten note). */
+    voiceOnly: z.boolean().optional(),
   }),
 ]);
 export type CampaignStep = z.infer<typeof stepSchema>;
@@ -75,6 +77,7 @@ export function sequenceProblems(steps: CampaignStep[]): string[] {
   steps.forEach((s, i) => {
     const n = i + 1;
     if (s.type === "MESSAGE") {
+      if (s.voiceOnly && !s.voice) out.push(`Step ${n}: set up the voice note.`);
       if (s.voice) {
         if (!s.voice.voiceId) out.push(`Step ${n}: pick the voice for the voice note.`);
         if (!s.voice.script.trim()) out.push(`Step ${n}: write what the voice note says.`);

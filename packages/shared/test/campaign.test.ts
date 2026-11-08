@@ -55,6 +55,8 @@ describe("sequence rules", () => {
     expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", aiWrite: true }])).toEqual([]);
     // A voice note can go alone; it needs a voice and a script without links.
     expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", voice: { voiceId: "v1", script: "Hey {firstName}, quick hello!" } }])).toEqual([]);
+    expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", voiceOnly: true, voice: { voiceId: "v1", script: "Hi {firstName}" } }])).toEqual([]);
+    expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", voiceOnly: true }])).toEqual(["Step 1: set up the voice note.", "Step 1: write the message."]);
     expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", voice: { voiceId: "", script: "Visit www.x.com" } }])).toEqual(["Step 1: pick the voice for the voice note.", "Step 1: links don't work in a voice note; put the link in the message instead."]);
     expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", card: { text: "Hi!\n\nBest,\nYour name", style: "lined", font: "neat" } }])[0]).toMatch(/sign the handwritten note/);
     expect(sequenceProblems([{ type: "INVITE", delayDays: 0, note: "Hi {firstName}, …" }])[0]).toMatch(/note contains/);
