@@ -137,15 +137,19 @@ export async function setDone(prisma: PrismaClient, workspaceId: string, ids: st
   return { ok: true, value: r.count };
 }
 
-export const SUGGESTED_TAGS = ["Interested", "Not interested", "Meeting booked", "Follow up later", "Wrong person"];
+export const MEETING_TAG = "Meeting booked";
+export const SUGGESTED_TAGS = ["Interested", "Not interested", MEETING_TAG, "Follow up later", "Wrong person"];
 
 /** Replace a conversation's tags (each 1–30 characters, at most 8). */
 export async function setTags(prisma: PrismaClient, workspaceId: string, id: string, tags: string[]): Promise<Result<string[]>> {
   const clean = [...new Set(tags.map((t) => t.replace(/\s+/g, " ").trim()).filter(Boolean))];
   if (clean.some((t) => t.length > 30)) return { ok: false, error: "Keep tags under 30 characters." };
   if (clean.length > 8) return { ok: false, error: "Use at most 8 tags on one conversation." };
-  const r = await prisma.conversation.updateMany({ where: { id, account: { workspaceId } }, data: { tags: clean } });
-  if (r.count === 0) return { ok: false, error: "That conversation wasn't found." };
+  const c = await prisma.conversation.findFirst({ where: { id, account: { workspaceId } }, select: { meetingAt: true } });
+  if (!c) return { ok: false, error: "That conversation wasn't found." };
+  // "Meeting booked" counts on the overview from when it was first tagged; removing it uncounts it.
+  const meeting = clean.some((t) => t.toLowerCase() === MEETING_TAG.toLowerCase());
+  await prisma.conversation.update({ where: { id }, data: { tags: clean, meetingAt: meeting ? (c.meetingAt ?? new Date()) : null } });
   return { ok: true, value: clean };
 }
 

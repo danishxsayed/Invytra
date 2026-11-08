@@ -492,6 +492,8 @@ model Conversation {
   /// Marked handled in Invytra (cleared when they write again)
   doneAt          DateTime? @map("done_at")
   tags            String[]  @default([])
+  /// When it was tagged "Meeting booked" (cleared when the tag is removed): counted on the overview
+  meetingAt       DateTime? @map("meeting_at")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
@@ -766,6 +768,8 @@ model EmailLead {
   repliedAt       DateTime?       @map("replied_at")
   /// Inbox: marked done (until they write again)
   inboxDoneAt     DateTime?       @map("inbox_done_at")
+  /// When a meeting was booked with them (marked in the inbox): counted on the overview
+  meetingAt      DateTime? @map("meeting_at")
   createdAt       DateTime        @default(now()) @map("created_at")
 
   campaign     EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)

@@ -2,10 +2,13 @@ import { prisma } from "@invytra/db";
 import { CHANNELS, canUseChannel, channelById } from "@invytra/shared";
 import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, Plug } from "lucide-react";
 import { ChannelLogo } from "@/components/ChannelLogo";
+import { NeedsAttention } from "@/components/overview/NeedsAttention";
+import { WeekStrip, type Stat } from "@/components/overview/WeekStrip";
 import { cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { channelSetup, type ChannelSetup } from "@/lib/channel-status";
 import { channelHref, hubHref } from "@/lib/domains";
+import { needsAttention, replyRate, weekNumbers } from "@/lib/overview";
 
 export const metadata = { title: "Your workspace" };
 export const dynamic = "force-dynamic";
@@ -29,12 +32,28 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
       return { c, usable, setup: usable ? await channelSetup(prisma, me.workspace.id, c.id) : null };
     }),
   );
+  const [{ week, before }, attention] = await Promise.all([weekNumbers(prisma, me.workspace.id), needsAttention(prisma, me)]);
+  const fmt = (v: number) => v.toLocaleString("en-US");
+  const change = (now: number, then: number, unit = ""): Stat["change"] => {
+    if (!now && !then) return null;
+    const d = Math.round((now - then) * 10) / 10;
+    return { text: d === 0 ? "Same as last week" : `${d > 0 ? "+" : "−"}${fmt(Math.abs(d))}${unit} vs last week`, dir: d > 0 ? "up" : d < 0 ? "down" : "same" };
+  };
+  const rate = replyRate(week);
+  const rateBefore = replyRate(before);
+  const split = (li: number, em: number) => `LinkedIn ${fmt(li)} · Email ${fmt(em)}`;
+  const stats: Stat[] = [
+    { label: "People contacted", value: fmt(week.contacted), change: change(week.contacted, before.contacted), split: split(week.byChannel.linkedin.contacted, week.byChannel.email.contacted) },
+    { label: "Replies", value: fmt(week.replies), change: change(week.replies, before.replies), split: split(week.byChannel.linkedin.replies, week.byChannel.email.replies) },
+    { label: "Reply rate", value: rate === null ? "—" : `${rate}%`, change: rate === null || rateBefore === null ? null : change(rate, rateBefore, " pts") },
+    { label: "Meetings booked", value: fmt(week.meetings), change: change(week.meetings, before.meetings) },
+  ];
   const notice = q.soon ? channelById(q.soon) : q.denied ? channelById(q.denied) : undefined;
 
   return (
     <div>
         <h1 className="text-[30px] font-semibold tracking-tight text-stone-900">Your workspace</h1>
-        <p className="mt-1 text-[16px] text-stone-500">Every outreach channel in one place. One sign-in for all of them.</p>
+        <p className="mt-1 text-[16px] text-stone-500">The last 7 days across every channel, what needs you, and your channels.</p>
 
         {notice && (
           <p role="status" className="mt-5 flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">
@@ -45,7 +64,13 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
           </p>
         )}
 
-        <ul className="mt-8 grid gap-4 sm:grid-cols-2">
+        <div className="mt-7 space-y-4">
+          <WeekStrip stats={stats} />
+          <NeedsAttention items={attention} />
+        </div>
+
+        <h2 className="mt-10 text-[13px] font-semibold uppercase tracking-wider text-stone-400">Channels</h2>
+        <ul className="mt-3 grid gap-4 sm:grid-cols-2">
           {cards.map(({ c, usable, setup }) => {
             const soon = c.status !== "live";
             const tone = setup ? SETUP_TONE[setup.state] : null;
