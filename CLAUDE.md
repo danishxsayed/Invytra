@@ -19,8 +19,8 @@ M3 (lead lists) and M4 (campaigns: sequence builder + worker engine in
 multi-sender campaigns are built too (`campaign_senders`; each lead is assigned one sender in
 `campaign_leads.account_id` and keeps it; removed senders' uncontacted leads move to others);
 Workspace level (hub, outside every channel; `apps/web/src/app/workspace/`): overview (weekly
-numbers, needs attention), unified inbox (LinkedIn + email), Contacts (`people`: one per person,
-linked by `syncPeople`; someone who replied on one channel isn't contacted on another),
+numbers, needs attention), unified inbox (LinkedIn + email), people matched across channels (`people`, linked by
+`syncPeople`, no page of its own; someone who replied on one channel isn't contacted on another),
 do-not-contact list (`do_not_contact`, checked by every channel), settings, billing (owner only,
 Razorpay). Message extras (LinkedIn, paid in AI credits): handwritten notes, voice notes (ElevenLabs
 voice copies, `/workspace/voices`) and video notes (`/workspace/videos`: one recording, the opening
