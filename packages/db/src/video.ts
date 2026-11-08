@@ -60,6 +60,16 @@ export interface VideoInfo {
   hasAudio: boolean;
 }
 
+/** ffmpeg's atempo takes 0.5–2 per step: chained for bigger changes. */
+function atempo(rate: number): string {
+  const steps: string[] = [];
+  let r = rate;
+  while (r < 0.5) (steps.push("atempo=0.5"), (r /= 0.5));
+  while (r > 2) (steps.push("atempo=2"), (r /= 2));
+  steps.push(`atempo=${r.toFixed(4)}`);
+  return steps.join(",");
+}
+
 /** How long an audio or video file is, in ms. */
 export async function mediaMs(file: string): Promise<number> {
   const raw = await run(ffprobeBin(), ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", file], 30_000);
@@ -131,7 +141,8 @@ export async function personalVideo(recording: string, introMs: number, greeting
     const info = await probeVideo(recording);
     const intro = Math.min(introMs, Math.max(0, info.durationMs - 1000)) / 1000;
     // The face for the greeting (no sound: the new greeting replaces it).
-    await ffmpeg(["-i", recording, "-t", String(intro), "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", f("intro.mp4")]);
+    // Keeps its own sound ("Hi there,"): some services need the original speech to read the face.
+    await ffmpeg(["-i", recording, "-t", String(intro), "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", ...AUDIO_OUT, f("intro.mp4")]);
     // The greeting without the silence around it, and a short breath after.
     await writeFile(f("greeting.mp3"), greeting);
     const trim = "silenceremove=start_periods=1:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_threshold=-45dB,areverse,apad=pad_dur=0.2";
@@ -146,7 +157,7 @@ export async function personalVideo(recording: string, introMs: number, greeting
     } else {
       await writeFile(f("greeting.wav"), await readFile(f("said.wav")));
       const slow = (said / faceMs).toFixed(4);
-      await ffmpeg(["-i", f("intro.mp4"), "-vf", `setpts=${slow}*PTS`, "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", f("intro-slow.mp4")]);
+      await ffmpeg(["-i", f("intro.mp4"), "-filter_complex", `[0:v]setpts=${slow}*PTS[v];[0:a]${atempo(1 / Number(slow))}[a]`, "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", ...AUDIO_OUT, f("intro-slow.mp4")]);
       await rename(f("intro-slow.mp4"), f("intro.mp4"));
     }
 

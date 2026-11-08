@@ -65,9 +65,11 @@ withFfmpeg("recordings and personal videos (ffmpeg)", () => {
         writeFileSync(p("fv.mp4"), video);
         writeFileSync(p("fa.wav"), audio);
         sent = { video: await mediaMs(p("fv.mp4")), audio: await mediaMs(p("fa.wav")) };
+        // Like HeyGen: the face clip keeps its own speech, and face and audio must be within 15% of each other.
+        if (!(await probeVideo(p("fv.mp4"))).hasAudio) throw new VideoError("The video has no audio track.");
         // Like HeyGen: face and audio must be within 15% of each other.
         if (Math.abs(sent.video - sent.audio) > 0.15 * Math.max(sent.video, sent.audio)) throw new VideoError("durations too different");
-        ff("-stream_loop", "-1", "-i", p("fv.mp4"), "-i", p("fa.wav"), "-shortest", "-c:v", "libx264", "-c:a", "aac", p("fs.mp4"));
+        ff("-stream_loop", "-1", "-i", p("fv.mp4"), "-i", p("fa.wav"), "-map", "0:v", "-map", "1:a", "-shortest", "-c:v", "libx264", "-c:a", "aac", p("fs.mp4"));
         return readFileSync(p("fs.mp4"));
       },
     };
