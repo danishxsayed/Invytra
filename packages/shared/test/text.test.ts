@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fillTemplate, missingVariables, outreachTextProblem } from "../src/index.js";
+import { fillTemplate, livePhoto, missingVariables, outreachTextProblem } from "../src/index.js";
 
 describe("outreachTextProblem", () => {
   it.each([
@@ -32,5 +32,17 @@ describe("templates", () => {
   });
   it("lists variables the lead can't fill", () => {
     expect(missingVariables("{firstName} at {company} as {title}", { company: "Acme" })).toEqual(["title"]);
+  });
+});
+
+describe("livePhoto", () => {
+  it("keeps LinkedIn photo links until they expire", () => {
+    const now = new Date("2026-11-08T00:00:00Z");
+    const url = (e: number) => `https://media.licdn.com/dms/image/v2/X/profile-displayphoto-shrink_100_100/0/1?e=${e}&v=beta&t=abc`;
+    expect(livePhoto(url(now.getTime() / 1000 + 86400), now)).toContain("media.licdn.com");
+    expect(livePhoto(url(now.getTime() / 1000 - 1), now)).toBeNull();
+    expect(livePhoto("https://example.com/a.jpg", now)).toBe("https://example.com/a.jpg");
+    expect(livePhoto("javascript:alert(1)", now)).toBeNull();
+    expect(livePhoto(null, now)).toBeNull();
   });
 });

@@ -7,7 +7,8 @@ import { removeLeadsAction } from "@/app/app/leads/actions";
 import { slugName, timeAgo } from "@/lib/format";
 import type { LeadStage } from "@/lib/leads";
 import { btn } from "./AccountControls";
-import { Avatar, cx } from "./ui";
+import { PersonPhoto } from "./PersonPhoto";
+import { cx } from "./ui";
 
 export interface LeadView {
   id: string;
@@ -21,6 +22,8 @@ export interface LeadView {
   premium?: boolean | null;
   /** From their LinkedIn contact info, once they're connected */
   email?: string | null;
+  /** Their LinkedIn photo link (null when none or expired) */
+  photoUrl?: string | null;
   createdAt: string;
   status: { stage: LeadStage; at: string | null; detail?: string };
 }
@@ -151,7 +154,7 @@ export function LeadTable({
                 </td>
                 <td className="py-3 pr-4">
                   <div className="flex min-w-0 items-center gap-3">
-                    <Avatar name={display} />
+                    <PersonPhoto name={display} src={r.photoUrl} />
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <a

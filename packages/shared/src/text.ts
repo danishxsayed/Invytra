@@ -57,3 +57,13 @@ export function missingVariables(text: string, vars: TemplateVars): TemplateToke
     (k): k is TemplateToken => (k === "company" || k === "title") && !(vars[k] ?? "").trim(),
   );
 }
+
+/**
+ * A LinkedIn photo link still worth showing: LinkedIn's links carry their expiry (e=<seconds>)
+ * and stop working after it, so an expired one is dropped (initials show instead).
+ */
+export function livePhoto(url: string | null | undefined, now = new Date()): string | null {
+  if (!url || !/^https:\/\//.test(url)) return null;
+  const e = /[?&]e=(\d{9,11})(?:&|$)/.exec(url)?.[1];
+  return e && Number(e) * 1000 <= now.getTime() ? null : url;
+}

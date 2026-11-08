@@ -1,5 +1,5 @@
 import { Prisma, type PrismaClient } from "@invytra/db";
-import { LEAD_IMPORT, LEAD_FIELDS, leadsFromCsv, leadsFromText, type LeadInput } from "@invytra/shared";
+import { LEAD_IMPORT, LEAD_FIELDS, leadsFromCsv, leadsFromText, livePhoto, type LeadInput } from "@invytra/shared";
 import { z } from "zod";
 import type { Result } from "./accounts";
 
@@ -210,13 +210,13 @@ export async function leadsPage(
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       skip: (Math.max(1, page) - 1) * pageSize,
       take: pageSize,
-      select: { id: true, profileUrl: true, firstName: true, lastName: true, company: true, title: true, location: true, degree: true, premium: true, email: true, createdAt: true },
+      select: { id: true, profileUrl: true, firstName: true, lastName: true, company: true, title: true, location: true, degree: true, premium: true, email: true, photoUrl: true, createdAt: true },
     }),
   ]);
   const statuses = await leadStatuses(prisma, workspaceId, rows.map((r) => r.profileUrl));
   return {
     total,
-    rows: rows.map((r) => ({ ...r, status: statuses.get(r.profileUrl) ?? { stage: "NONE" as const, at: null } })),
+    rows: rows.map((r) => ({ ...r, photoUrl: livePhoto(r.photoUrl), status: statuses.get(r.profileUrl) ?? { stage: "NONE" as const, at: null } })),
   };
 }
 export type LeadRow = Awaited<ReturnType<typeof leadsPage>>["rows"][number];

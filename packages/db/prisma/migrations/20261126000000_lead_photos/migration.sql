@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "leads" ADD COLUMN     "photo_url" TEXT;
+

@@ -53,11 +53,11 @@ d("campaign audience", () => {
     const a = (await actionFor("aud-1", "unknown"))!;
     await prisma.action.update({
       where: { id: a.id },
-      data: { status: "SKIPPED", error: "AUDIENCE:DEGREE_1", executedAt: clock, payload: { ...(a.payload as object), result: { name: "Unknown Person", degree: 1, premium: false } } },
+      data: { status: "SKIPPED", error: "AUDIENCE:DEGREE_1", executedAt: clock, payload: { ...(a.payload as object), result: { name: "Unknown Person", degree: 1, premium: false, photoUrl: "https://media.licdn.com/p.jpg" } } },
     });
     await tick();
     expect(await lead("aud-1", "unknown")).toMatchObject({ state: "SKIPPED", reason: "AUDIENCE:DEGREE_1", degree: 1, premium: false });
-    expect(await prisma.lead.findFirst({ where: { profileUrl: U("unknown") } })).toMatchObject({ degree: 1, premium: false });
+    expect(await prisma.lead.findFirst({ where: { profileUrl: U("unknown") } })).toMatchObject({ degree: 1, premium: false, photoUrl: "https://media.licdn.com/p.jpg" });
   });
 
   it("Premium only, and choosing to include people from other campaigns", async () => {

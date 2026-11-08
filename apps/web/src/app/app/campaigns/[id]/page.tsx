@@ -5,7 +5,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CampaignControls } from "@/components/campaign/CampaignControls";
 import { CampaignStatusBadge, LeadStateBadge, Metric } from "@/components/campaign/CampaignBits";
-import { Avatar, Card, EmptyState, cx } from "@/components/ui";
+import { PersonPhoto } from "@/components/PersonPhoto";
+import { Card, EmptyState, cx } from "@/components/ui";
 import { requireChannel } from "@/lib/auth";
 import { pct, positionText, reasonText, startText, stepLabel } from "@/lib/campaign-text";
 import { CampaignNotFoundError, LEAD_FILTERS, campaignLeadsPage, campaignStats, getCampaign, launchProblems, senderStats, type LeadFilter } from "@/lib/campaigns";
@@ -246,7 +247,7 @@ export default async function CampaignPage({
                 l.actionId ? "Queued now" : l.nextAt && ["QUEUED", "IN_PROGRESS", "WAITING_ACCEPT"].includes(l.state) ? (l.nextAt <= now ? "Due now" : `Next ${timeAgo(l.nextAt, now)}`) : "";
               return (
                 <li key={l.id} className="flex items-center gap-3 px-5 py-3">
-                  <Avatar name={name} />
+                  <PersonPhoto name={name} src={l.photoUrl} />
                   <div className="min-w-0 flex-1">
                     <a href={l.profileUrl} target="_blank" rel="noreferrer noopener" className="inline-flex max-w-full items-center gap-1 text-[15px] font-medium capitalize text-stone-900 hover:underline">
                       <span className="truncate">{name}</span>

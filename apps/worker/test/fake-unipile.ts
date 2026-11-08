@@ -90,6 +90,7 @@ export class FakeUnipile {
         is_premium: !!p.premium,
         is_relationship: p.distance === "FIRST_DEGREE",
         contact_info: { emails: p.distance === "FIRST_DEGREE" && p.email ? [p.email] : [] },
+        profile_picture_url: `https://media.licdn.com/dms/image/${p.slug}.jpg?e=2000000000&t=x`,
         ...(pending && { invitation: { type: "SENT", status: "PENDING" } }),
       });
     }
@@ -140,7 +141,7 @@ export class FakeUnipile {
       if (this.searchAnswer) return json(200, this.searchAnswer);
       const people = [...this.people.values()];
       return json(200, {
-        items: people.map((p) => ({ type: "PEOPLE", id: p.providerId, public_identifier: p.slug, name: `${p.first} ${p.last} • 2nd`, headline: p.headline, location: "Pune", network_distance: "DISTANCE_2", premium: !!p.premium })),
+        items: people.map((p) => ({ type: "PEOPLE", id: p.providerId, public_identifier: p.slug, name: `${p.first} ${p.last} • 2nd`, headline: p.headline, location: "Pune", network_distance: "DISTANCE_2", premium: !!p.premium, profile_picture_url: `https://media.licdn.com/dms/image/${p.slug}-s.jpg` })),
         paging: { total_count: people.length },
       });
     }

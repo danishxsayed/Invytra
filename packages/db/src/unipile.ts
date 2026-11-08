@@ -132,6 +132,7 @@ export interface UnipileSearchPerson {
   location?: string;
   network_distance?: string;
   premium?: boolean;
+  profile_picture_url?: string | null;
 }
 
 export interface UnipileInvitation {

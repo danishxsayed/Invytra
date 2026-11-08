@@ -59,7 +59,7 @@ d("Unipile accounts", () => {
     const { row } = await run("PROFILE_VISIT", "https://www.linkedin.com/in/jane-doe/");
     expect(row.status).toBe("SUCCEEDED");
     expect(fake.visits).toEqual(["jane-doe"]);
-    expect((row.payload as { result: Record<string, unknown> }).result).toMatchObject({ name: "Jane Doe", status: "NOT_CONNECTED", degree: 2, premium: false });
+    expect((row.payload as { result: Record<string, unknown> }).result).toMatchObject({ name: "Jane Doe", status: "NOT_CONNECTED", degree: 2, premium: false, photoUrl: "https://media.licdn.com/dms/image/jane-doe.jpg?e=2000000000&t=x" });
   });
 
   it("reads a connection's email from their contact info (never a non-connection's)", async () => {
@@ -122,6 +122,7 @@ d("Unipile accounts", () => {
     const result = (row.payload as { result: { people: { profileUrl: string; firstName: string; company: string | null }[]; hasNext: boolean } }).result;
     expect(result.people.map((p) => p.profileUrl)).toContain("https://www.linkedin.com/in/jane-doe/");
     expect(result.people.find((p) => p.firstName === "Jane")?.company).toBe("Acme");
+    expect(result.people.find((p) => p.firstName === "Jane")).toMatchObject({ photoUrl: "https://media.licdn.com/dms/image/jane-doe-s.jpg" });
     expect(result.hasNext).toBe(false);
   });
 

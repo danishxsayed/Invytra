@@ -9,6 +9,7 @@ import {
   waitingToStart,
   type CampaignSettings,
   type CampaignStep,
+  livePhoto,
 } from "@invytra/shared";
 import { z } from "zod";
 import type { Result } from "./accounts";
@@ -300,10 +301,10 @@ export async function campaignLeadsPage(
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
       skip: (Math.max(1, page) - 1) * pageSize,
       take: pageSize,
-      include: { account: { select: { label: true } } },
+      include: { account: { select: { label: true } }, lead: { select: { photoUrl: true } } },
     }),
   ]);
-  return { total, rows };
+  return { total, rows: rows.map(({ lead, ...r }) => ({ ...r, photoUrl: livePhoto(lead?.photoUrl) })) };
 }
 
 /** Accounts and lists to choose from in the builder, plus a few leads per list for the preview. */

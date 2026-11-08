@@ -16,6 +16,8 @@ export interface FoundPerson {
   degree?: Degree | null;
   /** Premium badge shown next to the name. */
   premium?: boolean;
+  /** Their profile photo link, when shown. */
+  photoUrl?: string | null;
 }
 
 export interface SearchPageResult {

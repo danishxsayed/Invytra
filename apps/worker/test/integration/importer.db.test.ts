@@ -113,11 +113,11 @@ d("search imports: facts and fetch-all", () => {
       data: {
         status: "SUCCEEDED",
         executedAt: new Date(),
-        payload: { ...(first.payload as object), result: { people: [{ ...person("gus", "Gus"), degree: 3, premium: true }, { ...person("hal", "Hal"), degree: 2, premium: false }], hasNext: true } },
+        payload: { ...(first.payload as object), result: { people: [{ ...person("gus", "Gus"), degree: 3, premium: true, photoUrl: "https://media.licdn.com/gus.jpg" }, { ...person("hal", "Hal"), degree: 2, premium: false }], hasNext: true } },
       },
     });
     await importTick({ prisma, queue });
-    expect(await prisma.lead.findFirst({ where: { listId: "list-i2", profileUrl: U("gus") } })).toMatchObject({ degree: 3, premium: true });
+    expect(await prisma.lead.findFirst({ where: { listId: "list-i2", profileUrl: U("gus") } })).toMatchObject({ degree: 3, premium: true, photoUrl: "https://media.licdn.com/gus.jpg" });
     // No badge in a search result isn't proof they lack Premium.
     expect(await prisma.lead.findFirst({ where: { listId: "list-i2", profileUrl: U("hal") } })).toMatchObject({ degree: 2, premium: null });
     // Without such a campaign, pages keep the normal allowance.

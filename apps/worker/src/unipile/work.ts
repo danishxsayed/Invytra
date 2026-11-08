@@ -75,7 +75,15 @@ const EMAIL = /^[^\s@<>()",;]+@[^\s@<>()",;]+\.[a-z]{2,}$/i;
 /** The email they share with connections (LinkedIn shows none to anyone else). */
 export const emailOf = (u: UnipileUser): string | undefined =>
   (u.contact_info?.emails ?? []).map((e) => (typeof e === "string" ? e.trim().toLowerCase() : "")).find((e) => EMAIL.test(e));
-const facts = (u: UnipileUser) => ({ degree: degreeOf(u.network_distance), premium: !!u.is_premium, ...(emailOf(u) && { email: emailOf(u) }) });
+/** A LinkedIn photo link worth keeping (https, sane length), or null. */
+export const photoOf = (url: string | null | undefined) => (url && /^https:\/\//.test(url) && url.length <= 1500 ? url : null);
+
+const facts = (u: UnipileUser) => ({
+  degree: degreeOf(u.network_distance),
+  premium: !!u.is_premium,
+  ...(emailOf(u) && { email: emailOf(u) }),
+  ...(photoOf(u.profile_picture_url) && { photoUrl: photoOf(u.profile_picture_url) }),
+});
 
 function varsOf(p: Record<string, unknown>): TemplateVars {
   const v = (p.vars ?? {}) as Record<string, unknown>;
@@ -365,6 +373,7 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
             location: it.location || null,
             degree: degreeOf(it.network_distance),
             premium: !!it.premium,
+            photoUrl: photoOf(it.profile_picture_url),
           });
         }
         // LinkedIn often leaves the total empty (null): then a (nearly) full page means there are more.

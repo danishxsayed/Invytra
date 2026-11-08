@@ -299,6 +299,9 @@ model Lead {
   premium     Boolean?
   /// Email from their LinkedIn contact info (only visible once they're a 1st-degree connection)
   email       String?
+  /// Their LinkedIn profile photo (LinkedIn's own link; it expires after a while and is refreshed
+  /// whenever the profile is seen again)
+  photoUrl    String?  @map("photo_url")
   /// Other columns from the uploaded file, for personalisation later
   extra       Json     @default("{}")
   createdAt   DateTime @default(now()) @map("created_at")

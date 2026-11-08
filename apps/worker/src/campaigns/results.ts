@@ -97,10 +97,16 @@ function factsOf(action: Action): { degree?: number; premium?: boolean } {
   };
 }
 
+/** Their profile photo link, when the action saw one (a fresh one each time: LinkedIn's links expire). */
+function photoOf(action: Action): { photoUrl?: string } {
+  const u = ((action.payload ?? {}) as { result?: { photoUrl?: unknown } }).result?.photoUrl;
+  return typeof u === "string" && /^https:\/\//.test(u) && u.length <= 1500 ? { photoUrl: u } : {};
+}
+
 /** The lead list keeps what we learned too (shown on the list, used by later campaigns). */
 async function recordFactsOnList(prisma: PrismaClient, lead: CampaignLead, action: Action): Promise<void> {
   if (!lead.leadId) return;
-  const facts = factsOf(action);
+  const facts = { ...factsOf(action), ...photoOf(action) };
   if (Object.keys(facts).length) await prisma.lead.updateMany({ where: { id: lead.leadId }, data: facts });
   const email = ((action.payload ?? {}) as { result?: { email?: unknown } }).result?.email;
   if (typeof email === "string" && email.includes("@")) {
