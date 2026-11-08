@@ -3,7 +3,7 @@ import { WorkspaceNav } from "@/components/WorkspaceNav";
 import { getAiBalance } from "@/lib/ai-credits";
 import { requireUser } from "@/lib/auth";
 import { hubHref } from "@/lib/domains";
-import { canSeeBilling, creditsHref, navChannels } from "@/lib/workspace-nav";
+import { canSeeBilling, creditsHref } from "@/lib/workspace-nav";
 
 /** Every workspace-level page (overview, settings, billing, voices) shares this menu. */
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
@@ -15,7 +15,6 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
         workspace={me.workspace.name}
         user={{ name: me.user.name, email: me.user.email }}
         overview={hubHref("/")}
-        channels={navChannels(me)}
         settings={hubHref("/settings")}
         billing={canSeeBilling(me) ? hubHref("/billing") : null}
         credits={{ left: ai.left, href: creditsHref(me) }}

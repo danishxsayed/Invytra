@@ -4,7 +4,6 @@ import { CreditCard, LayoutGrid, LogOut, Menu, Settings, X } from "lucide-react"
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/app/(auth)/actions";
-import { ChannelLogo } from "./ChannelLogo";
 import { CreditsChip } from "./credits/CreditsChip";
 import { LogoMark } from "./LogoMark";
 import { Avatar, cx } from "./ui";
@@ -13,7 +12,6 @@ export interface WorkspaceNavProps {
   workspace: string;
   user: { name: string; email: string };
   overview: string;
-  channels: { id: string; label: string; href: string | null; note?: string }[];
   settings: string;
   /** Only for the workspace owner. */
   billing: string | null;
@@ -21,8 +19,8 @@ export interface WorkspaceNavProps {
 }
 
 /**
- * The workspace's own navigation (never inside a channel): overview, every channel, and the
- * workspace-wide pages (settings, billing). A sidebar on wide screens, a drawer on phones.
+ * The workspace's own navigation (never inside a channel): the overview (which opens each
+ * channel) and the workspace-wide pages (settings, billing). A sidebar on wide screens, a drawer on phones.
  */
 export function WorkspaceNav(p: WorkspaceNavProps) {
   const path = usePathname();
@@ -59,22 +57,6 @@ export function WorkspaceNav(p: WorkspaceNavProps) {
       </div>
       <nav aria-label="Workspace" className="flex flex-col gap-1">
         {item(p.overview, "Workspace overview", <LayoutGrid className="h-[18px] w-[18px]" aria-hidden />)}
-        <p className="mt-3 px-3 text-[12px] font-semibold uppercase tracking-wider text-stone-400">Channels</p>
-        {p.channels.map((c) =>
-          c.href ? (
-            <a key={c.id} href={c.href} className="flex items-center gap-3 rounded-xl px-3 py-2 text-[15px] font-medium text-stone-700 transition hover:bg-stone-100 hover:text-stone-900">
-              <ChannelLogo id={c.id as never} size="sm" />
-              <span className="min-w-0 flex-1 truncate">{c.label}</span>
-            </a>
-          ) : (
-            <span key={c.id} className="flex cursor-default items-center gap-3 rounded-xl px-3 py-2 text-[15px] font-medium text-stone-400" aria-disabled>
-              <ChannelLogo id={c.id as never} size="sm" muted />
-              <span className="min-w-0 flex-1 truncate">{c.label}</span>
-              {c.note && <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-500">{c.note}</span>}
-            </span>
-          ),
-        )}
-        <p className="mt-3 px-3 text-[12px] font-semibold uppercase tracking-wider text-stone-400">Workspace</p>
         {item(p.settings, "Workspace settings", <Settings className="h-[18px] w-[18px]" aria-hidden />)}
         {p.billing && item(p.billing, "Billing", <CreditCard className="h-[18px] w-[18px]" aria-hidden />)}
       </nav>
