@@ -11,6 +11,7 @@ import {
   campaignInputSchema,
   createCampaign,
   deleteCampaign,
+  duplicateCampaign,
   setCampaignStatus,
   updateCampaign,
 } from "@/lib/campaigns";
@@ -74,6 +75,14 @@ export async function setCampaignStatusAction(id: string, to: "ACTIVE" | "PAUSED
 export async function deleteCampaignAction(id: string): Promise<Result> {
   const me = await requireChannel("linkedin");
   const r = await guarded(() => deleteCampaign(prisma, me.workspace.id, String(id)));
+  if (r.ok) refresh();
+  return r;
+}
+
+/** A draft copy of a campaign; the browser opens it in the editor. */
+export async function duplicateCampaignAction(id: string): Promise<Result<string>> {
+  const me = await requireChannel("linkedin");
+  const r = await guarded(() => duplicateCampaign(prisma, me.workspace.id, String(id)));
   if (r.ok) refresh();
   return r;
 }

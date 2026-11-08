@@ -9,6 +9,7 @@ import {
   campaignStats,
   createCampaign,
   deleteCampaign,
+  duplicateCampaign,
   getCampaign,
   launchProblems,
   listCampaigns,
@@ -126,5 +127,25 @@ d("campaigns", () => {
     const cid = r.ok ? r.value : "";
     await prisma.campaignSender.create({ data: { campaignId: cid, accountId: "acc-camp-off" } }).catch(() => undefined);
     expect(await updateCampaign(prisma, A, cid, input({ name: "Keeps sender", accountIds: ["acc-camp-a", "acc-camp-off"] }))).toMatchObject({ ok: true });
+  });
+
+  it("duplicates as a draft with connected senders only, and never across workspaces", async () => {
+    const r = await createCampaign(prisma, A, input({ name: "Original", settings: { acceptWithinDays: 14, startAt: "2030-01-01T09:00:00.000Z" } }));
+    const cid = r.ok ? r.value : "";
+    await prisma.campaignSender.create({ data: { campaignId: cid, accountId: "acc-camp-off" } });
+    await setCampaignStatus(prisma, A, cid, "ACTIVE");
+
+    await expect(duplicateCampaign(prisma, B, cid)).rejects.toThrow(CampaignNotFoundError);
+    const d = await duplicateCampaign(prisma, A, cid);
+    expect(d.ok).toBe(true);
+    const copy = await getCampaign(prisma, A, d.ok ? d.value : "");
+    expect(copy).toMatchObject({ name: "Original (copy)", status: "DRAFT", listId: "list-camp-a", startedAt: null });
+    expect(copy.senders.map((s) => s.id)).toEqual(["acc-camp-a"]);
+    expect(copy.steps).toEqual((await getCampaign(prisma, A, cid)).steps);
+    expect(copy.settings).toMatchObject({ acceptWithinDays: 14, startAt: null });
+
+    const long = await createCampaign(prisma, A, input({ name: "x".repeat(80) }));
+    const d2 = await duplicateCampaign(prisma, A, long.ok ? long.value : "");
+    expect(d2.ok && (await getCampaign(prisma, A, d2.value)).name).toBe("x".repeat(73) + " (copy)");
   });
 });

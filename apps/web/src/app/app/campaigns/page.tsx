@@ -1,7 +1,8 @@
 import { prisma } from "@invytra/db";
 import { waitingToStart } from "@invytra/shared";
-import { ChevronRight, Plus, Rocket } from "lucide-react";
+import { Plus, Rocket } from "lucide-react";
 import Link from "next/link";
+import { CampaignMenu } from "@/components/campaign/CampaignMenu";
 import { CampaignStatusBadge } from "@/components/campaign/CampaignBits";
 import { Card, EmptyState, PageHeader } from "@/components/ui";
 import { requireChannel } from "@/lib/auth";
@@ -34,13 +35,14 @@ export default async function CampaignsPage() {
           />
         </Card>
       ) : (
-        <Card className="divide-y divide-stone-100 overflow-hidden">
+        <Card className="divide-y divide-stone-100">
           {campaigns.map((c) => {
             const s = c.stats;
             const total = c.status === "DRAFT" ? c.listSize : s.total;
             const finished = (s.byState.DONE ?? 0) + (s.byState.REPLIED ?? 0) + (s.byState.NOT_ACCEPTED ?? 0) + (s.byState.SKIPPED ?? 0) + (s.byState.FAILED ?? 0);
             return (
-              <Link key={c.id} href={`/app/campaigns/${c.id}`} className="group flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4 transition hover:bg-stone-50 md:flex-nowrap">
+              <div key={c.id} className="group flex items-start gap-2 pr-3 transition first:rounded-t-2xl last:rounded-b-2xl hover:bg-stone-50 md:items-center">
+              <Link href={`/app/campaigns/${c.id}`} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-6 gap-y-3 py-4 pl-5 md:flex-nowrap">
                 <div className="min-w-0 flex-1 basis-full md:basis-auto">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-[16px] font-semibold text-stone-900">{c.name}</p>
@@ -62,8 +64,11 @@ export default async function CampaignsPage() {
                     <div className="h-full rounded-full bg-brand-400" style={{ width: `${pct(finished, s.total)}%` }} />
                   </div>
                 </div>
-                <ChevronRight className="hidden h-5 w-5 shrink-0 text-stone-300 group-hover:text-stone-500 md:block" aria-hidden />
               </Link>
+              <div className="shrink-0 pt-3 md:pt-0">
+                <CampaignMenu id={c.id} name={c.name} status={c.status} listId={c.listId} />
+              </div>
+              </div>
             );
           })}
         </Card>

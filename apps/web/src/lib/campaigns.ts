@@ -102,6 +102,22 @@ export async function createCampaign(prisma: PrismaClient, workspaceId: string, 
 }
 
 /**
+ * A draft copy: same steps, settings and list, only the senders that are still connected,
+ * no start date (the copy starts when it's launched). Returns the new campaign's id.
+ */
+export async function duplicateCampaign(prisma: PrismaClient, workspaceId: string, id: string): Promise<Result<string>> {
+  const c = await getCampaign(prisma, workspaceId, id);
+  const suffix = " (copy)";
+  return createCampaign(prisma, workspaceId, {
+    name: c.name.slice(0, 80 - suffix.length) + suffix,
+    accountIds: c.senders.filter((s) => s.status === "ACTIVE").map((s) => s.id),
+    listId: c.listId,
+    steps: c.steps,
+    settings: { ...c.settings, startAt: null },
+  });
+}
+
+/**
  * Drafts can change anything. Once launched, leads are part-way through the
  * steps, so existing steps keep their order and kind (texts and waits can
  * change, follow-ups can be added at the end) and the list stays. Senders can

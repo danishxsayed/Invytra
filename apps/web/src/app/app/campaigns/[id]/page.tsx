@@ -211,7 +211,7 @@ export default async function CampaignPage({
         </Card>
       )}
 
-      <Card className="overflow-hidden">
+      <Card id="people" className="scroll-mt-6 overflow-hidden">
         <nav className="flex gap-1 overflow-x-auto border-b border-stone-100 px-3 py-2" aria-label="Filter leads">
           {(Object.keys(LEAD_FILTERS) as LeadFilter[]).map((f) => (
             <Link

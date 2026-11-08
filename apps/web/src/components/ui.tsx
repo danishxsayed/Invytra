@@ -4,8 +4,8 @@ export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
 }
 
-export function Card({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <div className={cx("rounded-2xl border border-stone-200/80 bg-white shadow-card", className)}>{children}</div>;
+export function Card({ className, children, id }: { className?: string; children: React.ReactNode; id?: string }) {
+  return <div id={id} className={cx("rounded-2xl border border-stone-200/80 bg-white shadow-card", className)}>{children}</div>;
 }
 
 export function CardHeader({
