@@ -26,3 +26,6 @@ export const VOICE_READING = `Hi, this is me recording a sample of my own voice.
 
 /** Seen in a script: speech can't carry links well, so they're flagged. */
 export const scriptHasLink = (s: string) => /https?:\/\/|www\./i.test(s);
+
+/** The script a new voice note starts with. */
+export const VOICE_STARTER = "Hey {firstName}, it's me. I just wanted to say thanks for connecting. I'd love to hear what you're working on these days. Talk soon!";

@@ -1,7 +1,7 @@
 "use client";
 
 import { COMMENT_MAX, MESSAGE_MAX, NOTE_FREE_MAX, NOTE_MAX, eventUrl, type CampaignSettings, type CampaignStep } from "@invytra/shared";
-import { ArrowDown, ArrowUp, CalendarPlus, Eye, MessageCircle, Hourglass, Lock, MessageSquare, Plus, ThumbsUp, Trash2, UserPlus } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarPlus, Eye, MessageCircle, Hourglass, Lock, MessageSquare, Mic, Plus, ThumbsUp, Trash2, UserPlus } from "lucide-react";
 import { cx } from "../ui";
 import { TextTemplate } from "./TextTemplate";
 import { AiWriteToggle } from "./AiWriteToggle";
@@ -78,7 +78,8 @@ export function SequenceEditor({
 
       <ol className="relative space-y-3 before:absolute before:bottom-6 before:left-[19px] before:top-6 before:w-px before:bg-stone-200">
         {steps.map((s, i) => {
-          const Icon = ICON[s.type];
+          const voiceOnly = s.type === "MESSAGE" && !!s.voice && !s.text.trim();
+          const Icon = s.type === "MESSAGE" && s.voice ? Mic : ICON[s.type];
           const prev = steps[i - 1];
           const n = s.type === "MESSAGE" ? ++messageNo : 0;
           const title =
@@ -95,8 +96,8 @@ export function SequenceEditor({
                       : s.type === "EVENT"
                         ? "Invite to event"
                     : n === 1
-                      ? "Message"
-                      : `Follow-up ${n - 1}`;
+                      ? voiceOnly ? "Voice message" : "Message"
+                      : `Follow-up ${n - 1}${voiceOnly ? ": voice message" : ""}`;
           const when =
             i === 0 ? (
               <span>Starts as soon as the campaign runs</span>

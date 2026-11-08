@@ -1,6 +1,6 @@
 "use client";
 
-import { MAX_OF, MAX_STEPS, canAddMessage, type CampaignSettings, type CampaignStep } from "@invytra/shared";
+import { MAX_OF, MAX_STEPS, VOICE_STARTER, canAddMessage, type CampaignSettings, type CampaignStep } from "@invytra/shared";
 import { CalendarPlus, ChevronDown, Eye, Mail, MessageCircle, MessageSquare, Mic, Plus, ThumbsUp, UserPlus, Video } from "lucide-react";
 import { useState } from "react";
 import { cx } from "../ui";
@@ -23,12 +23,12 @@ const CARD: Record<Kind, CardDef> = {
   LIKE_POST: { kind: "LIKE_POST", title: "Like post", body: "Like their latest post to get noticed before you pitch.", icon: ThumbsUp, tone: "bg-violet-600 text-white" },
   COMMENT: { kind: "COMMENT", title: "Like and comment on post", body: "Like their latest post and leave a short comment to start a conversation.", icon: MessageCircle, tone: "bg-amber-700 text-white" },
   INMAIL: { kind: "INMAIL", title: "Send InMail", body: "Message people you aren't connected with (needs Premium or Sales Navigator).", icon: Mail, tone: "bg-emerald-700 text-white" },
-  VOICE: { kind: "VOICE", title: "Send voice message", body: "A short voice note to a connection.", icon: Mic, tone: "bg-stone-500 text-white" },
+  VOICE: { kind: "VOICE", title: "Send voice message", body: "A voice note in your own voice, with their name (5 AI credits each).", icon: Mic, tone: "bg-violet-700 text-white" },
   VIDEO: { kind: "VIDEO", title: "Send video message", body: "A short video to a connection.", icon: Video, tone: "bg-stone-500 text-white" },
   EVENT: { kind: "EVENT", title: "Invite to event", body: "Invite a connection to one of your LinkedIn events.", icon: CalendarPlus, tone: "bg-indigo-600 text-white" },
 };
 
-const SOON = new Set<Kind>(["INMAIL", "VOICE", "VIDEO"]);
+const SOON = new Set<Kind>(["INMAIL", "VIDEO"]);
 
 const SECTIONS: { key: string; title: string; groups: { title: string; kinds: Kind[] }[] }[] = [
   {
@@ -57,6 +57,8 @@ function newStep(kind: Kind, steps: CampaignStep[]): CampaignStep {
   const days = first ? 0 : afterInvite ? 1 : kind === "MESSAGE" && steps.some((s) => s.type === "MESSAGE") ? 3 : 1;
   if (kind === "INVITE") return { type: "INVITE", delayDays: days, note: "" };
   if (kind === "MESSAGE") return { type: "MESSAGE", delayDays: days, text: "" };
+  // A message step that sends a voice note (the voice is picked in the step; text is optional).
+  if (kind === "VOICE") return { type: "MESSAGE", delayDays: days, text: "", voice: { voiceId: "", script: VOICE_STARTER } };
   if (kind === "FOLLOW") return { type: "FOLLOW", delayDays: days };
   if (kind === "LIKE_POST") return { type: "LIKE_POST", delayDays: days };
   if (kind === "COMMENT") return { type: "COMMENT", delayDays: days, text: "" };
@@ -86,7 +88,7 @@ export function StepPicker({
     if (viaUnipile && (kind === "FOLLOW" || kind === "EVENT")) return "Not available for accounts connected with Secure login.";
     if (steps.length >= MAX_STEPS) return `A sequence can have up to ${MAX_STEPS} steps.`;
     if (kind === "INVITE" && count("INVITE") >= MAX_OF.INVITE) return "Already in your sequence.";
-    if ((kind === "MESSAGE" || kind === "EVENT") && !canAddMessage(steps, settings)) return "Add a connection request first, or include 1st-degree connections in Configure.";
+    if ((kind === "MESSAGE" || kind === "VOICE" || kind === "EVENT") && !canAddMessage(steps, settings)) return "Add a connection request first, or include 1st-degree connections in Configure.";
     if (kind === "COMMENT" && count("COMMENT") >= MAX_OF.COMMENT) return `Up to ${MAX_OF.COMMENT} per sequence.`;
     if (kind === "EVENT" && count("EVENT") >= MAX_OF.EVENT) return `Up to ${MAX_OF.EVENT} per sequence.`;
     if (kind === "VISIT" && count("VISIT") >= MAX_OF.VISIT) return `Up to ${MAX_OF.VISIT} per sequence.`;

@@ -1,13 +1,12 @@
 "use client";
 
-import { VOICE_SCRIPT_MAX, type VoiceNote } from "@invytra/shared";
+import { VOICE_SCRIPT_MAX, VOICE_STARTER, type VoiceNote } from "@invytra/shared";
 import { Mic, Play } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { myVoicesAction, tryVoiceAction } from "@/app/workspace/voices/actions";
 import { sampleCardText } from "./CardEditor";
 import { cx } from "../ui";
 
-const STARTER = "Hey {firstName}, it's me. I just wanted to say thanks for connecting. I'd love to hear what you're working on these days. Talk soon!";
 
 /** "Add a voice note": a short script read in your own voice for each person (5 AI credits). LinkedIn only. */
 export function VoiceNoteEditor({ voice, onChange, disabled }: { voice?: VoiceNote; onChange: (v: VoiceNote | undefined) => void; disabled?: boolean }) {
@@ -31,7 +30,7 @@ export function VoiceNoteEditor({ voice, onChange, disabled }: { voice?: VoiceNo
   return (
     <div className={cx("mt-2 rounded-xl border px-3.5 py-2.5", on ? "border-violet-200 bg-violet-50/40" : "border-stone-200 bg-white")}>
       <label className="flex cursor-pointer items-start gap-3">
-        <input type="checkbox" className="mt-1 h-4 w-4 accent-violet-700" checked={on} disabled={disabled} onChange={(e) => onChange(e.target.checked ? { voiceId: "", script: STARTER } : undefined)} />
+        <input type="checkbox" className="mt-1 h-4 w-4 accent-violet-700" checked={on} disabled={disabled} onChange={(e) => onChange(e.target.checked ? { voiceId: "", script: VOICE_STARTER } : undefined)} />
         <span className="min-w-0">
           <span className="flex flex-wrap items-center gap-x-2 text-[14.5px] font-medium text-stone-900">
             <Mic className="h-4 w-4 text-violet-700" aria-hidden /> Add a voice note
