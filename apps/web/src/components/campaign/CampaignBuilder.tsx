@@ -117,14 +117,6 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  /** Saves as a draft (or saves a launched campaign's changes), then leaves for `href`. */
-  const saveAndGo = async (href: string): Promise<string | null> => {
-    const r = await saveCampaignAction(initial?.id ?? null, { name, accountIds, listId: listId || null, steps, settings }, false);
-    if (!r.ok) return r.error;
-    location.assign(href);
-    return null;
-  };
-
   const save = (launch: boolean) => {
     if (launch) primeSound();
     start(async () => {
@@ -152,7 +144,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
 
   return (
     <div className="grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)]">
-      <LeaveGuard dirty={dirty && !pending} launched={launched} canSave={name.trim() ? null : "give the campaign a name first (step 1)."} onSaveAndGo={saveAndGo} />
+      <LeaveGuard dirty={dirty && !pending} launched={launched} />
       <div className="min-w-0 lg:sticky lg:top-6 lg:self-start">
         <Stepper steps={STEPS} current={current} done={done} canOpen={canOpen} onOpen={go} />
       </div>
