@@ -1,5 +1,5 @@
 import { prisma } from "@invytra/db";
-import { AudioLines, Building2, ChevronRight, KeyRound, ShieldCheck, UserRound, Users } from "lucide-react";
+import { AudioLines, Building2, ChevronRight, KeyRound, ShieldCheck, UserRound, Users, Video } from "lucide-react";
 import { PasswordForm, ProfileForm, SignOutOthers, WorkspaceForm } from "@/components/SettingsForms";
 import { Avatar, Card } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -30,6 +30,7 @@ export default async function WorkspaceSettingsPage() {
   const me = await requireUser();
   const members = await teamMembers(prisma, me.workspace.id);
   const voices = await prisma.voiceClone.count({ where: { workspaceId: me.workspace.id } });
+  const videos = await prisma.videoRecording.count({ where: { workspaceId: me.workspace.id } });
   const now = new Date();
   const owner = me.role === "OWNER";
   return (
@@ -70,6 +71,13 @@ export default async function WorkspaceSettingsPage() {
         <Section icon={AudioLines} title="Voices" hint="Copies of your voice for voice notes, used by every channel that sends them.">
           <a href={hubHref("/voices")} className="flex items-center gap-3 rounded-xl border border-stone-200 px-4 py-3 transition hover:border-stone-300 hover:bg-stone-50">
             <span className="flex-1 text-[15px] text-stone-800">{voices ? `${voices} voice${voices > 1 ? "s" : ""} ready` : "No voice yet: record yours in about a minute"}</span>
+            <ChevronRight className="h-4 w-4 text-stone-400" aria-hidden />
+          </a>
+        </Section>
+
+        <Section icon={Video} title="Videos" hint="Short videos you recorded once, sent as video notes with each person's name.">
+          <a href={hubHref("/videos")} className="flex items-center gap-3 rounded-xl border border-stone-200 px-4 py-3 transition hover:border-stone-300 hover:bg-stone-50">
+            <span className="flex-1 text-[15px] text-stone-800">{videos ? `${videos} video${videos > 1 ? "s" : ""} ready` : "No video yet: record one in a couple of minutes"}</span>
             <ChevronRight className="h-4 w-4 text-stone-400" aria-hidden />
           </a>
         </Section>

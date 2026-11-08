@@ -35,6 +35,10 @@ export class FakeUnipile {
   voiceMessages: { providerId: string; type: string; bytes: number }[] = [];
   /** Make sending a voice message fail. */
   failVoice = false;
+  /** Video messages sent. */
+  videoMessages: { providerId: string; type: string; bytes: number }[] = [];
+  /** Make sending a video message fail. */
+  failVideo = false;
   private n = 0;
 
   add(p: FakePerson) {
@@ -112,6 +116,9 @@ export class FakeUnipile {
       const vm = body.voice_message as unknown;
       if (this.failVoice && vm instanceof Blob) return json(500, { type: "errors/unexpected", title: "voice failed" });
       if (vm instanceof Blob) this.voiceMessages.push({ providerId: p.providerId, type: vm.type, bytes: (await vm.arrayBuffer()).byteLength });
+      const vid = body.video_message as unknown;
+      if (this.failVideo && vid instanceof Blob) return json(500, { type: "errors/unexpected", title: "video failed" });
+      if (vid instanceof Blob) this.videoMessages.push({ providerId: p.providerId, type: vid.type, bytes: (await vid.arrayBuffer()).byteLength });
       chat.messages.push({ id: `msg${++this.n}`, text: String(body.text ?? ""), ts: new Date(Date.now() + this.n).toISOString(), mine: true });
       return json(201, { chat_id: chat.id });
     }

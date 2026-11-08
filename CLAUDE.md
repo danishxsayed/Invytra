@@ -22,7 +22,9 @@ Workspace level (hub, outside every channel; `apps/web/src/app/workspace/`): ove
 numbers, needs attention), unified inbox (LinkedIn + email), Contacts (`people`: one per person,
 linked by `syncPeople`; someone who replied on one channel isn't contacted on another),
 do-not-contact list (`do_not_contact`, checked by every channel), settings, billing (owner only,
-Razorpay). M6 go-live (server, domain, plan pricing, team invites) is next. Phase 0's engine is done (`docs/PHASE-0-POC.md`); its
+Razorpay). Message extras (LinkedIn, paid in AI credits): handwritten notes, voice notes (ElevenLabs
+voice copies, `/workspace/voices`) and video notes (`/workspace/videos`: one recording, the opening
+"Hi there," re-spoken per person and lip-synced with sync.so; `packages/db/src/video.ts`, files in VIDEO_DIR). M6 go-live (server, domain, plan pricing, team invites) is next. Phase 0's engine is done (`docs/PHASE-0-POC.md`); its
 7-day soak test still needs spare accounts and proxies.
 
 ## Tech stack

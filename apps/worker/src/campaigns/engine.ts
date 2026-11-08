@@ -319,6 +319,8 @@ async function enqueueStep(
   if (plan.type === "MESSAGE" && plan.card) payload.card = plan.card;
   // A voice note in the customer's own voice (5 AI credits).
   if (plan.type === "MESSAGE" && plan.voice) payload.voice = plan.voice;
+  // A video note: their recording, the greeting personalized and lip-synced (15 AI credits).
+  if (plan.type === "MESSAGE" && plan.video) payload.video = plan.video;
   // {aiLine}: written when it goes out (accounts through Unipile); the fallback line otherwise.
   const ai = campaignSettingsSchema.safeParse(c.settings).data?.ai;
   if (ai?.fallback && [payload.note, payload.text].some((t) => typeof t === "string" && t.includes("{aiLine}"))) payload.aiFallback = ai.fallback;

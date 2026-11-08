@@ -34,3 +34,5 @@ export * from "./voice.js";
 export * from "./razorpay.js";
 export * from "./billing.js";
 export * from "./people.js";
+export * from "./lipsync.js";
+export * from "./video.js";

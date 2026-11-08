@@ -1,5 +1,6 @@
 import { cardSchema, unsignedCard } from "./card.js";
 import { scriptHasLink, voiceNoteSchema } from "./voice.js";
+import { videoNoteSchema } from "./video.js";
 import { z } from "zod";
 import type { Degree } from "./audience.js";
 import { outreachTextProblem } from "./text.js";
@@ -54,6 +55,10 @@ export const stepSchema = z.discriminatedUnion("type", [
     voice: voiceNoteSchema.optional(),
     /** A "Send voice message" step: only the voice note (no text, AI writer or handwritten note). */
     voiceOnly: z.boolean().optional(),
+    /** A video note: their recording, the greeting at the start personalized (15 AI credits each). */
+    video: videoNoteSchema.optional(),
+    /** A "Send video message" step: only the video. */
+    videoOnly: z.boolean().optional(),
   }),
 ]);
 export type CampaignStep = z.infer<typeof stepSchema>;
@@ -87,6 +92,15 @@ export function sequenceProblems(steps: CampaignStep[]): string[] {
           else if (scriptHasLink(s.voice.script)) out.push(`Step ${n}: links don't work in a voice note; put the link in the message instead.`);
         }
       }
+      if (s.videoOnly && !s.video) out.push(`Step ${n}: set up the video.`);
+      if (s.video) {
+        if (!s.video.videoId) out.push(`Step ${n}: pick the video to send.`);
+        if (!s.video.intro.trim()) out.push(`Step ${n}: write the greeting at the start of the video.`);
+        else {
+          const p = outreachTextProblem(s.video.intro);
+          if (p) out.push(`Step ${n}: the video greeting ${p}.`);
+        }
+      }
       if (s.card && !s.card.text.trim()) out.push(`Step ${n}: write what the handwritten note says.`);
       else if (s.card) {
         const p = outreachTextProblem(s.card.text);
@@ -94,7 +108,7 @@ export function sequenceProblems(steps: CampaignStep[]): string[] {
         else if (unsignedCard(s.card.text)) out.push(`Step ${n}: sign the handwritten note with your name (it still says "Your name").`);
       }
       if (!s.text.trim()) {
-        if (!s.aiWrite && !s.card && !s.voice) out.push(`Step ${n}: write the message.`);
+        if (!s.aiWrite && !s.card && !s.voice && !s.video) out.push(`Step ${n}: write the message.`);
       } else {
         const p = outreachTextProblem(s.text);
         if (p) out.push(`Step ${n}: the message ${p}.`);

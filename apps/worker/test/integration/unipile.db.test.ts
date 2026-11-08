@@ -1,5 +1,9 @@
 /** Accounts connected through Unipile run their actions through its API (only with TEST_DATABASE_URL). */
-import { PrismaClient, UnipileClient, VoiceError } from "@invytra/db";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { PrismaClient, UnipileClient, VideoError, VoiceError } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { AccountLock } from "../../src/browser/account-lock.js";
 import type { SessionManagerDeps } from "../../src/browser/session-manager.js";
@@ -299,7 +303,7 @@ d("Unipile accounts", () => {
     expect(fake.attachments.some((a) => a.providerId === "P-FAY")).toBe(false);
     expect(fake.chats.find((c) => c.providerId === "P-FAY")?.messages.at(-1)?.text).toBe("Hi Fay, a small note for you.");
     expect(await prisma.aiCreditUse.count({ where: { workspaceId: WS, action: "HANDWRITTEN" } })).toBe(before + 1);
-  });
+  }, 30_000);
 
   it("sends a voice note in the customer's voice (5 AI credits), with or without text, and pays back what isn't sent", async () => {
     const spoken: { voiceId: string; text: string }[] = [];
@@ -360,4 +364,75 @@ d("Unipile accounts", () => {
     const gone = await run("jo-p", { text: "", voice: { voiceId: "vc-deleted", script: "Hi!" } });
     expect(gone.status).toBe("SKIPPED");
   });
+
+  it("sends a video note: their recording with the greeting re-spoken and lip-synced (15 AI credits)", async () => {
+    // A short recording in a scratch video folder.
+    const dir = mkdtempSync(path.join(tmpdir(), "uni-video-"));
+    process.env.VIDEO_DIR = dir;
+    mkdirSync(path.join(dir, WS));
+    execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=640x360:rate=30:duration=6", "-f", "lavfi", "-i", "sine=frequency=300:duration=6", "-c:v", "libx264", "-c:a", "aac", "-shortest", path.join(dir, WS, "rec.mp4")]);
+    const greet = path.join(dir, "greet.mp3");
+    execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=500:duration=1.2", "-c:a", "libmp3lame", greet]);
+    const spoken: string[] = [];
+    const voice = { clone: async () => "v", speak: async (_v: string, text: string) => (spoken.push(text), (await import("node:fs")).readFileSync(greet)), remove: async () => undefined };
+    let refuse = false;
+    let synced = 0;
+    const lipsync = {
+      async sync(video: Buffer) {
+        if (refuse) throw new VideoError("The lip-sync service account is out of credit.");
+        synced++;
+        return video; // the face clip back as it is (no sound): the greeting audio is ours
+      },
+    };
+    await prisma.voiceClone.create({ data: { id: "vc-v", workspaceId: WS, name: "Me", providerVoiceId: "el-v", consentAt: new Date(), consentByUserId: "u1" } });
+    const rec = { workspaceId: WS, name: "Intro", file: `${WS}/rec.mp4`, poster: `${WS}/rec.jpg`, durationMs: 6000, introMs: 2000, width: 640, height: 360, consentAt: new Date(), consentByUserId: "u1" };
+    await prisma.videoRecording.create({ data: { id: "vr-1", voiceId: "vc-v", ...rec } });
+    await prisma.videoRecording.create({ data: { id: "vr-novoice", ...rec } });
+    const people = [["kim-a", "P-KIM", "Kim"], ["lee-b", "P-LEE", "Lee"], ["max-c", "P-MAX", "Max"], ["ned-d", "P-NED", "Ned"]] as const;
+    for (const [slug, pid, first] of people) {
+      fake.add({ slug, providerId: pid, first, last: "Test", distance: "FIRST_DEGREE" });
+      await prisma.campaignLead.create({ data: { id: `cl-${slug}`, campaignId: "uni-c", workspaceId: WS, profileUrl: `https://www.linkedin.com/in/${slug}/`, accountId: ACC, lastActionAt: new Date(Date.now() - 3_600_000) } });
+    }
+    const run = async (slug: string, payload: Record<string, unknown>) => {
+      const id = `uni-a${++n}`;
+      await prisma.action.create({ data: { accountId: ACC, type: "INBOX_SYNC", status: "SUCCEEDED", scheduledAt: new Date(), executedAt: new Date() } });
+      await prisma.action.create({ data: { id, accountId: ACC, type: "MESSAGE", status: "QUEUED", targetUrl: `https://www.linkedin.com/in/${slug}/`, payload: payload as never, scheduledAt: new Date(Date.now() - 1000), campaignLeadId: `cl-${slug}` } });
+      await processAction({ prisma, session, pacing: memoryPacingStore(), ignoreWorkingHours: true, gapScale: 0.001, unipile: client, voice, lipsync }, id);
+      return prisma.action.findUniqueOrThrow({ where: { id } });
+    };
+    const used = () => prisma.aiCreditUse.aggregate({ where: { workspaceId: WS, action: "VIDEO" }, _sum: { credits: true } }).then((r) => r._sum.credits ?? 0);
+    await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: 0, aiExtra: 0 } });
+
+    // The video alone: greeting with their name, sent as a video message that plays in the chat.
+    const alone = await run("kim-a", { text: "", video: { videoId: "vr-1", intro: "Hi {firstName}," } });
+    expect([alone.status, alone.error]).toEqual(["SUCCEEDED", null]);
+    expect(spoken.at(-1)).toBe("Hi Kim,");
+    expect(synced).toBe(1);
+    expect(fake.videoMessages.filter((m) => m.providerId === "P-KIM")).toEqual([expect.objectContaining({ type: "video/mp4" })]);
+    expect(fake.videoMessages.at(-1)!.bytes).toBeGreaterThan(10_000);
+    expect(await used()).toBe(15);
+
+    // Text, a voice note and a video: three messages, text first.
+    await run("lee-b", { text: "Hi {firstName}!", voice: { voiceId: "vc-v", script: "Hello {firstName}" }, video: { videoId: "vr-1", intro: "Hey {firstName}," } });
+    expect(fake.chats.find((c) => c.providerId === "P-LEE")?.messages.map((m) => m.text)).toEqual(["Hi Lee!", "", ""]);
+    expect(fake.videoMessages.some((m) => m.providerId === "P-LEE")).toBe(true);
+    expect(await used()).toBe(30);
+
+    // The video fails to send: the text still went, the 15 credits come back.
+    fake.failVideo = true;
+    const half = await run("max-c", { text: "Hello {firstName}", video: { videoId: "vr-1", intro: "Hi {firstName}," } });
+    fake.failVideo = false;
+    expect(half.status).toBe("SUCCEEDED");
+    expect((half.payload as { result: { videoProblem?: string } }).result.videoProblem).toMatch(/VIDEO_NOT_SENT/);
+    expect(await used()).toBe(30);
+
+    // Lip-sync refuses and there's nothing else: not sent, credits back. No voice for the recording: skipped.
+    refuse = true;
+    const refused = await run("ned-d", { text: "", video: { videoId: "vr-1", intro: "Hi {firstName}," } });
+    refuse = false;
+    expect(refused.status).not.toBe("SUCCEEDED");
+    expect(await used()).toBe(30);
+    const noVoice = await run("ned-d", { text: "", video: { videoId: "vr-novoice", intro: "Hi {firstName}," } });
+    expect([noVoice.status, noVoice.error]).toEqual(["SKIPPED", "NO_VIDEO"]);
+  }, 90_000);
 });

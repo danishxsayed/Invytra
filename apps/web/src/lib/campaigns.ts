@@ -73,7 +73,7 @@ async function checkRefs(prisma: PrismaClient, workspaceId: string, input: Campa
   if (input.listId && !(await prisma.leadList.findFirst({ where: { id: input.listId, workspaceId }, select: { id: true } }))) {
     return "Choose one of your lead lists.";
   }
-  return (await missingVoice(prisma, workspaceId, input.steps)) ?? null;
+  return (await missingVoice(prisma, workspaceId, input.steps)) ?? (await missingVideo(prisma, workspaceId, input.steps));
 }
 
 /** A voice note step whose voice isn't one of this workspace's (deleted, or not theirs). */
@@ -81,7 +81,16 @@ async function missingVoice(prisma: PrismaClient, workspaceId: string, steps: Ca
   const wanted = [...new Set(steps.flatMap((s) => (s.type === "MESSAGE" && s.voice?.voiceId ? [s.voice.voiceId] : [])))];
   if (!wanted.length) return null;
   const have = await prisma.voiceClone.count({ where: { workspaceId, id: { in: wanted } } });
-  return have === wanted.length ? null : "A voice note uses a voice that's been deleted. Pick one of your voices.";
+  if (have !== wanted.length) return "A voice note uses a voice that's been deleted. Pick one of your voices.";
+  return null;
+}
+
+/** A video step whose recording isn't one of this workspace's (deleted, or not theirs). */
+async function missingVideo(prisma: PrismaClient, workspaceId: string, steps: CampaignInput["steps"]): Promise<string | null> {
+  const wanted = [...new Set(steps.flatMap((s) => (s.type === "MESSAGE" && s.video?.videoId ? [s.video.videoId] : [])))];
+  if (!wanted.length) return null;
+  const have = await prisma.videoRecording.count({ where: { workspaceId, id: { in: wanted } } });
+  return have === wanted.length ? null : "A video step uses a video that's been deleted. Pick one of your videos.";
 }
 
 export async function createCampaign(prisma: PrismaClient, workspaceId: string, input: CampaignInput): Promise<Result<string>> {

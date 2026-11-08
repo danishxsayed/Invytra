@@ -29,8 +29,8 @@ const SEARCH_KINDS: SearchKind[] = ["LINKEDIN_SEARCH", "SALES_NAV_SEARCH", "SALE
 export function validateSpec(spec: ActionSpec): void {
   const needsUrl = spec.type !== "INBOX_SYNC" && spec.type !== "REPLY";
   if (needsUrl && !spec.targetUrl) throw new Error(`${spec.type} needs a profile URL`);
-  // A message may have no text of its own when AI writes it or it carries a handwritten or voice note.
-  const extras = spec.type === "MESSAGE" && (spec.payload?.aiWrite === true || !!spec.payload?.card || !!spec.payload?.voice);
+  // A message may have no text of its own when AI writes it or it carries a handwritten note, voice or video.
+  const extras = spec.type === "MESSAGE" && (spec.payload?.aiWrite === true || !!spec.payload?.card || !!spec.payload?.voice || !!spec.payload?.video);
   if ((spec.type === "MESSAGE" || spec.type === "COMMENT_POST") && !extras && !String(spec.payload?.text ?? "").trim()) throw new Error(`${spec.type} needs text`);
   if (spec.type === "EVENT_INVITE" && !eventUrl(String(spec.payload?.eventUrl ?? ""))) throw new Error("EVENT_INVITE needs a LinkedIn event link");
   if (spec.type === "REPLY" && (!String(spec.payload?.text ?? "").trim() || !String(spec.payload?.name ?? "").trim())) {

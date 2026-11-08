@@ -59,6 +59,10 @@ describe("sequence rules", () => {
     expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", voiceOnly: true }])).toEqual(["Step 1: set up the voice note.", "Step 1: write the message."]);
     expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", voice: { voiceId: "", script: "Visit www.x.com" } }])).toEqual(["Step 1: pick the voice for the voice note.", "Step 1: links don't work in a voice note; put the link in the message instead."]);
     expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", card: { text: "Hi!\n\nBest,\nYour name", style: "lined", font: "neat" } }])[0]).toMatch(/sign the handwritten note/);
+    // A video step: a recording and a greeting (placeholders checked).
+    expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", videoOnly: true, video: { videoId: "r1", intro: "Hi {firstName}," } }])).toEqual([]);
+    expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", videoOnly: true, video: { videoId: "", intro: " " } }])).toEqual(["Step 1: pick the video to send.", "Step 1: write the greeting at the start of the video."]);
+    expect(sequenceProblems([{ type: "MESSAGE", delayDays: 0, text: "", videoOnly: true, video: { videoId: "r1", intro: "Hi {first}," } }])[0]).toMatch(/video greeting contains unknown placeholder/);
     expect(sequenceProblems([{ type: "INVITE", delayDays: 0, note: "Hi {firstName}, …" }])[0]).toMatch(/note contains/);
   });
   it("presets need the person's own words before launch", () => {

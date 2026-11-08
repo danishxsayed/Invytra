@@ -8,7 +8,7 @@ describe("AI credits", () => {
     expect(monthlyAiCredits("trial")).toBe(50);
   });
   it("prices each action", () => {
-    expect(AI_COSTS).toEqual({ TEXT: 1, NOTE: 1, HANDWRITTEN: 2, VOICE: 5, VIDEO: 5 });
+    expect(AI_COSTS).toEqual({ TEXT: 1, NOTE: 1, HANDWRITTEN: 2, VOICE: 5, VIDEO: 15 });
     expect(AI_PACKS.map((p) => [p.credits, p.priceCents])).toEqual([[2000, 1000], [5000, 2200]]);
   });
   it("counts this month, then extra, and starts fresh next month", () => {

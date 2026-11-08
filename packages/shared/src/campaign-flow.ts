@@ -40,7 +40,7 @@ export type PlannedAction =
   | { type: "EVENT_INVITE"; eventUrl: string }
   | { type: "WITHDRAW_INVITE" }
   | { type: "CONNECTION_REQUEST"; note: string; aiWrite?: boolean }
-  | { type: "MESSAGE"; text: string; aiWrite?: boolean; card?: { text: string; style: string; font: string; ink?: string }; voice?: { voiceId: string; script: string } }
+  | { type: "MESSAGE"; text: string; aiWrite?: boolean; card?: { text: string; style: string; font: string; ink?: string }; voice?: { voiceId: string; script: string }; video?: { videoId: string; intro: string } }
   | { type: "CHECK_CONNECTION" };
 
 /** What the lead needs next, or null if nothing (finished or stopped). */
@@ -63,7 +63,7 @@ export function plannedAction(steps: CampaignStep[], lead: FlowLead): PlannedAct
     case "INVITE":
       return { type: "CONNECTION_REQUEST", note: s.note.trim(), ...(s.aiWrite && { aiWrite: true }) };
     case "MESSAGE":
-      return { type: "MESSAGE", text: s.text.trim(), ...(s.aiWrite && { aiWrite: true }), ...(s.card?.text.trim() && { card: { text: s.card.text.trim(), style: s.card.style, font: s.card.font, ...(s.card.ink && { ink: s.card.ink }) } }), ...(s.voice?.script.trim() && { voice: { voiceId: s.voice.voiceId, script: s.voice.script.trim() } }) };
+      return { type: "MESSAGE", text: s.text.trim(), ...(s.aiWrite && { aiWrite: true }), ...(s.card?.text.trim() && { card: { text: s.card.text.trim(), style: s.card.style, font: s.card.font, ...(s.card.ink && { ink: s.card.ink }) } }), ...(s.voice?.script.trim() && { voice: { voiceId: s.voice.voiceId, script: s.voice.script.trim() } }), ...(s.video?.intro.trim() && { video: { videoId: s.video.videoId, intro: s.video.intro.trim() } }) };
   }
 }
 

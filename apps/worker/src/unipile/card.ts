@@ -34,12 +34,12 @@ export interface Made<T> {
   refund(): Promise<void>;
 }
 
-async function leadOf(ctx: UnipileCtx, campaignLeadId: string | null | undefined) {
+export async function leadOf(ctx: UnipileCtx, campaignLeadId: string | null | undefined) {
   return campaignLeadId ? ctx.prisma.campaignLead.findUnique({ where: { id: campaignLeadId }, select: { id: true, workspaceId: true } }) : null;
 }
 
 /** Pays for one extra and makes it; the credits come back if making it fails. */
-async function paid<T>(ctx: UnipileCtx, lead: { id: string; workspaceId: string } | null, action: "HANDWRITTEN" | "VOICE", make: () => Promise<T>): Promise<Made<T> | "NO_CREDITS"> {
+export async function paid<T>(ctx: UnipileCtx, lead: { id: string; workspaceId: string } | null, action: "HANDWRITTEN" | "VOICE" | "VIDEO", make: () => Promise<T>): Promise<Made<T> | "NO_CREDITS"> {
   const spent = lead ? await spendAiCredits(ctx.prisma, lead.workspaceId, AI_COSTS[action], action, monthlyAiCredits, { ref: lead.id }) : null;
   if (lead && !spent) return "NO_CREDITS";
   const refund = async () => {

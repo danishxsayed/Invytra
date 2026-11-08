@@ -49,6 +49,7 @@ model Workspace {
   verifyPurchases   VerifyCreditPurchase[]
   aiUsage           AiCreditUse[]
   voices            VoiceClone[]
+  videos            VideoRecording[]
   billingProfile    BillingProfile?
   doNotContact      DoNotContact[]
   people            Person[]
@@ -1023,10 +1024,38 @@ model VoiceClone {
   consentByUserId String   @map("consent_by_user_id")
   createdAt       DateTime @default(now()) @map("created_at")
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  videos    VideoRecording[]
 
   @@index([workspaceId])
   @@map("voice_clones")
+}
+
+/// A video the customer recorded once for video notes. The greeting in its first introMs is
+/// re-spoken per person (in the voice below) with the lips matched; the rest is sent as recorded.
+model VideoRecording {
+  id              String   @id @default(cuid())
+  workspaceId     String   @map("workspace_id")
+  name            String
+  /// The copied voice that speaks the personalized greeting (null once that voice is deleted)
+  voiceId         String?  @map("voice_id")
+  /// The compressed video and its still, under VIDEO_DIR (<workspace>/<id>.mp4 / .jpg)
+  file            String
+  poster          String
+  durationMs      Int      @map("duration_ms")
+  introMs         Int      @map("intro_ms")
+  width           Int
+  height          Int
+  /// When and by whom "this is me, and I agree to my face and voice being used" was confirmed
+  consentAt       DateTime @map("consent_at")
+  consentByUserId String   @map("consent_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  voice     VoiceClone? @relation(fields: [voiceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@map("video_recordings")
 }
 
 /// Who a workspace's invoices are made out to (owner-edited on the Billing page).

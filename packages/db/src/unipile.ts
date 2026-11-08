@@ -245,20 +245,21 @@ export class UnipileClient {
 
   /** Opens (or reuses) the 1-to-1 chat with someone and sends the text. */
   /** Starts (or continues) the chat with this person. An image, if given, goes as an attachment. */
-  /** A new message to someone: text, and/or an image (handwritten note), or a voice message (.m4a/.mp3). */
+  /** A new message to someone: text, and/or an image (handwritten note), or a voice (.m4a/.mp3) or video (.mp4) message. */
   startChat(
     accountId: string,
     providerId: string,
     text: string,
     image?: { png: Buffer; name: string },
-    voice?: { data: Buffer; name: string; type: string },
+    media?: { data: Buffer; name: string; type: string; kind?: "voice" | "video" },
   ): Promise<{ chat_id: string; message_id?: string }> {
     const form = new FormData();
     form.set("account_id", accountId);
     form.append("attendees_ids", providerId);
     if (text) form.set("text", text);
     if (image) form.append("attachments", new Blob([new Uint8Array(image.png)], { type: "image/png" }), image.name);
-    if (voice) form.append("voice_message", new Blob([new Uint8Array(voice.data)], { type: voice.type }), voice.name);
+    // Played inside the chat on LinkedIn (not shown as a file to download).
+    if (media) form.append(media.kind === "video" ? "video_message" : "voice_message", new Blob([new Uint8Array(media.data)], { type: media.type }), media.name);
     return this.request("POST", "/api/v1/chats", { form });
   }
 

@@ -25,3 +25,4 @@ export * from "./ai-credits.js";
 export * from "./card.js";
 export * from "./voice.js";
 export * from "./do-not-contact.js";
+export * from "./video.js";

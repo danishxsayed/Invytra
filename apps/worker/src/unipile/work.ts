@@ -1,8 +1,9 @@
-import { UnipileError, isPersonChat, type AiLineWriter, type LinkedinAccount, type PrismaClient, type UnipileClient, type UnipileUser, type VoiceMaker } from "@invytra/db";
+import { UnipileError, isPersonChat, type AiLineWriter, type LinkedinAccount, type PrismaClient, type UnipileClient, type UnipileUser, type VoiceMaker, type LipSync, VideoError, type VoiceSample } from "@invytra/db";
 import {
   COMMENT_MAX,
   MESSAGE_MAX,
   VOICE_SCRIPT_MAX,
+  VIDEO_INTRO_MAX,
   NOTE_MAX,
   RESULTS_PER_PAGE,
   audienceSkip,
@@ -22,6 +23,7 @@ import type { ConnectionStatus } from "../linkedin/profile.js";
 import { companyFromHeadline, type FoundPerson } from "../linkedin/search.js";
 import { NO_AI_LINE, NO_CREDITS, aiLineFor, aiWriteFor } from "./ai-line.js";
 import { VoiceError, cardImageFor, cardOf, voiceNoteFor, voiceOf, type Made } from "./card.js";
+import { videoNoteFor, videoOf } from "./video.js";
 
 /**
  * Every campaign action for an account connected through Unipile: the same inputs and
@@ -34,6 +36,8 @@ export interface UnipileCtx {
   ai?: AiLineWriter | null;
   /** Reads voice notes; undefined = from ELEVENLABS_API_KEY, null = none. */
   voice?: VoiceMaker | null;
+  /** Lip-syncs video notes; undefined = from SYNC_API_KEY, null = none. */
+  lipsync?: LipSync | null;
   /** The account's id at Unipile. */
   accountId: string;
   account: Pick<LinkedinAccount, "id" | "timezone">;
@@ -228,6 +232,10 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
         const script = voiceAsk ? await fillFor(ctx, spec, voiceAsk.script.trim(), u, VOICE_SCRIPT_MAX) : "";
         if (script === "skip") return { outcome: "SKIPPED", reason: NO_AI_LINE, data };
         if (script === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
+        const videoAsk = videoOf(p);
+        const greeting = videoAsk ? await fillFor(ctx, spec, videoAsk.intro.trim(), u, VIDEO_INTRO_MAX) : "";
+        if (greeting === "skip") return { outcome: "SKIPPED", reason: NO_AI_LINE, data };
+        if (greeting === null) return { outcome: "SKIPPED", reason: "MISSING_DETAIL", data };
         const written = p.aiWrite === true ? await aiWriteFor(ctx, { campaignLeadId: spec.campaignLeadId, providerId: u.provider_id, guide, kind: "message", maxChars: Math.min(MESSAGE_MAX, 1200) }) : null;
         const text = written ?? (guide ? await fillFor(ctx, spec, guide, u, MESSAGE_MAX) : "");
         if (text === "skip") return { outcome: "SKIPPED", reason: NO_AI_LINE, data };
@@ -235,49 +243,69 @@ export function unipileWorkFor(spec: UnipileSpec): (ctx: UnipileCtx) => Promise<
 
         const made = card ? await cardImageFor(ctx, spec.campaignLeadId, { ...card, text: cardText }) : null;
         const image = made && made !== "NO_CREDITS" ? made : null;
-        let voice: Made<{ data: Buffer; name: string; type: string }> | null = null;
-        let voiceProblem = "";
-        if (voiceAsk) {
+        // Voice and video notes go as their own messages after the text. If one can't be made, the rest still goes.
+        const media: { kind: "voice" | "video"; made: Made<VoiceSample> }[] = [];
+        const problems: Record<"voice" | "video", string> = { voice: "", video: "" };
+        const asks = [
+          voiceAsk && { kind: "voice" as const, make: () => voiceNoteFor(ctx, spec.campaignLeadId, voiceAsk.voiceId, script) },
+          videoAsk && { kind: "video" as const, make: () => videoNoteFor(ctx, spec.campaignLeadId, videoAsk.videoId, greeting) },
+        ].filter((x) => !!x);
+        for (const ask of asks) {
           try {
-            const v = await voiceNoteFor(ctx, spec.campaignLeadId, voiceAsk.voiceId, script);
-            if (v === "NO_CREDITS") voiceProblem = "NO_AI_CREDITS";
-            else if (v === "NO_VOICE") voiceProblem = "NO_VOICE";
-            else voice = v;
+            const m = await ask.make();
+            if (m === "NO_CREDITS") problems[ask.kind] = "NO_AI_CREDITS";
+            else if (m === "NO_VOICE" || m === "NO_VIDEO") problems[ask.kind] = m;
+            else media.push({ kind: ask.kind, made: m });
           } catch (e) {
-            // Something else is going: send it without the voice note. Nothing else: the action fails (and is retried).
-            if (!(text || image)) throw e;
-            voiceProblem = e instanceof VoiceError ? e.message : "VOICE_FAILED";
+            // Something else is going: send it without this one. Nothing else: the action fails (and is retried).
+            if (!(text || image) && asks.length === 1) throw e;
+            problems[ask.kind] = e instanceof VoiceError || e instanceof VideoError ? e.message : `${ask.kind.toUpperCase()}_FAILED`;
           }
         }
-        if (!text && !image && !voice) return { outcome: "SKIPPED", reason: voiceProblem || (card ? "NO_AI_CREDITS" : "NO_AI_TEXT"), data };
+        const refundAll = async () => {
+          await image?.refund();
+          for (const m of media) await m.made.refund();
+        };
+        if (!text && !image && !media.length) return { outcome: "SKIPPED", reason: problems.video || problems.voice || (card ? "NO_AI_CREDITS" : "NO_AI_TEXT"), data };
 
         const notConnected = (e: unknown) => e instanceof UnipileError && e.status === 422 && /no_connection/.test(e.type);
+        let sentSomething = false;
         if (text || image) {
           try {
             await ctx.client.startChat(ctx.accountId, u.provider_id, text, image ? { png: image.value, name: "note.png" } : undefined);
+            sentSomething = true;
           } catch (e) {
-            await image?.refund();
-            await voice?.refund();
+            await refundAll();
             if (notConnected(e)) return { outcome: "SKIPPED", reason: "NOT_CONNECTED (NOT_CONNECTED)", data };
             throw e;
           }
         }
-        if (voice) {
+        const sent = { voice: false, video: false };
+        for (const m of media) {
           try {
-            await ctx.client.startChat(ctx.accountId, u.provider_id, "", undefined, voice.value);
+            await ctx.client.startChat(ctx.accountId, u.provider_id, "", undefined, { ...m.made.value, kind: m.kind });
+            sent[m.kind] = sentSomething = true;
           } catch (e) {
-            await voice.refund();
-            if (!(text || image)) {
+            await m.made.refund();
+            if (!sentSomething && m === media[media.length - 1]) {
               if (notConnected(e)) return { outcome: "SKIPPED", reason: "NOT_CONNECTED (NOT_CONNECTED)", data };
               throw e;
             }
-            voiceProblem = e instanceof UnipileError ? `VOICE_NOT_SENT (${e.status})` : "VOICE_NOT_SENT";
-            voice = null;
+            problems[m.kind] = e instanceof UnipileError ? `${m.kind.toUpperCase()}_NOT_SENT (${e.status})` : `${m.kind.toUpperCase()}_NOT_SENT`;
           }
         }
+        if (!sentSomething) return { outcome: "SKIPPED", reason: problems.video || problems.voice || "NOT_SENT", data };
         return {
           outcome: "DONE",
-          data: { ...data, ...(written && { aiWritten: true, text }), ...(image && { card: true }), ...(voice && { voice: true }), ...(voiceProblem && { voiceProblem }) },
+          data: {
+            ...data,
+            ...(written && { aiWritten: true, text }),
+            ...(image && { card: true }),
+            ...(sent.voice && { voice: true }),
+            ...(sent.video && { video: true }),
+            ...(problems.voice && { voiceProblem: problems.voice }),
+            ...(problems.video && { videoProblem: problems.video }),
+          },
         };
       };
 

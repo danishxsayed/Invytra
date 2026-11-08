@@ -20,7 +20,7 @@ export const AI_COSTS = {
   NOTE: 1,
   HANDWRITTEN: 2,
   VOICE: 5,
-  VIDEO: 5,
+  VIDEO: 15,
 } as const;
 export type AiAction = keyof typeof AI_COSTS;
 

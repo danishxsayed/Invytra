@@ -1,11 +1,12 @@
 "use client";
 
 import { COMMENT_MAX, MESSAGE_MAX, NOTE_FREE_MAX, NOTE_MAX, eventUrl, type CampaignSettings, type CampaignStep } from "@invytra/shared";
-import { ArrowDown, ArrowUp, CalendarPlus, Eye, MessageCircle, Hourglass, Lock, MessageSquare, Mic, Plus, ThumbsUp, Trash2, UserPlus } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarPlus, Eye, MessageCircle, Hourglass, Lock, MessageSquare, Mic, Plus, ThumbsUp, Trash2, UserPlus, Video } from "lucide-react";
 import { cx } from "../ui";
 import { TextTemplate } from "./TextTemplate";
 import { AiWriteToggle } from "./AiWriteToggle";
 import { CardEditor } from "./CardEditor";
+import { VideoNoteEditor } from "./VideoNoteEditor";
 import { VoiceNoteEditor } from "./VoiceNoteEditor";
 
 const ICON = { VISIT: Eye, INVITE: UserPlus, MESSAGE: MessageSquare, LIKE_POST: ThumbsUp, FOLLOW: Plus, COMMENT: MessageCircle, EVENT: CalendarPlus } as const;
@@ -78,8 +79,10 @@ export function SequenceEditor({
 
       <ol className="relative space-y-3 before:absolute before:bottom-6 before:left-[19px] before:top-6 before:w-px before:bg-stone-200">
         {steps.map((s, i) => {
-          const voiceOnly = s.type === "MESSAGE" && (!!s.voiceOnly || (!!s.voice && !s.text.trim()));
-          const Icon = s.type === "MESSAGE" && s.voice ? Mic : ICON[s.type];
+          const videoOnly = s.type === "MESSAGE" && !!s.videoOnly;
+          const voiceOnly = s.type === "MESSAGE" && !videoOnly && (!!s.voiceOnly || (!!s.voice && !s.text.trim()));
+          const Icon = videoOnly ? Video : s.type === "MESSAGE" && s.voice ? Mic : ICON[s.type];
+          const kindLabel = videoOnly ? "video message" : voiceOnly ? "voice message" : "";
           const prev = steps[i - 1];
           const n = s.type === "MESSAGE" ? ++messageNo : 0;
           const title =
@@ -96,8 +99,8 @@ export function SequenceEditor({
                       : s.type === "EVENT"
                         ? "Invite to event"
                     : n === 1
-                      ? voiceOnly ? "Voice message" : "Message"
-                      : `Follow-up ${n - 1}${voiceOnly ? ": voice message" : ""}`;
+                      ? kindLabel ? kindLabel[0]!.toUpperCase() + kindLabel.slice(1) : "Message"
+                      : `Follow-up ${n - 1}${kindLabel ? `: ${kindLabel}` : ""}`;
           const when =
             i === 0 ? (
               <span>Starts as soon as the campaign runs</span>
@@ -219,7 +222,12 @@ export function SequenceEditor({
                       <VoiceNoteEditor fixed voice={s.voice ?? { voiceId: "", script: "" }} onChange={(voice) => voice && set(i, { voice, text: "", aiWrite: undefined, card: undefined })} />
                     </div>
                   )}
-                  {s.type === "MESSAGE" && !s.voiceOnly && (
+                  {s.type === "MESSAGE" && s.videoOnly && (
+                    <div className="mt-3">
+                      <VideoNoteEditor video={s.video ?? { videoId: "", intro: "" }} onChange={(video) => set(i, { video, text: "", aiWrite: undefined, card: undefined, voice: undefined })} />
+                    </div>
+                  )}
+                  {s.type === "MESSAGE" && !s.voiceOnly && !s.videoOnly && (
                     <div className="mt-3">
                       <AiWriteToggle kind="message" on={!!s.aiWrite} onChange={(v) => set(i, { aiWrite: v || undefined })} />
                       <TextTemplate
