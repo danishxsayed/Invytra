@@ -60,6 +60,12 @@ export interface VideoInfo {
   hasAudio: boolean;
 }
 
+/** How long an audio or video file is, in ms. */
+export async function mediaMs(file: string): Promise<number> {
+  const raw = await run(ffprobeBin(), ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", file], 30_000);
+  return Math.round(Number(raw.trim()) * 1000);
+}
+
 export async function probeVideo(file: string): Promise<VideoInfo> {
   const raw = await run(ffprobeBin(), ["-v", "error", "-show_entries", "format=duration:stream=codec_type,width,height", "-of", "json", file], 30_000);
   const j = JSON.parse(raw) as { format?: { duration?: string }; streams?: { codec_type?: string; width?: number; height?: number }[] };
@@ -129,7 +135,20 @@ export async function personalVideo(recording: string, introMs: number, greeting
     // The greeting without the silence around it, and a short breath after.
     await writeFile(f("greeting.mp3"), greeting);
     const trim = "silenceremove=start_periods=1:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_threshold=-45dB,areverse,apad=pad_dur=0.2";
-    await ffmpeg(["-i", f("greeting.mp3"), "-af", trim, "-ar", "44100", "-ac", "1", f("greeting.wav")]);
+    await ffmpeg(["-i", f("greeting.mp3"), "-af", trim, "-ar", "44100", "-ac", "1", f("said.wav")]);
+    // Face and greeting the same length (some lip-sync services refuse clips that differ by
+    // more than ~15%): a shorter greeting ends in a natural pause; a longer one gets the face
+    // clip slowed to fit, so it still flows into the rest of the recording.
+    const said = await mediaMs(f("said.wav"));
+    const faceMs = intro * 1000;
+    if (said < faceMs) {
+      await ffmpeg(["-i", f("said.wav"), "-af", `apad=whole_dur=${(faceMs / 1000).toFixed(3)}`, "-ar", "44100", "-ac", "1", f("greeting.wav")]);
+    } else {
+      await writeFile(f("greeting.wav"), await readFile(f("said.wav")));
+      const slow = (said / faceMs).toFixed(4);
+      await ffmpeg(["-i", f("intro.mp4"), "-vf", `setpts=${slow}*PTS`, "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", f("intro-slow.mp4")]);
+      await rename(f("intro-slow.mp4"), f("intro.mp4"));
+    }
 
     await writeFile(f("synced.mp4"), await lipsync.sync(await readFile(f("intro.mp4")), await readFile(f("greeting.wav"))));
     const synced = await probeVideo(f("synced.mp4")).catch(() => {

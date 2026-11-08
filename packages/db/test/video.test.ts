@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { HeyGenLipSync, SyncSoLipSync, VideoError, lipSyncFromEnv, type LipSync } from "../src/lipsync";
-import { cachedVideo, dropVideoCache, greetingEndMs, personalVideo, videoCacheName, prepareRecording, probeVideo, videoDir, videoPath } from "../src/video";
+import { cachedVideo, dropVideoCache, greetingEndMs, mediaMs, personalVideo, videoCacheName, prepareRecording, probeVideo, videoDir, videoPath } from "../src/video";
 
 const hasFfmpeg = (() => {
   try {
@@ -64,7 +64,9 @@ withFfmpeg("recordings and personal videos (ffmpeg)", () => {
       async sync(video, audio) {
         writeFileSync(p("fv.mp4"), video);
         writeFileSync(p("fa.wav"), audio);
-        sent = { video: (await probeVideo(p("fv.mp4"))).durationMs, audio: (await probeVideo(p("fa.wav")).catch(() => ({ durationMs: -1 }))).durationMs };
+        sent = { video: await mediaMs(p("fv.mp4")), audio: await mediaMs(p("fa.wav")) };
+        // Like HeyGen: face and audio must be within 15% of each other.
+        if (Math.abs(sent.video - sent.audio) > 0.15 * Math.max(sent.video, sent.audio)) throw new VideoError("durations too different");
         ff("-stream_loop", "-1", "-i", p("fv.mp4"), "-i", p("fa.wav"), "-shortest", "-c:v", "libx264", "-c:a", "aac", p("fs.mp4"));
         return readFileSync(p("fs.mp4"));
       },
@@ -72,13 +74,26 @@ withFfmpeg("recordings and personal videos (ffmpeg)", () => {
     const out = await personalVideo(p("rec.mp4"), 2000, readFileSync(p("greet.mp3")), fake);
     writeFileSync(p("out.mp4"), out);
     const info = await probeVideo(p("out.mp4"));
+    // A 1.7 s greeting for a 2 s face: the greeting is padded to 2 s (a short pause), face as recorded.
     expect(sent!.video).toBeGreaterThan(1900);
     expect(sent!.video).toBeLessThan(2200);
-    // Silence trimmed, a short breath added: ~1.7 s.
+    expect(Math.abs(sent!.audio - sent!.video)).toBeLessThan(150);
     expect(info).toMatchObject({ width: 1280, height: 720, hasAudio: true });
-    // ~1.7 s greeting + the 8 s after the intro.
-    expect(info.durationMs).toBeGreaterThan(9300);
-    expect(info.durationMs).toBeLessThan(10200);
+    // 2 s greeting + the 8 s after the intro.
+    expect(info.durationMs).toBeGreaterThan(9600);
+    expect(info.durationMs).toBeLessThan(10400);
+
+    // A short "Hi Al," (0.5 s, the case that failed) for a 2 s face: padded, accepted.
+    ff("-f", "lavfi", "-i", "sine=frequency=500:duration=0.5", "-c:a", "libmp3lame", p("short.mp3"));
+    await personalVideo(p("rec.mp4"), 2000, readFileSync(p("short.mp3")), fake);
+    expect(Math.abs(sent!.audio - sent!.video)).toBeLessThan(150);
+    // A long greeting (3 s) for a 2 s face: the face clip is slowed to 3 s.
+    ff("-f", "lavfi", "-i", "sine=frequency=500:duration=3", "-c:a", "libmp3lame", p("long.mp3"));
+    const long = await personalVideo(p("rec.mp4"), 2000, readFileSync(p("long.mp3")), fake);
+    expect(sent!.video).toBeGreaterThan(3000);
+    expect(Math.abs(sent!.audio - sent!.video)).toBeLessThan(250);
+    writeFileSync(p("long-out.mp4"), long);
+    expect(await mediaMs(p("long-out.mp4"))).toBeGreaterThan(10800);
   }, 60_000);
 });
 
