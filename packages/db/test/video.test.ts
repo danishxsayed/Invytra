@@ -89,6 +89,9 @@ withFfmpeg("recordings and personal videos (ffmpeg)", () => {
     ff("-f", "lavfi", "-i", "sine=frequency=500:duration=0.5", "-c:a", "libmp3lame", p("short.mp3"));
     await personalVideo(p("rec.mp4"), 2000, readFileSync(p("short.mp3")), fake);
     expect(Math.abs(sent!.audio - sent!.video)).toBeLessThan(150);
+    // Far too long (a sentence, ~6 s, for a 2 s face): refused in plain words, nothing sent.
+    ff("-f", "lavfi", "-i", "sine=frequency=500:duration=6", "-c:a", "libmp3lame", p("sentence.mp3"));
+    await expect(personalVideo(p("rec.mp4"), 2000, readFileSync(p("sentence.mp3")), fake)).rejects.toThrow("Keep it to a few words");
     // A long greeting (3 s) for a 2 s face: the face clip is slowed to 3 s.
     ff("-f", "lavfi", "-i", "sine=frequency=500:duration=3", "-c:a", "libmp3lame", p("long.mp3"));
     const long = await personalVideo(p("rec.mp4"), 2000, readFileSync(p("long.mp3")), fake);

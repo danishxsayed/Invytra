@@ -70,6 +70,16 @@ function atempo(rate: number): string {
   return steps.join(",");
 }
 
+/** How long a file's picture is, in ms (the container's length can be its sound's). */
+export async function videoStreamMs(file: string): Promise<number> {
+  const raw = await run(ffprobeBin(), ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=duration", "-of", "default=nw=1:nk=1", file], 30_000);
+  const ms = Math.round(Number(raw.trim()) * 1000);
+  return Number.isFinite(ms) && ms > 0 ? ms : mediaMs(file);
+}
+
+/** A greeting may take at most this many times the "Hi there," it replaces (the face is slowed to fit). */
+export const GREETING_STRETCH_MAX = 1.6;
+
 /** How long an audio or video file is, in ms. */
 export async function mediaMs(file: string): Promise<number> {
   const raw = await run(ffprobeBin(), ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", file], 30_000);
@@ -155,14 +165,18 @@ export async function personalVideo(recording: string, introMs: number, greeting
     if (said < faceMs) {
       await ffmpeg(["-i", f("said.wav"), "-af", `apad=whole_dur=${(faceMs / 1000).toFixed(3)}`, "-ar", "44100", "-ac", "1", f("greeting.wav")]);
     } else {
+      if (said > faceMs * GREETING_STRETCH_MAX)
+        throw new VideoError(
+          `That greeting takes ${(said / 1000).toFixed(1)} s to say, but the greeting at the start of your video is ${(faceMs / 1000).toFixed(1)} s. Keep it to a few words, like “Hi Alex,”.`,
+        );
       await writeFile(f("greeting.wav"), await readFile(f("said.wav")));
       const slow = (said / faceMs).toFixed(4);
-      await ffmpeg(["-i", f("intro.mp4"), "-filter_complex", `[0:v]setpts=${slow}*PTS[v];[0:a]${atempo(1 / Number(slow))}[a]`, "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", ...AUDIO_OUT, f("intro-slow.mp4")]);
+      await ffmpeg(["-i", f("intro.mp4"), "-filter_complex", `[0:v]setpts=${slow}*PTS,fps=30[v];[0:a]${atempo(1 / Number(slow))}[a]`, "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", ...AUDIO_OUT, f("intro-slow.mp4")]);
       await rename(f("intro-slow.mp4"), f("intro.mp4"));
     }
 
     // The greeting's exact length (the face clip and the audio now match).
-    const greetMs = await mediaMs(f("intro.mp4"));
+    const greetMs = await videoStreamMs(f("intro.mp4"));
     await ffmpeg(["-i", f("greeting.wav"), "-af", `apad,atrim=0:${(greetMs / 1000).toFixed(3)}`, "-ar", "44100", "-ac", "1", f("greeting-fit.wav")]);
     await rename(f("greeting-fit.wav"), f("greeting.wav"));
 
@@ -182,6 +196,9 @@ export async function personalVideo(recording: string, introMs: number, greeting
       clipAudio = f("clip.wav");
     }
 
+    // Never send a mismatch: the services refuse clips whose picture and sound differ much.
+    const [clipMs, audioMs] = [await videoStreamMs(clip), await mediaMs(clipAudio)];
+    if (Math.abs(clipMs - audioMs) > 0.05 * Math.max(clipMs, audioMs)) throw new VideoError(`Couldn't line up the greeting with your video (${(clipMs / 1000).toFixed(2)} s of video, ${(audioMs / 1000).toFixed(2)} s of sound). Try a shorter greeting.`);
     const done = await lipsync.sync(await readFile(clip), await readFile(clipAudio), contextMs >= 1000 ? { onlyUntilMs: greetMs } : {});
     await writeFile(f("synced.mp4"), done);
     const synced = await probeVideo(f("synced.mp4")).catch(() => {

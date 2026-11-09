@@ -8,7 +8,7 @@ import { z } from "zod";
  */
 
 /** The greeting said at the start, per person ("Hi {firstName},"). Short: it replaces a few seconds. */
-export const VIDEO_INTRO_MAX = 60;
+export const VIDEO_INTRO_MAX = 40;
 /** Recordings per workspace. */
 export const VIDEOS_MAX = 5;
 /** What a recording must be like. LinkedIn takes up to 20 MB per message, so it's kept to a minute. */

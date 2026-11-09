@@ -119,7 +119,7 @@ function VideoCard({ v, voices }: { v: VideoRow; voices: { id: string; name: str
           <p className="text-[13px] text-stone-500">The greeting should end right after “Hi there,”. Play it to check, and nudge it if it cuts off a word.</p>
 
           <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-3">
-            <input value={greeting} onChange={(e) => setGreeting(e.target.value)} maxLength={VIDEO_INTRO_MAX} aria-label="Greeting to try" className="min-w-[160px] flex-1 rounded-lg border border-stone-300 px-3 py-2 text-[14px] focus:border-stone-500 focus:outline-none" />
+            <input value={greeting} onChange={(e) => setGreeting(e.target.value)} maxLength={VIDEO_INTRO_MAX} aria-label="Greeting to try" placeholder="Just the greeting, e.g. Hi Alex," className="min-w-[160px] flex-1 rounded-lg border border-stone-300 px-3 py-2 text-[14px] focus:border-stone-500 focus:outline-none" />
             <button
               type="button"
               disabled={making || !greeting.trim() || !v.voiceId}
@@ -136,6 +136,7 @@ function VideoCard({ v, voices }: { v: VideoRow; voices: { id: string; name: str
               <Sparkles className="h-4 w-4" aria-hidden /> {making ? "Making… (about a minute)" : `Try it · ${AI_COSTS.VIDEO} credits`}
             </button>
           </div>
+          <p className="text-[12px] text-stone-500">Type only the few words that replace “Hi there,” (like “Hi Alex,” or “Hey Priya,”). The rest of your video stays as you recorded it.</p>
           {sample && <video src={sample} controls autoPlay playsInline className="aspect-video w-full rounded-xl bg-black object-contain" />}
           {error && <p className="text-[13px] text-rose-700">{error}</p>}
         </div>
