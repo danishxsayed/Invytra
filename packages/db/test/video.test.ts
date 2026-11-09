@@ -110,19 +110,18 @@ withFfmpeg("recordings and personal videos (ffmpeg)", () => {
         writeFileSync(p("ha.wav"), audio);
         seen = { video: await mediaMs(p("hv.mp4")), audio: await mediaMs(p("ha.wav")), until: opts?.onlyUntilMs, sound: (await probeVideo(p("hv.mp4"))).hasAudio };
         if (seen.video < 4000) throw new VideoError("No speaker is detected in the video.");
-        if (opts?.onlyUntilMs && Math.abs(seen.audio - opts.onlyUntilMs) > 0.15 * opts.onlyUntilMs) throw new VideoError("The audio and video durations are too different.");
-        // Back: the whole clip, the new greeting at the start, the real sound after it.
-        ff("-i", p("hv.mp4"), "-i", p("ha.wav"), "-filter_complex", "[1:a][0:a]concat=n=2:v=0:a=1[x];[x]atrim=0:20[a]", "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-shortest", p("hs.mp4"));
+        if (seen.audio < 4000) throw new VideoError("No speaker is detected in the video.");
+        if (Math.abs(seen.audio - seen.video) > 0.15 * seen.video) throw new VideoError("The audio and video durations are too different.");
+        ff("-i", p("hv.mp4"), "-i", p("ha.wav"), "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-shortest", p("hs.mp4"));
         return readFileSync(p("hs.mp4"));
       },
     };
     const ctx = await personalVideo(p("rec.mp4"), 2000, readFileSync(p("greet.mp3")), heygenLike);
     expect(seen!.sound).toBe(true);
     expect(seen!.video).toBeGreaterThan(5800);
-    // Like HeyGen: the audio replaces only the part up to `until`, so it's that long.
-    expect(Math.abs(seen!.audio - seen!.until!)).toBeLessThan(150);
-    expect(seen!.until).toBeGreaterThan(1900);
-    expect(seen!.until).toBeLessThan(2200);
+    // The audio is the new greeting + the same seconds of real speech: as long as the clip.
+    expect(Math.abs(seen!.audio - seen!.video)).toBeLessThan(150);
+    expect(seen!.until).toBeUndefined();
     writeFileSync(p("ctx-out.mp4"), ctx);
     // Still: 2 s greeting + the 8 s after it (the context isn't repeated).
     const total = await mediaMs(p("ctx-out.mp4"));

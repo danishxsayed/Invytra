@@ -181,23 +181,27 @@ export async function personalVideo(recording: string, introMs: number, greeting
     await rename(f("greeting-fit.wav"), f("greeting.wav"));
 
     // Some services need more of the person talking to find them: send the next few seconds
-    // of the real recording too (its own sound) and have only the greeting changed. The audio
-    // is then just the new greeting: it replaces the part from 0 to the greeting's end.
+    // of the real recording too, in the picture and in the sound. Only the greeting part of
+    // what comes back is used.
     const contextMs = Math.min(lipsync.contextMs ?? 0, Math.max(0, info.durationMs - intro * 1000 - 200));
     let clip = f("intro.mp4");
-    const clipAudio = f("greeting.wav");
+    let clipAudio = f("greeting.wav");
     if (contextMs >= 1000) {
       await ffmpeg(["-ss", String(intro), "-i", recording, "-t", (contextMs / 1000).toFixed(3), "-vf", `scale=${info.width}:${info.height},setsar=1,fps=30`, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", ...AUDIO_OUT, f("tail.mp4")]);
       const join = (a0: string) => `[0:v]fps=30,setsar=1,format=yuv420p[v0];${a0};[1:v]fps=30,setsar=1,format=yuv420p[v1];[1:a]aresample=44100,aformat=channel_layouts=mono[a1];[v0][a0o][v1][a1]concat=n=2:v=1:a=1[v][a]`;
       // The face: greeting part (its own "Hi there,") + the next seconds.
       await ffmpeg(["-i", f("intro.mp4"), "-i", f("tail.mp4"), "-filter_complex", join("[0:a]aresample=44100,aformat=channel_layouts=mono[a0o]"), "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", ...AUDIO_OUT, f("clip.mp4")]);
+      // The audio: the new greeting + the same seconds as recorded, so the service hears
+      // enough real speech to find the speaker (and both are the same length).
+      await ffmpeg(["-i", f("greeting.wav"), "-i", f("tail.mp4"), "-filter_complex", "[0:a]aresample=44100,aformat=channel_layouts=mono[g];[1:a]aresample=44100,aformat=channel_layouts=mono[t];[g][t]concat=n=2:v=0:a=1[a]", "-map", "[a]", "-ar", "44100", "-ac", "1", f("clip.wav")]);
       clip = f("clip.mp4");
+      clipAudio = f("clip.wav");
     }
 
-    // Never send a mismatch: the services refuse when the part changed and the sound differ much.
-    const [clipMs, audioMs] = [await videoStreamMs(f("intro.mp4")), await mediaMs(clipAudio)];
+    // Never send a mismatch: the services refuse clips whose picture and sound differ much.
+    const [clipMs, audioMs] = [await videoStreamMs(clip), await mediaMs(clipAudio)];
     if (Math.abs(clipMs - audioMs) > 0.05 * Math.max(clipMs, audioMs)) throw new VideoError(`Couldn't line up the greeting with your video (${(clipMs / 1000).toFixed(2)} s of video, ${(audioMs / 1000).toFixed(2)} s of sound). Try a shorter greeting.`);
-    const done = await lipsync.sync(await readFile(clip), await readFile(clipAudio), contextMs >= 1000 ? { onlyUntilMs: greetMs } : {});
+    const done = await lipsync.sync(await readFile(clip), await readFile(clipAudio));
     await writeFile(f("synced.mp4"), done);
     const synced = await probeVideo(f("synced.mp4")).catch(() => {
       throw new VideoError("The lip-sync service returned a clip we can't read.");
