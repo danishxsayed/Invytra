@@ -96,6 +96,32 @@ withFfmpeg("recordings and personal videos (ffmpeg)", () => {
     expect(Math.abs(sent!.audio - sent!.video)).toBeLessThan(250);
     writeFileSync(p("long-out.mp4"), long);
     expect(await mediaMs(p("long-out.mp4"))).toBeGreaterThan(10800);
+
+    // Like HeyGen: needs a few seconds of real speech after the greeting to find the speaker,
+    // and changes only the greeting part (onlyUntilMs).
+    let seen: { video: number; audio: number; until?: number; sound: boolean } | null = null;
+    const heygenLike: LipSync = {
+      contextMs: 4000,
+      async sync(video, audio, opts) {
+        writeFileSync(p("hv.mp4"), video);
+        writeFileSync(p("ha.wav"), audio);
+        seen = { video: await mediaMs(p("hv.mp4")), audio: await mediaMs(p("ha.wav")), until: opts?.onlyUntilMs, sound: (await probeVideo(p("hv.mp4"))).hasAudio };
+        if (seen.video < 4000) throw new VideoError("No speaker is detected in the video.");
+        ff("-i", p("hv.mp4"), "-i", p("ha.wav"), "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-shortest", p("hs.mp4"));
+        return readFileSync(p("hs.mp4"));
+      },
+    };
+    const ctx = await personalVideo(p("rec.mp4"), 2000, readFileSync(p("greet.mp3")), heygenLike);
+    expect(seen!.sound).toBe(true);
+    expect(seen!.video).toBeGreaterThan(5800);
+    expect(Math.abs(seen!.audio - seen!.video)).toBeLessThan(200);
+    expect(seen!.until).toBeGreaterThan(1900);
+    expect(seen!.until).toBeLessThan(2200);
+    writeFileSync(p("ctx-out.mp4"), ctx);
+    // Still: 2 s greeting + the 8 s after it (the context isn't repeated).
+    const total = await mediaMs(p("ctx-out.mp4"));
+    expect(total).toBeGreaterThan(9600);
+    expect(total).toBeLessThan(10400);
   }, 60_000);
 });
 
@@ -167,6 +193,11 @@ describe("HeyGen lip-sync client", () => {
     expect([body.video, body.audio].map((x: { type: string }) => x.type)).toEqual(["asset_id", "asset_id"]);
     expect(new Set([body.video.asset_id, body.audio.asset_id])).toEqual(new Set(["as1", "as2"]));
     expect(calls.filter((c) => c.url.includes("api.heygen.com")).every((c) => c.key === "hk")).toBe(true);
+    // Only the greeting part changed when asked.
+    await h.sync(Buffer.from("v"), Buffer.from("a"), { onlyUntilMs: 2050 });
+    const partial = JSON.parse(String(calls.filter((c) => c.url.endsWith("/v3/lipsyncs")).at(-1)!.body));
+    expect(partial).toMatchObject({ start_time: 0, end_time: 2.05 });
+    expect(body.end_time).toBeUndefined();
     expect(calls.at(-1)!).toMatchObject({ url: "https://files.heygen.ai/out.mp4", key: undefined });
   });
 

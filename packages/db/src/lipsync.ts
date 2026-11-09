@@ -8,8 +8,13 @@
 export class VideoError extends Error {}
 
 export interface LipSync {
-  /** The face clip (mp4) speaking the audio (wav). Returns mp4 bytes. */
-  sync(video: Buffer, audio: Buffer): Promise<Buffer>;
+  /**
+   * The face clip (mp4) speaking the audio (wav). Returns mp4 bytes. With `onlyUntilMs`, only
+   * the start up to there is changed (the rest is the person's real speech, given for context).
+   */
+  sync(video: Buffer, audio: Buffer, opts?: { onlyUntilMs?: number }): Promise<Buffer>;
+  /** How much of the real speech after the greeting to send along (some services need it to find the speaker). */
+  readonly contextMs?: number;
 }
 
 export const DEFAULT_LIPSYNC_MODEL = "lipsync-2";
@@ -83,6 +88,9 @@ type HeyGenLipsync = { status?: string; video_url?: string | null; failure_messa
  * mode "precision" looks better; "speed" is cheaper (HeyGen calls it drafts).
  */
 export class HeyGenLipSync implements LipSync {
+  /** HeyGen looks for the speaker in the clip; ~2 s of greeting alone is too short ("No speaker is detected"). */
+  readonly contextMs = 4000;
+
   constructor(
     private readonly key: string,
     private readonly mode: "precision" | "speed" = "precision",
@@ -120,8 +128,9 @@ export class HeyGenLipSync implements LipSync {
     return a.asset_id;
   }
 
-  async sync(video: Buffer, audio: Buffer): Promise<Buffer> {
+  async sync(video: Buffer, audio: Buffer, opts: { onlyUntilMs?: number } = {}): Promise<Buffer> {
     const [v, a] = await Promise.all([this.upload(video, "intro.mp4", "video/mp4"), this.upload(audio, "greeting.wav", "audio/wav")]);
+    const part = opts.onlyUntilMs ? { start_time: 0, end_time: Math.round(opts.onlyUntilMs) / 1000 } : {};
     const body = JSON.stringify({
       video: { type: "asset_id", asset_id: v },
       audio: { type: "asset_id", asset_id: a },
@@ -131,6 +140,7 @@ export class HeyGenLipSync implements LipSync {
       enable_dynamic_duration: true,
       enable_watermark: false,
       keep_the_same_format: true,
+      ...part,
     });
     const created = await this.call<{ lipsync_id?: string }>("POST", "/v3/lipsyncs", body, true);
     const id = created?.lipsync_id;
