@@ -14,7 +14,7 @@ export function SetupPlan({ steps, intro, hrefs }: { steps: SetupStep[]; intro: 
   return (
     <section aria-label="Your setup plan" className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-start gap-3 px-5 pb-3 pt-4">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-400 text-stone-900">
+        <span className="grid h-9 w-9 place-items-center rounded-xl bg-stone-900 text-white">
           <Sparkles className="h-4 w-4" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
@@ -29,7 +29,7 @@ export function SetupPlan({ steps, intro, hrefs }: { steps: SetupStep[]; intro: 
         </div>
       </div>
       <div className="mx-5 h-1.5 overflow-hidden rounded-full bg-stone-100">
-        <div className="h-full rounded-full bg-brand-400 transition-all" style={{ width: `${Math.round((done / steps.length) * 100)}%` }} />
+        <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.round((done / steps.length) * 100)}%` }} />
       </div>
       <ol className="mt-2 divide-y divide-stone-100">
         {steps.map((s) => {
@@ -39,12 +39,12 @@ export function SetupPlan({ steps, intro, hrefs }: { steps: SetupStep[]; intro: 
               <a
                 href={hrefs[s.id]}
                 aria-disabled={s.done}
-                className={cx("group flex items-center gap-3.5 px-5 py-3.5 transition", s.done ? "pointer-events-none" : "hover:bg-stone-50", isNext && "bg-brand-50/60")}
+                className={cx("group flex items-center gap-3.5 px-5 py-3.5 transition", s.done ? "pointer-events-none" : "hover:bg-stone-50", isNext && "bg-stone-50/70")}
               >
                 <span
                   className={cx(
                     "grid h-6 w-6 shrink-0 place-items-center rounded-full border",
-                    s.done ? "border-brand-500 bg-brand-400 text-stone-900" : isNext ? "border-brand-500 ring-2 ring-brand-200" : "border-stone-300",
+                    s.done ? "border-emerald-500 bg-emerald-500 text-white" : isNext ? "border-stone-900" : "border-stone-300",
                   )}
                 >
                   {s.done && <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />}
@@ -54,7 +54,7 @@ export function SetupPlan({ steps, intro, hrefs }: { steps: SetupStep[]; intro: 
                   {!s.done && <span className="block text-[13px] leading-snug text-stone-500">{s.why}</span>}
                 </span>
                 {!s.done && (
-                  <span className={cx("inline-flex shrink-0 items-center gap-1 text-[14px] font-semibold", isNext ? "rounded-lg bg-brand-400 px-2.5 py-1 text-stone-900 shadow-glow" : "text-stone-400 group-hover:text-stone-700")}>
+                  <span className={cx("inline-flex shrink-0 items-center gap-1 text-[14px] font-semibold", isNext ? "text-stone-900" : "text-stone-400 group-hover:text-stone-700")}>
                     {isNext ? "Start" : ""} <ArrowRight className="h-4 w-4" aria-hidden />
                   </span>
                 )}

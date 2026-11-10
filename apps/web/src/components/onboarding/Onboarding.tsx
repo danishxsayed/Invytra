@@ -150,7 +150,7 @@ export function Onboarding({ firstName, whatsappLive }: { firstName: string; wha
                   onChange={(e) => setA((x) => ({ ...x, heardOther: e.target.value }))}
                   onKeyDown={(e) => e.key === "Enter" && next()}
                   placeholder="A podcast, a newsletter, an event…"
-                  className="mt-3 w-full rounded-xl border border-stone-300 px-4 py-3 text-[16px] focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                  className="mt-3 w-full rounded-xl border border-stone-300 px-4 py-3 text-[16px] focus:border-stone-900 focus:outline-none"
                 />
               )}
             </>
@@ -160,7 +160,7 @@ export function Onboarding({ firstName, whatsappLive }: { firstName: string; wha
             <ol className="space-y-2">
               {setupPlan(a, NO_PROGRESS).map((s, n) => (
                 <li key={s.id} className="flex gap-3.5 rounded-xl border border-stone-200 px-4 py-3.5">
-                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-100 text-[13px] font-semibold text-brand-800">{n + 1}</span>
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-stone-100 text-[13px] font-semibold text-stone-600">{n + 1}</span>
                   <div>
                     <p className="text-[16px] font-medium text-stone-900">{s.title}</p>
                     <p className="mt-0.5 text-[14px] leading-snug text-stone-500">{s.why}</p>
@@ -176,12 +176,12 @@ export function Onboarding({ firstName, whatsappLive }: { firstName: string; wha
                 type="button"
                 disabled={pending}
                 onClick={() => finish(a)}
-                className="inline-flex items-center gap-2 rounded-xl bg-brand-400 px-5 py-3 text-[16px] font-semibold text-stone-900 shadow-glow transition hover:bg-brand-300 disabled:opacity-70"
+                className="inline-flex items-center gap-2 rounded-xl bg-stone-900 px-5 py-3 text-[16px] font-semibold text-white hover:bg-stone-800 disabled:opacity-70"
               >
                 {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null} Go to my workspace <ArrowRight className="h-4 w-4" aria-hidden />
               </button>
             ) : step.kind === "many" || (step.kind === "heard" && a.heardFrom === "other") ? (
-              <button type="button" onClick={next} className="rounded-xl bg-brand-400 px-5 py-2.5 text-[15px] font-semibold text-stone-900 shadow-glow transition hover:bg-brand-300">
+              <button type="button" onClick={next} className="rounded-xl bg-stone-900 px-5 py-2.5 text-[15px] font-semibold text-white hover:bg-stone-800">
                 Continue
               </button>
             ) : null}
@@ -210,7 +210,7 @@ export function Onboarding({ firstName, whatsappLive }: { firstName: string; wha
         )}
         <div className="flex items-center gap-2" aria-label={`Step ${i + 1} of ${steps.length}`}>
           {steps.map((s, n) => (
-            <span key={s.key} className={cx("h-2 rounded-full transition-all", n === i ? "w-8 bg-brand-400" : n < i ? "w-2 bg-brand-600" : "w-2 bg-stone-300")} />
+            <span key={s.key} className={cx("h-2 rounded-full transition-all", n === i ? "w-8 bg-stone-900" : "w-2 bg-stone-300")} />
           ))}
         </div>
       </footer>
@@ -225,13 +225,13 @@ function Choice({ on, round, onClick, children }: { on: boolean; round?: boolean
       role={round ? "radio" : "checkbox"}
       aria-checked={on}
       onClick={onClick}
-      className={cx("flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left text-[17px] transition", on ? "bg-brand-50 text-stone-900" : "text-stone-800 hover:bg-stone-50")}
+      className={cx("flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left text-[17px] transition", on ? "bg-stone-100 text-stone-900" : "text-stone-800 hover:bg-stone-50")}
     >
       <span
         className={cx(
           "grid h-6 w-6 shrink-0 place-items-center border transition",
           round ? "rounded-full" : "rounded-md",
-          on ? "border-brand-500 bg-brand-400 text-stone-900" : "border-stone-300 bg-white",
+          on ? "border-stone-900 bg-stone-900 text-white" : "border-stone-300 bg-white",
         )}
       >
         {on && <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />}
