@@ -1,7 +1,9 @@
 import { prisma } from "@invytra/db";
-import { AudioLines, Building2, ChevronRight, KeyRound, ShieldCheck, UserRound, Users, Video } from "lucide-react";
+import { AudioLines, Building2, ChevronRight, KeyRound, ShieldCheck, Trash2, UserRound, Users, Video } from "lucide-react";
+import { DeleteWorkspace } from "@/components/DeleteWorkspace";
 import { PasswordForm, ProfileForm, SignOutOthers, WorkspaceForm } from "@/components/SettingsForms";
 import { Avatar, Card } from "@/components/ui";
+import { getAiBalance } from "@/lib/ai-credits";
 import { requireUser } from "@/lib/auth";
 import { hubHref } from "@/lib/domains";
 import { timeAgo } from "@/lib/format";
@@ -33,6 +35,7 @@ export default async function WorkspaceSettingsPage() {
   const videos = await prisma.videoRecording.count({ where: { workspaceId: me.workspace.id } });
   const now = new Date();
   const owner = me.role === "OWNER";
+  const ai = owner ? await getAiBalance(prisma, me.workspace.id) : null;
   return (
     <div className="space-y-8">
       <div>
@@ -95,6 +98,15 @@ export default async function WorkspaceSettingsPage() {
           <SignOutOthers />
         </Section>
       </div>
+
+      {owner && (
+        <div className="space-y-4">
+          <h2 className="text-[13px] font-semibold uppercase tracking-wider text-rose-400">Danger zone</h2>
+          <Section icon={Trash2} title="Delete workspace" hint="Only you, the owner, can do this.">
+            <DeleteWorkspace workspace={me.workspace.name} credits={ai?.left ?? 0} />
+          </Section>
+        </div>
+      )}
     </div>
   );
 }

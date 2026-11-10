@@ -22,7 +22,8 @@ Workspace level (hub, outside every channel; `apps/web/src/app/workspace/`): onb
 once after sign-up (`users.onboarding`, rules in `packages/shared/src/onboarding.ts`), overview (setup plan
 made from those answers, weekly numbers, needs attention), unified inbox (LinkedIn + email), people matched across channels (`people`, linked by
 `syncPeople`, no page of its own; someone who replied on one channel isn't contacted on another),
-do-not-contact list (`do_not_contact`, checked by every channel), settings, billing (owner only,
+do-not-contact list (`do_not_contact`, checked by every channel), settings (owner can delete the
+workspace: `lib/delete-workspace.ts`, paid invoices kept in `archived_invoices`), billing (owner only,
 Razorpay). Message extras (LinkedIn, paid in AI credits): handwritten notes, voice notes (ElevenLabs
 voice copies, `/workspace/voices`) and video notes (`/workspace/videos`: one recording, the opening
 "Hi there," re-spoken per person and lip-synced with HeyGen (or sync.so), one video per greeting reused;

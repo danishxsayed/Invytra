@@ -18,11 +18,11 @@ enum MemberRole {
 
 /// A customer (company). Everything a customer owns hangs off a workspace.
 model Workspace {
-  id        String   @id @default(cuid())
-  name      String
-  plan      String   @default("trial")
+  id           String    @id @default(cuid())
+  name         String
+  plan         String    @default("trial")
   /// Outreach channels this workspace's subscription includes (ids from CHANNELS in @invytra/shared)
-  channels  String[] @default(["linkedin", "email"])
+  channels     String[]  @default(["linkedin", "email"])
   /// Email verification credits: used this credit month (verifyPeriod = its 1st, UTC), and
   /// extra credits bought (never expire). The monthly allowance comes from the plan.
   verifyUsed   Int       @default(0) @map("verify_used")
@@ -32,7 +32,7 @@ model Workspace {
   aiUsed       Int       @default(0) @map("ai_used")
   aiPeriod     DateTime? @map("ai_period")
   aiExtra      Int       @default(0) @map("ai_extra")
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
 
   members           Membership[]
   accounts          LinkedinAccount[]
@@ -691,29 +691,29 @@ enum EmailCampaignStatus {
 /// An email campaign: leads, a sequence of emails (steps JSON, EmailStep[] in @invytra/shared)
 /// and the mailboxes that send it.
 model EmailCampaign {
-  id          String              @id @default(cuid())
-  workspaceId String              @map("workspace_id")
-  name        String
-  status      EmailCampaignStatus @default(DRAFT)
-  steps       Json                @default("[]")
+  id                  String              @id @default(cuid())
+  workspaceId         String              @map("workspace_id")
+  name                String
+  status              EmailCampaignStatus @default(DRAFT)
+  steps               Json                @default("[]")
   /// Variable names from the imported CSV columns (beyond the built-in ones)
-  columns     String[]            @default([])
+  columns             String[]            @default([])
   /// Unsubscribe: show the link in emails (the one-click header is always sent), and its text;
   /// [brackets] mark the linked words, {{unsubscribe}} in an email places it
-  unsubscribeLink   Boolean @default(true) @map("unsubscribe_link")
-  unsubscribeText   String  @default("Don't want to receive these emails anymore? [Unsubscribe here]") @map("unsubscribe_text")
+  unsubscribeLink     Boolean             @default(true) @map("unsubscribe_link")
+  unsubscribeText     String              @default("Don't want to receive these emails anymore? [Unsubscribe here]") @map("unsubscribe_text")
   /// Soft bounces (mailbox full, server busy): try the same email again this many times, this many hours apart
-  softBounceRetries Int     @default(2) @map("soft_bounce_retries")
-  softRetryHours    Int     @default(24) @map("soft_retry_hours")
+  softBounceRetries   Int                 @default(2) @map("soft_bounce_retries")
+  softRetryHours      Int                 @default(24) @map("soft_retry_hours")
   /// Scheduled sending: the first emails go out from this moment (the earliest, when each
   /// recipient's own time zone is used), as entered (local date-time + zone)
-  scheduledAt         DateTime? @map("scheduled_at")
-  scheduleLocal       String?   @map("schedule_local")
-  scheduleTimeZone    String?   @map("schedule_time_zone")
-  scheduleRecipientTz Boolean   @default(false) @map("schedule_recipient_tz")
-  launchedAt  DateTime?           @map("launched_at")
-  createdAt   DateTime            @default(now()) @map("created_at")
-  updatedAt   DateTime            @updatedAt @map("updated_at")
+  scheduledAt         DateTime?           @map("scheduled_at")
+  scheduleLocal       String?             @map("schedule_local")
+  scheduleTimeZone    String?             @map("schedule_time_zone")
+  scheduleRecipientTz Boolean             @default(false) @map("schedule_recipient_tz")
+  launchedAt          DateTime?           @map("launched_at")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
 
   workspace Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   mailboxes EmailCampaignMailbox[]
@@ -780,7 +780,7 @@ model EmailLead {
   /// Inbox: marked done (until they write again)
   inboxDoneAt     DateTime?       @map("inbox_done_at")
   /// When a meeting was booked with them (marked in the inbox): counted on the overview
-  meetingAt      DateTime? @map("meeting_at")
+  meetingAt       DateTime?       @map("meeting_at")
   createdAt       DateTime        @default(now()) @map("created_at")
 
   campaign     EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
@@ -865,7 +865,7 @@ model EmailContact {
   updatedAt      DateTime          @updatedAt @map("updated_at")
 
   /// The workspace contact this address belongs to (linked by the contacts sync)
-  personId  String?           @map("person_id")
+  personId String? @map("person_id")
 
   workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   lists     EmailListMember[]
@@ -972,24 +972,24 @@ enum CreditKind {
 
 /// Extra credits a workspace bought (or asked to buy): email verification or AI.
 model VerifyCreditPurchase {
-  id          String               @id @default(cuid())
-  workspaceId String               @map("workspace_id")
-  kind        CreditKind           @default(VERIFY)
-  credits     Int
-  priceCents  Int                  @map("price_cents")
-  currency    String               @default("USD")
-  status      VerifyPurchaseStatus @default(PENDING)
+  id              String               @id @default(cuid())
+  workspaceId     String               @map("workspace_id")
+  kind            CreditKind           @default(VERIFY)
+  credits         Int
+  priceCents      Int                  @map("price_cents")
+  currency        String               @default("USD")
+  status          VerifyPurchaseStatus @default(PENDING)
   /// Who asked (user id), and the payment's reference once paid
-  requestedBy String?              @map("requested_by")
-  paymentRef  String?              @map("payment_ref")
-  createdAt   DateTime             @default(now()) @map("created_at")
-  paidAt      DateTime?            @map("paid_at")
+  requestedBy     String?              @map("requested_by")
+  paymentRef      String?              @map("payment_ref")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  paidAt          DateTime?            @map("paid_at")
   /// The Razorpay order this payment goes through (null: paid by hand / before Razorpay)
-  razorpayOrderId String?          @unique @map("razorpay_order_id")
+  razorpayOrderId String?              @unique @map("razorpay_order_id")
   /// How it was paid, as Razorpay reports it (card, upi, netbanking …)
   method          String?
   /// Given when it's paid: INV-<year>-<number>, one sequence for all workspaces
-  invoiceNumber   String?          @unique @map("invoice_number")
+  invoiceNumber   String?              @unique @map("invoice_number")
   /// Who it was billed to and by, frozen when paid (later edits to billing details don't change it)
   invoice         Json?
 
@@ -1064,23 +1064,45 @@ model VideoRecording {
 
 /// Who a workspace's invoices are made out to (owner-edited on the Billing page).
 model BillingProfile {
-  workspaceId String   @id @map("workspace_id")
-  legalName   String   @map("legal_name")
-  email       String
-  addressLine1 String  @map("address_line1")
-  addressLine2 String? @map("address_line2")
-  city        String
-  state       String?
-  postalCode  String?  @map("postal_code")
+  workspaceId  String   @id @map("workspace_id")
+  legalName    String   @map("legal_name")
+  email        String
+  addressLine1 String   @map("address_line1")
+  addressLine2 String?  @map("address_line2")
+  city         String
+  state        String?
+  postalCode   String?  @map("postal_code")
   /// ISO 3166 two-letter code (IN, US …)
-  country     String
+  country      String
   /// Indian GST number, when the customer has one (shown on invoices)
-  gstin       String?
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  gstin        String?
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@map("billing_profiles")
+}
+
+/// Invoices of workspaces that were deleted: tax law requires keeping invoices as issued for
+/// years, so they're copied here (with nothing else of the workspace) before it's deleted.
+model ArchivedInvoice {
+  invoiceNumber   String    @id @map("invoice_number")
+  /// The deleted workspace's id and name, for finding it again
+  workspaceId     String    @map("workspace_id")
+  workspaceName   String    @map("workspace_name")
+  credits         Int
+  kind            String
+  priceCents      Int       @map("price_cents")
+  currency        String
+  paidAt          DateTime? @map("paid_at")
+  method          String?
+  paymentRef      String?   @map("payment_ref")
+  razorpayOrderId String?   @map("razorpay_order_id")
+  /// The invoice as issued (seller, buyer, amounts)
+  invoice         Json?
+  archivedAt      DateTime  @default(now()) @map("archived_at")
+
+  @@map("archived_invoices")
 }
 
 /// Hands out invoice numbers in order (one row, id 1), shared by all workspaces.
