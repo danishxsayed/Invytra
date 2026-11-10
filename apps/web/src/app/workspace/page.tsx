@@ -1,6 +1,6 @@
 import { prisma } from "@invytra/db";
 import { CHANNELS, canUseChannel, channelById, planIntro, setupPlan, type SetupStepId } from "@invytra/shared";
-import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, Plug } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, Plug, Sparkles } from "lucide-react";
 import { ChannelLogo } from "@/components/ChannelLogo";
 import { NeedsAttention } from "@/components/overview/NeedsAttention";
 import { SetupPlan } from "@/components/overview/SetupPlan";
@@ -136,6 +136,23 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
             );
           })}
         </ul>
+
+        <h2 className="mt-10 text-[13px] font-semibold uppercase tracking-wider text-stone-400">Tools</h2>
+        <a
+          href={hubHref("/invy")}
+          className="group mt-3 flex flex-wrap items-center gap-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm transition hover:border-stone-300 hover:shadow-md"
+        >
+          <span className="grid h-11 w-11 place-items-center rounded-xl bg-stone-900 text-white">
+            <Sparkles className="h-5 w-5" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[18px] font-semibold text-stone-900">Ask Invy</span>
+            <span className="block text-[14px] text-stone-600">Find businesses to reach by asking, e.g. “20 dental clinics in Mumbai without online booking”. See them on a map with why each one fits.</span>
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-stone-900 px-3.5 py-2 text-[14px] font-semibold text-white transition group-hover:bg-stone-700">
+            Ask Invy <ArrowUpRight className="h-4 w-4" aria-hidden />
+          </span>
+        </a>
     </div>
   );
 }

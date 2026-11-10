@@ -19,6 +19,10 @@ import { emailReplyTick } from "./email/replies.js";
 import { verifyTick } from "./email/verify.js";
 import { createRuntime } from "./runtime.js";
 import { syncPeople, unipileFromEnv } from "@invytra/db";
+import { monthlyAiCredits } from "@invytra/shared";
+import { invyBrainFromEnv } from "./invy/brain.js";
+import { placesFromEnv } from "./invy/places.js";
+import { requeueStuckInvySearches, runNextInvySearch } from "./invy/run.js";
 
 const INBOX_EVERY_MIN = Number(process.env.INBOX_SYNC_EVERY_MINUTES ?? 20);
 const CONCURRENCY = Number(process.env.WORKER_CONCURRENCY ?? 3);
@@ -192,6 +196,23 @@ async function main() {
   void runVerify();
   const verifyTimer = setInterval(runVerify, 60_000);
 
+  // Ask Invy: searches the dashboard queued (Google Maps + website checks + AI), one at a time.
+  await requeueStuckInvySearches(rt.prisma).catch(() => undefined);
+  const invyDeps = { places: placesFromEnv(), brain: invyBrainFromEnv(), monthlyCredits: monthlyAiCredits };
+  let invyBusy = false;
+  const runInvy = async () => {
+    if (invyBusy) return;
+    invyBusy = true;
+    try {
+      while (await runNextInvySearch(rt.prisma, invyDeps)) log("Ask Invy: finished a search");
+    } catch (e) {
+      log(`Ask Invy error: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      invyBusy = false;
+    }
+  };
+  const invyTimer = setInterval(runInvy, 3_000);
+
   // Replies typed in the dashboard's inbox, and inbox checks it asks for while open: the web
   // app only writes the QUEUED row, so look for new ones every few seconds and queue them.
   const picked = new Set<string>(queued.map((q) => q.id));
@@ -244,6 +265,7 @@ async function main() {
     clearInterval(warmupTimer);
     clearInterval(peopleTimer);
     clearInterval(verifyTimer);
+    clearInterval(invyTimer);
     await connect?.closeAll();
     await worker.close();
     await queue.close();

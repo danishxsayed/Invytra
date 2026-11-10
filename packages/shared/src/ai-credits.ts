@@ -21,6 +21,8 @@ export const AI_COSTS = {
   HANDWRITTEN: 2,
   VOICE: 5,
   VIDEO: 15,
+  // Ask Invy: per business shown.
+  INVY: 1,
 } as const;
 export type AiAction = keyof typeof AI_COSTS;
 
@@ -30,6 +32,7 @@ export const AI_ACTION_LABEL: Record<AiAction, string> = {
   HANDWRITTEN: "Handwritten note",
   VOICE: "Voice note",
   VIDEO: "Video note",
+  INVY: "Ask Invy business",
 };
 
 /** Extra AI credits to buy (they never expire). */

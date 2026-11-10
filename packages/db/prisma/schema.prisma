@@ -50,6 +50,8 @@ model Workspace {
   aiUsage           AiCreditUse[]
   voices            VoiceClone[]
   videos            VideoRecording[]
+  invySearches      InvySearch[]
+  invyProspects     InvyProspect[]
   billingProfile    BillingProfile?
   doNotContact      DoNotContact[]
   people            Person[]
@@ -1169,4 +1171,108 @@ model Person {
   @@unique([workspaceId, email])
   @@index([workspaceId, updatedAt])
   @@map("people")
+}
+
+enum InvySearchStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// An Ask Invy search: the conversation, the criteria the AI made of it, and progress.
+model InvySearch {
+  id          String           @id @default(cuid())
+  workspaceId String           @map("workspace_id")
+  userId      String?          @map("user_id")
+  title       String
+  status      InvySearchStatus @default(QUEUED)
+  /// [{ role: "user" | "invy", text, at }]
+  messages    Json             @default("[]")
+  /// InvyCriteria (from @invytra/shared), once understood
+  criteria    Json?
+  /// Where the Google search got to: { queries: [{ q, next, done }] , pages }
+  cursor      Json?
+  /// A short line while it runs ("Checking 34 websites…")
+  progress    String?
+  /// Invy's summary of the results
+  summary     String?
+  error       String?
+  creditsUsed Int              @default(0) @map("credits_used")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  businesses InvyBusiness[]
+
+  @@index([workspaceId, updatedAt])
+  @@index([status])
+  @@map("invy_searches")
+}
+
+/// A business found by a search (matching or not), with the evidence checked.
+model InvyBusiness {
+  id             String   @id @default(cuid())
+  searchId       String   @map("search_id")
+  workspaceId    String   @map("workspace_id")
+  /// Google place id
+  placeId        String   @map("place_id")
+  name           String
+  category       String?
+  address        String?
+  lat            Float
+  lng            Float
+  phone          String?
+  website        String?
+  mapsUrl        String?  @map("maps_url")
+  rating         Float?
+  reviews        Int?
+  businessStatus String?  @map("business_status")
+  /// SiteCheck: what was seen on its website
+  check          Json?
+  emails         String[] @default([])
+  match          Boolean  @default(false)
+  /// InvyReason[]: verified reasons with their source
+  reasons        Json     @default("[]")
+  /// Invy's (AI) take: why it's a fit, and what could be offered
+  why            String?
+  opportunity    String?
+  /// Order among the matches shown (1, 2, …); null = not shown
+  position       Int?
+  /// Its credit was taken (shown once, paid once)
+  charged        Boolean  @default(false)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  search InvySearch @relation(fields: [searchId], references: [id], onDelete: Cascade)
+
+  @@unique([searchId, placeId])
+  @@index([workspaceId, placeId])
+  @@map("invy_businesses")
+}
+
+/// A business saved from Ask Invy (the workspace's business prospects).
+model InvyProspect {
+  id          String    @id @default(cuid())
+  workspaceId String    @map("workspace_id")
+  placeId     String    @map("place_id")
+  name        String
+  category    String?
+  address     String?
+  lat         Float
+  lng         Float
+  phone       String?
+  website     String?
+  mapsUrl     String?   @map("maps_url")
+  email       String?
+  why         String?
+  opportunity String?
+  searchId    String?   @map("search_id")
+  /// When it was sent to an email list
+  emailedAt   DateTime? @map("emailed_at")
+  savedAt     DateTime  @default(now()) @map("saved_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, placeId])
+  @@map("invy_prospects")
 }

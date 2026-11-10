@@ -27,7 +27,9 @@ workspace: `lib/delete-workspace.ts`, paid invoices kept in `archived_invoices`)
 Razorpay). Message extras (LinkedIn, paid in AI credits): handwritten notes, voice notes (ElevenLabs
 voice copies, `/workspace/voices`) and video notes (`/workspace/videos`: one recording, the opening
 "Hi there," re-spoken per person and lip-synced with HeyGen (or sync.so), one video per greeting reused;
-`packages/db/src/video.ts` + `lipsync.ts`, files in VIDEO_DIR). M6 go-live (server, domain, plan pricing, team invites) is next. Phase 0's engine is done (`docs/PHASE-0-POC.md`); its
+`packages/db/src/video.ts` + `lipsync.ts`, files in VIDEO_DIR). Ask Invy (`/workspace/invy`): find businesses from a sentence: worker
+`apps/worker/src/invy/` (Google Places, safe website checks, OpenAI criteria + reasoning, 1 AI credit per business
+shown), rules in `packages/shared/src/invy.ts`, map + cards in `apps/web/src/components/invy/`. M6 go-live (server, domain, plan pricing, team invites) is next. Phase 0's engine is done (`docs/PHASE-0-POC.md`); its
 7-day soak test still needs spare accounts and proxies.
 
 ## Tech stack

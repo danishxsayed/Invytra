@@ -22,6 +22,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
         overview={hubHref("/")}
         settings={hubHref("/settings")}
         dnc={hubHref("/do-not-contact")}
+        invy={hubHref("/invy")}
         inbox={{ href: hubHref("/inbox"), waiting }}
         billing={canSeeBilling(me) ? hubHref("/billing") : null}
         credits={{ left: ai.left, href: creditsHref(me) }}
