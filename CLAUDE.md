@@ -18,8 +18,9 @@ M3 (lead lists) and M4 (campaigns: sequence builder + worker engine in
 (inbox with needs-reply/done, activity filters, failure screenshots, weekly table) are built;
 multi-sender campaigns are built too (`campaign_senders`; each lead is assigned one sender in
 `campaign_leads.account_id` and keeps it; removed senders' uncontacted leads move to others);
-Workspace level (hub, outside every channel; `apps/web/src/app/workspace/`): overview (weekly
-numbers, needs attention), unified inbox (LinkedIn + email), people matched across channels (`people`, linked by
+Workspace level (hub, outside every channel; `apps/web/src/app/workspace/`): onboarding questions
+once after sign-up (`users.onboarding`, rules in `packages/shared/src/onboarding.ts`), overview (setup plan
+made from those answers, weekly numbers, needs attention), unified inbox (LinkedIn + email), people matched across channels (`people`, linked by
 `syncPeople`, no page of its own; someone who replied on one channel isn't contacted on another),
 do-not-contact list (`do_not_contact`, checked by every channel), settings, billing (owner only,
 Razorpay). Message extras (LinkedIn, paid in AI credits): handwritten notes, voice notes (ElevenLabs

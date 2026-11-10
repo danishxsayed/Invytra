@@ -67,6 +67,10 @@ model User {
   lastLoginAt        DateTime? @map("last_login_at")
   /// Sessions signed before this moment are no longer accepted (password change, "sign out everywhere")
   sessionsValidAfter DateTime? @map("sessions_valid_after")
+  /// Answers to the questions after sign-up (onboardingSchema in @invytra/shared); null = not asked yet
+  onboarding         Json?
+  /// When they finished (or skipped) those questions
+  onboardedAt        DateTime? @map("onboarded_at")
 
   memberships    Membership[]
   passwordResets PasswordReset[]

@@ -1,13 +1,15 @@
 import { prisma } from "@invytra/db";
-import { CHANNELS, canUseChannel, channelById } from "@invytra/shared";
+import { CHANNELS, canUseChannel, channelById, planIntro, setupPlan, type SetupStepId } from "@invytra/shared";
 import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, Plug } from "lucide-react";
 import { ChannelLogo } from "@/components/ChannelLogo";
 import { NeedsAttention } from "@/components/overview/NeedsAttention";
+import { SetupPlan } from "@/components/overview/SetupPlan";
 import { WeekStrip, type Stat } from "@/components/overview/WeekStrip";
 import { cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { channelSetup, type ChannelSetup } from "@/lib/channel-status";
 import { channelHref, hubHref } from "@/lib/domains";
+import { getAnswers, setupProgress } from "@/lib/onboarding";
 import { needsAttention, replyRate, weekNumbers } from "@/lib/overview";
 
 export const metadata = { title: "Your workspace" };
@@ -48,6 +50,18 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
     { label: "Reply rate", value: rate === null ? "—" : `${rate}%`, change: rate === null || rateBefore === null ? null : change(rate, rateBefore, " pts") },
     { label: "Meetings booked", value: fmt(week.meetings), change: change(week.meetings, before.meetings) },
   ];
+  const answers = await getAnswers(prisma, me.user.id);
+  const plan = answers.planHidden ? [] : setupPlan(answers, await setupProgress(prisma, me.workspace.id));
+  // LinkedIn first when they use it; otherwise email.
+  const li = canUseChannel(channelById("linkedin")!, me.workspace.channels) && (!answers.channels?.length || answers.channels.includes("linkedin"));
+  const planHrefs: Record<SetupStepId, string> = {
+    linkedin: channelHref("linkedin", "/app/accounts?add=1"),
+    mailbox: channelHref("email", "/email/mailboxes"),
+    people: li ? channelHref("linkedin", "/app/leads") : channelHref("email", "/email/contacts"),
+    campaign: li ? channelHref("linkedin", "/app/campaigns/new") : channelHref("email", "/email/campaigns"),
+    voice: hubHref("/voices"),
+    dnc: hubHref("/do-not-contact"),
+  };
   const notice = q.soon ? channelById(q.soon) : q.denied ? channelById(q.denied) : undefined;
 
   return (
@@ -65,6 +79,7 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
         )}
 
         <div className="mt-7 space-y-4">
+          <SetupPlan steps={plan} intro={planIntro(answers)} hrefs={planHrefs} />
           <WeekStrip stats={stats} />
           <NeedsAttention items={attention} />
         </div>

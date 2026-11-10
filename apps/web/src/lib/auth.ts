@@ -9,7 +9,8 @@ import { authKey, secureCookies } from "./env";
 import { SESSION_COOKIE, SESSION_DAYS, signSession, verifySession } from "./session-token";
 
 export interface CurrentUser {
-  user: { id: string; name: string; email: string };
+  /** onboarded: answered (or skipped) the questions after sign-up. */
+  user: { id: string; name: string; email: string; onboarded: boolean };
   /** channels: the outreach channels its subscription includes. */
   workspace: { id: string; name: string; plan: string; channels: string[] };
   role: MemberRole;
@@ -54,7 +55,7 @@ export const currentUser = cache(async (): Promise<CurrentUser | null> => {
   // Signed out everywhere (password change or "sign out other devices"): older sessions stop working.
   if (user.sessionsValidAfter && (claims.issuedAt ?? 0) < user.sessionsValidAfter.getTime()) return null;
   return {
-    user: { id: user.id, name: user.name, email: user.email },
+    user: { id: user.id, name: user.name, email: user.email, onboarded: !!user.onboardedAt },
     workspace: { id: workspace.id, name: workspace.name, plan: workspace.plan, channels: workspace.channels },
     role: membership.role,
   };

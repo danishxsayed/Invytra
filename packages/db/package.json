@@ -18,7 +18,7 @@
     "build": "prisma generate && tsc -p tsconfig.json",
     "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
     "prisma": "node --env-file=../../.env ./node_modules/prisma/build/index.js",
-    "migrate:deploy": "node --env-file=../../.env ./node_modules/prisma/build/index.js migrate deploy",
+    "migrate:deploy": "node --env-file=../../.env ./node_modules/prisma/build/index.js db execute --file prisma/fixes/renamed-migrations.sql --schema prisma/schema.prisma && node --env-file=../../.env ./node_modules/prisma/build/index.js migrate deploy",
     "test": "vitest run"
   },
   "dependencies": {
