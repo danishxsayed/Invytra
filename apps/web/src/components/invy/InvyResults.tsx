@@ -8,6 +8,7 @@ import type { InvySearchView } from "@/lib/invy";
 import { Modal } from "../Modal";
 import { cx } from "../ui";
 import { BusinessCard } from "./BusinessCard";
+import { InvyLoader } from "./InvyLoader";
 import { InvyMap, type Pin } from "./InvyMap";
 
 /** Ask Invy results: the map (70%) and Invy's reasoning with the businesses (30%), in sync. */
@@ -103,7 +104,15 @@ export function InvyResults({ s, home }: { s: InvySearchView; home: string }) {
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,7fr)_minmax(340px,3fr)]">
-        <div className="h-[45vh] min-h-[280px] lg:h-full">
+        <div className="relative h-[45vh] min-h-[280px] lg:h-full">
+          {working && !s.cards.length && (
+            <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-white/70 backdrop-blur-[2px]">
+              <div className="flex flex-col items-center rounded-3xl bg-white/90 px-8 py-6 shadow-lg ring-1 ring-stone-200">
+                <InvyLoader size={160} />
+                <p className="mt-1 max-w-[260px] text-center text-[14px] font-medium text-stone-700">{s.progress ?? "Getting started…"}</p>
+              </div>
+            </div>
+          )}
           <InvyMap pins={pins} selected={selected} hovered={hovered} active={active} focus={focus} onHover={setHovered} onPick={pickFromMap} onToggle={toggle} />
         </div>
 
@@ -115,9 +124,10 @@ export function InvyResults({ s, home }: { s: InvySearchView; home: string }) {
                 <span className="grid h-6 w-6 place-items-center rounded-lg bg-stone-900 text-white"><Sparkles className="h-3.5 w-3.5" aria-hidden /></span> Invy
               </p>
               {working ? (
-                <p className="mt-2 flex items-center gap-2 text-[14px] text-stone-600">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> {s.progress ?? "Working…"}
-                </p>
+                <div className="mt-1 flex items-center gap-3">
+                  <InvyLoader size={72} />
+                  <p className="text-[14px] text-stone-600" aria-live="polite">{s.progress ?? "Working…"}</p>
+                </div>
               ) : (
                 <>
                   {last && <p className={cx("mt-2 text-[14px] leading-relaxed", s.status === "FAILED" ? "text-rose-700" : "text-stone-800")}>{last.text}</p>}
