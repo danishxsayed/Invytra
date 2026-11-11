@@ -52,21 +52,36 @@ describe("website checks", () => {
     const page = `<html><head><title> Smile Dental | Mumbai </title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="generator" content="WordPress 4.9"></head>
       <body><a href="https://www.practo.com/mumbai/clinic/smile">Book an appointment</a> <a href="mailto:hello@smiledental.in">Mail</a> info@smiledental.in logo@2x.png
       <footer>© 2017 - 2019 Smile Dental</footer><script>var x="noreply@sentry.io"</script></body></html>`;
-    expect(readHomepage(page)).toEqual({ title: "Smile Dental | Mumbai", mobileFriendly: true, generator: "WordPress 4.9", copyrightYear: 2019, booking: "Practo booking", ordering: null, emails: ["hello@smiledental.in", "info@smiledental.in"] });
+    expect(readHomepage(page)).toEqual({ title: "Smile Dental | Mumbai", mobileFriendly: true, generator: "WordPress 4.9", copyrightYear: 2019, booking: "Practo booking", ordering: null, emails: ["hello@smiledental.in", "info@smiledental.in"], socials: [] });
     expect(readHomepage("<p>Order online now</p>")).toMatchObject({ mobileFriendly: false, booking: null, ordering: "online ordering", emails: [] });
+  });
+
+  it("finds the business's own social profiles, not share buttons", () => {
+    const page = `<a href="https://www.instagram.com/smiledental/">IG</a> <a href="https://instagram.com/other">IG2</a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=x">Share</a> <a href="https://www.facebook.com/SmileDentalMumbai">FB</a>
+      <a href="https://twitter.com/intent/tweet?text=hi">Tweet</a> <a href="https://www.linkedin.com/company/smile-dental/">In</a>
+      <a href="https://www.linkedin.com/shareArticle?url=x">Share</a> <a href="https://www.youtube.com/watch?v=abc">Video</a>
+      <a href="https://wa.me/919876543210">WhatsApp</a> <a href='https://x.com/smiledental'>X</a>`;
+    expect(readHomepage(page).socials).toEqual([
+      { network: "instagram", url: "https://www.instagram.com/smiledental/" },
+      { network: "facebook", url: "https://www.facebook.com/SmileDentalMumbai" },
+      { network: "linkedin", url: "https://www.linkedin.com/company/smile-dental/" },
+      { network: "whatsapp", url: "https://wa.me/919876543210" },
+      { network: "x", url: "https://x.com/smiledental" },
+    ]);
   });
 
   it("no website, social page, broken site, a working one (email from its contact page)", async () => {
     expect(await checkSite(null)).toMatchObject({ status: "none" });
-    expect(await checkSite("https://www.instagram.com/cafe")).toMatchObject({ status: "social" });
+    expect(await checkSite("https://www.instagram.com/cafe")).toMatchObject({ status: "social", socials: [{ network: "instagram", url: "https://www.instagram.com/cafe" }] });
     const f = (async (u: URL) => {
       const s = String(u);
       if (s.includes("down.in")) return html("nope", 503);
-      if (s.endsWith("/contact")) return html("Write to us: owner@cafe.in");
+      if (s.endsWith("/contact")) return html('Write to us: owner@cafe.in <a href="https://www.instagram.com/cafe.in">Instagram</a>');
       return html('<meta name="viewport" content="width=device-width"><a href="/contact">Contact</a> © 2025');
     }) as unknown as typeof fetch;
     expect(await checkSite("https://down.in", { fetch: f, resolve: publicDns })).toMatchObject({ status: "broken", httpStatus: 503 });
-    expect(await checkSite("https://cafe.in", { fetch: f, resolve: publicDns })).toMatchObject({ status: "ok", https: true, mobileFriendly: true, copyrightYear: 2025, emails: ["owner@cafe.in"] });
+    expect(await checkSite("https://cafe.in", { fetch: f, resolve: publicDns })).toMatchObject({ status: "ok", https: true, mobileFriendly: true, copyrightYear: 2025, emails: ["owner@cafe.in"], socials: [{ network: "instagram", url: "https://www.instagram.com/cafe.in" }] });
     expect(await checkSite("https://gone.in", { fetch: f, resolve: async () => Promise.reject(new Error("ENOTFOUND")) })).toMatchObject({ status: "broken", error: "DNS not found" });
   });
 });

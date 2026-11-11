@@ -4,6 +4,7 @@ import { BadgeCheck, Bookmark, BookmarkCheck, ChevronDown, ExternalLink, Globe, 
 import { forwardRef } from "react";
 import type { InvyCard } from "@/lib/invy";
 import { cx } from "../ui";
+import { SocialLinks } from "./SocialLinks";
 
 type Props = {
   b: InvyCard;
@@ -93,8 +94,19 @@ export const BusinessCard = forwardRef<HTMLLIElement, Props>(function BusinessCa
       <ul className="mt-2.5 space-y-1 text-[13px] text-stone-600">
         {b.address && <li className="flex gap-1.5"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-stone-400" aria-hidden />{b.address}</li>}
         {b.phone && <li className="flex gap-1.5"><Phone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-stone-400" aria-hidden /><a href={`tel:${b.phone.replace(/\s/g, "")}`} className="hover:underline">{b.phone}</a></li>}
-        {b.emails[0] && <li className="flex gap-1.5"><Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 text-stone-400" aria-hidden />{b.emails[0]} <span className="text-stone-400">(on its website)</span></li>}
+        {b.emails.length > 0 && (
+          <li className="flex gap-1.5">
+            <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 text-stone-400" aria-hidden />
+            <span className="min-w-0 [overflow-wrap:anywhere]">
+              {b.emails.map((e) => (
+                <a key={e} href={`mailto:${e}`} onClick={(ev) => ev.stopPropagation()} className="block hover:underline">{e}</a>
+              ))}
+              <span className="text-[12px] text-stone-400">on its website</span>
+            </span>
+          </li>
+        )}
       </ul>
+      <SocialLinks links={b.socials} className="mt-2" />
 
       {b.reasons.length > 0 && (
         <div className="mt-2.5 rounded-xl bg-emerald-50/60 px-3 py-2">

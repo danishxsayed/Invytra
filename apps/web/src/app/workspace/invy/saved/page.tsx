@@ -1,4 +1,5 @@
 import { prisma } from "@invytra/db";
+import type { SocialLink } from "@invytra/shared";
 import { ArrowLeft, Download } from "lucide-react";
 import { SavedList } from "@/components/invy/SavedList";
 import { requireUser } from "@/lib/auth";
@@ -29,7 +30,7 @@ export default async function SavedBusinessesPage() {
         )}
       </div>
       <SavedList
-        rows={rows.map((r) => ({ id: r.id, name: r.name, category: r.category, address: r.address, phone: r.phone, email: r.email, website: r.website, mapsUrl: r.mapsUrl, opportunity: r.opportunity, emailed: !!r.emailedAt }))}
+        rows={rows.map((r) => ({ id: r.id, name: r.name, category: r.category, address: r.address, phone: r.phone, email: r.email, website: r.website, mapsUrl: r.mapsUrl, opportunity: r.opportunity, emailed: !!r.emailedAt, socials: (r.socials as unknown as SocialLink[]) ?? [] }))}
         searchHref={hubHref("/invy")}
       />
     </div>

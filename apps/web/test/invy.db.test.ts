@@ -44,11 +44,13 @@ d("Ask Invy (dashboard)", () => {
 
   it("shows only the businesses shown, only to its workspace", async () => {
     await prisma.invyBusiness.createMany({
-      data: [biz(1, { emails: ["hello@biz1.in"] }), biz(2, { name: "=HYPERLINK(\"evil\")" }), biz(3, { emails: ["team@biz3.in"] }), { ...biz(4), position: null, match: false }],
+      data: [biz(1, { emails: ["hello@biz1.in"], check: { status: "ok", checkedAt: "2026-11-01", socials: [{ network: "instagram", url: "https://instagram.com/biz1" }] } }), biz(2, { name: "=HYPERLINK(\"evil\")" }), biz(3, { emails: ["team@biz3.in"] }), { ...biz(4), position: null, match: false }],
     });
     const s = await getSearch(prisma, A, id);
     expect(s!.cards.map((c) => c.n)).toEqual([1, 2, 3]);
     expect(s!.looked).toBe(4);
+    expect(s!.cards[0]!.socials).toEqual([{ network: "instagram", url: "https://instagram.com/biz1" }]);
+    expect(s!.cards[1]!.socials).toEqual([]);
     expect(await getSearch(prisma, B, id)).toBeNull();
     expect((await listSearches(prisma, A))[0]).toMatchObject({ id, title: "Cafes in Pune", found: 3 });
     expect(await listSearches(prisma, B)).toEqual([]);
@@ -58,6 +60,7 @@ d("Ask Invy (dashboard)", () => {
     const csv = (await searchCsv(prisma, A, id, null))!;
     expect(csv.split("\n")).toHaveLength(4);
     expect(csv).toContain(`"'=HYPERLINK(""evil"")"`);
+    expect(csv).toContain("hello@biz1.in,instagram: https://instagram.com/biz1,");
     const p1 = (await prisma.invyBusiness.findFirstOrThrow({ where: { searchId: id, placeId: "p1" } })).id;
     expect((await searchCsv(prisma, A, id, [p1]))!.split("\n")).toHaveLength(2);
     expect(await searchCsv(prisma, B, id, null)).toBeNull();
@@ -68,6 +71,7 @@ d("Ask Invy (dashboard)", () => {
     expect(await saveBusinesses(prisma, A, id, ids.slice(0, 2))).toEqual({ ok: true, value: 2 });
     expect(await saveBusinesses(prisma, A, id, ids.slice(0, 2))).toEqual({ ok: true, value: 2 });
     expect(await listSaved(prisma, A)).toHaveLength(2);
+    expect((await listSaved(prisma, A)).find((p) => p.placeId === "p1")?.socials).toEqual([{ network: "instagram", url: "https://instagram.com/biz1" }]);
     expect(await saveBusinesses(prisma, B, id, ids)).toEqual({ ok: true, value: 0 });
 
     const r = await emailBusinesses(prisma, A, id, ids);

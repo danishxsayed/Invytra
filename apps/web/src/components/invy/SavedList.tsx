@@ -3,9 +3,11 @@
 import { ExternalLink, Mail, Phone, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
+import type { SocialLink } from "@invytra/shared";
 import { unsaveBusinessAction } from "@/app/workspace/invy/actions";
+import { SocialLinks } from "./SocialLinks";
 
-type Row = { id: string; name: string; category: string | null; address: string | null; phone: string | null; email: string | null; website: string | null; mapsUrl: string | null; opportunity: string | null; emailed: boolean };
+type Row = { id: string; name: string; category: string | null; address: string | null; phone: string | null; email: string | null; website: string | null; mapsUrl: string | null; opportunity: string | null; emailed: boolean; socials: SocialLink[] };
 
 export function SavedList({ rows, searchHref }: { rows: Row[]; searchHref: string }) {
   const router = useRouter();
@@ -28,9 +30,10 @@ export function SavedList({ rows, searchHref }: { rows: Row[]; searchHref: strin
             <p className="text-[13px] text-stone-500">{[r.category, r.address].filter(Boolean).join(" · ")}</p>
             <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-stone-600">
               {r.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5 text-stone-400" aria-hidden />{r.phone}</span>}
-              {r.email && <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5 text-stone-400" aria-hidden />{r.email}</span>}
+              {r.email && <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1 hover:underline"><Mail className="h-3.5 w-3.5 text-stone-400" aria-hidden />{r.email}</a>}
               {r.opportunity && <span className="text-stone-500">Opportunity: <span className="font-medium text-stone-800">{r.opportunity}</span></span>}
             </p>
+            <SocialLinks links={r.socials} className="mt-1.5" />
           </div>
           <div className="flex items-center gap-1">
             {r.mapsUrl && (

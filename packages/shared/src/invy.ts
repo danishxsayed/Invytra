@@ -32,6 +32,32 @@ export const invyCriteriaSchema = z.object({
 });
 export type InvyCriteria = z.infer<typeof invyCriteriaSchema>;
 
+export const SOCIAL_NETWORKS = ["instagram", "facebook", "linkedin", "x", "youtube", "whatsapp"] as const;
+export type SocialNetwork = (typeof SOCIAL_NETWORKS)[number];
+export type SocialLink = { network: SocialNetwork; url: string };
+
+/** A profile link's network, or null for anything else (and for share / login links). */
+export function socialNetworkOf(url: string): SocialNetwork | null {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
+  const h = u.hostname.toLowerCase().replace(/^(www|m|mobile|web|business|in|[a-z]{2}-[a-z]{2})\./, "");
+  const path = u.pathname.toLowerCase();
+  if (/sharer|share|intent|dialog|login|plugins|\/tr$|home\.php/.test(path) || path === "/" || path === "") {
+    if (!(h === "wa.me" && path.length > 1)) return null;
+  }
+  if (h === "instagram.com") return "instagram";
+  if (h === "facebook.com" || h === "fb.com" || h === "fb.me") return "facebook";
+  if (h === "linkedin.com" && /^\/(company|in|school)\//.test(path)) return "linkedin";
+  if (h === "x.com" || h === "twitter.com") return "x";
+  if (h === "youtube.com" || h === "youtu.be") return /^\/(watch|embed)/.test(path) ? null : "youtube";
+  if (h === "wa.me" || h === "api.whatsapp.com" || h === "wa.link") return "whatsapp";
+  return null;
+}
+
 /** What Invytra saw when it opened the business's website. */
 export interface SiteCheck {
   /** none: no website on the listing; social: only a social/marketplace page; broken: didn't load; ok: loaded. */
@@ -48,6 +74,8 @@ export interface SiteCheck {
   booking?: string | null;
   ordering?: string | null;
   emails?: string[];
+  /** The business's own social profiles linked from its website (or its listing's social page). */
+  socials?: SocialLink[];
   title?: string;
   checkedAt: string;
 }

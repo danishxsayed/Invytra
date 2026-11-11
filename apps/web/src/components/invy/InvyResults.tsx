@@ -22,7 +22,6 @@ export function InvyResults({ s, home }: { s: InvySearchView; home: string }) {
   const [msg, setMsg] = useState("");
   const [note, setNote] = useState<{ text: string; bad?: boolean } | null>(null);
   const [outreach, setOutreach] = useState<string[] | null>(null);
-  const [showChat, setShowChat] = useState(false);
   const [pending, start] = useTransition();
   const cardRefs = useRef(new Map<string, HTMLLIElement>());
   const working = s.status === "QUEUED" || s.status === "RUNNING";
@@ -70,7 +69,7 @@ export function InvyResults({ s, home }: { s: InvySearchView; home: string }) {
     run(() => followUpAction(s.id, t));
   };
 
-  const last = [...s.messages].reverse().find((m) => m.role === "invy");
+  const lastInvy = s.messages.map((m) => m.role).lastIndexOf("invy");
   const chosen = outreach ? s.cards.filter((c) => outreach.includes(c.id)) : [];
   const withEmail = chosen.filter((c) => c.emails.length).length;
   const withPhone = chosen.filter((c) => c.phone).length;
@@ -118,39 +117,38 @@ export function InvyResults({ s, home }: { s: InvySearchView; home: string }) {
 
         <aside className="flex min-h-0 flex-col border-l border-stone-200 bg-[#faf9f5]">
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3.5">
-            {/* Invy's reasoning */}
+            {/* The conversation with Invy, always visible */}
             <section className="rounded-2xl border border-stone-200 bg-white p-3.5">
               <p className="flex items-center gap-1.5 text-[13px] font-semibold text-stone-900">
                 <span className="grid h-6 w-6 place-items-center rounded-lg bg-stone-900 text-white"><Sparkles className="h-3.5 w-3.5" aria-hidden /></span> Invy
               </p>
-              {working ? (
-                <div className="mt-1 flex items-center gap-3">
-                  <InvyLoader size={72} />
-                  <p className="text-[14px] text-stone-600" aria-live="polite">{s.progress ?? "Working…"}</p>
-                </div>
-              ) : (
-                <>
-                  {last && <p className={cx("mt-2 text-[14px] leading-relaxed", s.status === "FAILED" ? "text-rose-700" : "text-stone-800")}>{last.text}</p>}
-                  {s.summary && s.status !== "FAILED" && <p className="mt-2 text-[13px] leading-relaxed text-stone-600">{s.summary}</p>}
-                </>
-              )}
-              <p className="mt-2 text-[12px] text-stone-400">
+              <ol className="mt-2.5 space-y-2" aria-label="Conversation with Invy">
+                {s.messages.map((m, i) => {
+                  const latest = i === lastInvy;
+                  return (
+                    <li key={i} className={cx("flex", m.role === "user" ? "justify-end" : "justify-start")}>
+                      <div
+                        className={cx(
+                          "max-w-[88%] rounded-2xl px-3 py-2 text-[14px] leading-relaxed",
+                          m.role === "user" ? "rounded-br-md bg-stone-900 text-white" : latest && s.status === "FAILED" ? "rounded-bl-md bg-rose-50 text-rose-800" : "rounded-bl-md bg-stone-100 text-stone-800",
+                        )}
+                      >
+                        {m.text}
+                        {latest && s.summary && s.status !== "FAILED" && <p className="mt-1.5 border-t border-stone-200 pt-1.5 text-[13px] text-stone-600">{s.summary}</p>}
+                      </div>
+                    </li>
+                  );
+                })}
+                {working && (
+                  <li className="flex items-center gap-3 rounded-2xl rounded-bl-md bg-stone-50 px-2 py-1">
+                    <InvyLoader size={64} />
+                    <p className="text-[14px] text-stone-600" aria-live="polite">{s.progress ?? "Working…"}</p>
+                  </li>
+                )}
+              </ol>
+              <p className="mt-2.5 text-[12px] text-stone-400">
                 {s.looked} businesses looked at · {s.creditsUsed} AI credits used. “Checked” facts come from Google listings and the businesses&apos; own websites; “Invy&apos;s take” is AI.
               </p>
-              {s.messages.length > 2 && (
-                <button type="button" onClick={() => setShowChat((x) => !x)} className="mt-1.5 text-[12px] font-medium text-stone-500 underline underline-offset-2 hover:text-stone-800">
-                  {showChat ? "Hide the conversation" : `Show the conversation (${s.messages.length})`}
-                </button>
-              )}
-              {showChat && (
-                <ol className="mt-2 space-y-1.5">
-                  {s.messages.map((m, i) => (
-                    <li key={i} className={cx("rounded-xl px-3 py-1.5 text-[13px]", m.role === "user" ? "ml-6 bg-stone-900 text-white" : "mr-6 bg-stone-100 text-stone-800")}>
-                      {m.text}
-                    </li>
-                  ))}
-                </ol>
-              )}
             </section>
 
             {note && (

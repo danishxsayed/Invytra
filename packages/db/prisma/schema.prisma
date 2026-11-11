@@ -1264,6 +1264,8 @@ model InvyProspect {
   website     String?
   mapsUrl     String?   @map("maps_url")
   email       String?
+  /// The business's social profiles ({network, url}[], SocialLink in @invytra/shared)
+  socials     Json      @default("[]")
   why         String?
   opportunity String?
   searchId    String?   @map("search_id")

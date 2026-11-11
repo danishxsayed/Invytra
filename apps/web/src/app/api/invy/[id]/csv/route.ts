@@ -1,7 +1,7 @@
 import { prisma } from "@invytra/db";
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { listSaved, searchCsv } from "@/lib/invy";
+import { listSaved, searchCsv, socialsText } from "@/lib/invy";
 
 /** CSV of a search's businesses (?ids=a,b,c for the chosen ones), or of saved businesses (id "saved"). */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -16,8 +16,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
     };
     csv = [
-      "Business,Category,Address,Phone,Email,Website,Why,Opportunity,Google Maps,Saved",
-      ...rows.map((r) => [r.name, r.category, r.address, r.phone, r.email, r.website, r.why, r.opportunity, r.mapsUrl, r.savedAt.toISOString().slice(0, 10)].map(cell).join(",")),
+      "Business,Category,Address,Phone,Email,Social profiles,Website,Why,Opportunity,Google Maps,Saved",
+      ...rows.map((r) => [r.name, r.category, r.address, r.phone, r.email, socialsText(r.socials), r.website, r.why, r.opportunity, r.mapsUrl, r.savedAt.toISOString().slice(0, 10)].map(cell).join(",")),
     ].join("\n");
   } else {
     const ids = new URL(req.url).searchParams.get("ids")?.split(",").filter(Boolean).slice(0, 500) ?? null;

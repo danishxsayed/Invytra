@@ -1,6 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
-import { isSocialUrl, type SiteCheck } from "@invytra/shared";
+import { isSocialUrl, socialNetworkOf, type SiteCheck, type SocialLink } from "@invytra/shared";
 
 /*
  * Opens a business's website (the one on its Google listing) and notes what's there: does it
@@ -100,7 +100,15 @@ export function readHomepage(html: string): Omit<SiteCheck, "status" | "checkedA
         .filter((e) => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(e) && !BAD_EMAIL.test(e)),
     ),
   ].slice(0, 3);
+  // The business's own profiles: one per network, from links on the page.
+  const socials: SocialLink[] = [];
+  for (const m of html.matchAll(/href=["'](https?:\/\/[^"'\s>]+)["']/gi)) {
+    const url = m[1]!.replace(/&amp;/g, "&");
+    const network = socialNetworkOf(url);
+    if (network && !socials.some((x) => x.network === network)) socials.push({ network, url: url.slice(0, 300) });
+  }
   return {
+    socials,
     title: title || undefined,
     mobileFriendly,
     generator: generator || undefined,
@@ -115,17 +123,26 @@ export function readHomepage(html: string): Omit<SiteCheck, "status" | "checkedA
 export async function checkSite(website: string | null | undefined, opts: { fetch?: typeof fetch; resolve?: Resolve; now?: Date } = {}): Promise<SiteCheck> {
   const checkedAt = (opts.now ?? new Date()).toISOString();
   if (!website) return { status: "none", checkedAt };
-  if (isSocialUrl(website)) return { status: "social", url: website, checkedAt };
+  if (isSocialUrl(website)) {
+    const network = socialNetworkOf(website);
+    return { status: "social", url: website, ...(network ? { socials: [{ network, url: website }] } : {}), checkedAt };
+  }
   try {
     const page = await fetchPage(website, opts);
     if (page.status >= 400) return { status: "broken", url: website, finalUrl: page.finalUrl, httpStatus: page.status, checkedAt };
     const seen = readHomepage(page.html);
-    // No email on the homepage: one look at the contact page.
-    if (!seen.emails?.length) {
-      const contact = /href=["']([^"']*contact[^"']*)["']/i.exec(page.html)?.[1];
+    // No email or no social links on the homepage: one look at the contact (or about) page.
+    if (!seen.emails?.length || !seen.socials?.length) {
+      const contact = /href=["']([^"'#]*contact[^"']*)["']/i.exec(page.html)?.[1] ?? /href=["']([^"'#]*about[^"']*)["']/i.exec(page.html)?.[1];
       if (contact) {
         const c = await fetchPage(new URL(contact, page.finalUrl).toString(), opts).catch(() => null);
-        if (c && c.status < 400) seen.emails = readHomepage(c.html).emails;
+        if (c && c.status < 400) {
+          const more = readHomepage(c.html);
+          seen.emails = [...new Set([...(seen.emails ?? []), ...(more.emails ?? [])])].slice(0, 3);
+          const socials = [...(seen.socials ?? [])];
+          for (const x of more.socials ?? []) if (!socials.some((y) => y.network === x.network)) socials.push(x);
+          seen.socials = socials;
+        }
       }
     }
     return { status: "ok", url: website, finalUrl: page.finalUrl, httpStatus: page.status, https: page.finalUrl.startsWith("https:"), ...seen, checkedAt };

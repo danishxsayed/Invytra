@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@invytra/db";
-import { INVY_MESSAGE_MAX, type InvyReason, type SiteCheck } from "@invytra/shared";
+import { INVY_MESSAGE_MAX, type InvyReason, type SiteCheck, type SocialLink } from "@invytra/shared";
 import type { Result } from "./accounts";
 import { addListsToCampaign, createEmailCampaign } from "./email-campaigns";
 import { importContacts } from "./email-contacts";
@@ -69,12 +69,19 @@ export type InvyCard = {
   rating: number | null;
   reviews: number | null;
   emails: string[];
+  /** Social profiles linked from its website (or the social page its listing points to). */
+  socials: SocialLink[];
   reasons: InvyReason[];
   check: SiteCheck | null;
   why: string | null;
   opportunity: string | null;
   saved: boolean;
 };
+
+const socialsOf = (check: unknown): SocialLink[] => ((check as SiteCheck | null)?.socials ?? []).slice(0, 6);
+
+/** Social links as one CSV cell ("instagram: https://…; facebook: https://…"). */
+export const socialsText = (s: unknown) => ((s as SocialLink[] | null) ?? []).map((x) => `${x.network}: ${x.url}`).join("; ");
 
 export async function getSearch(prisma: PrismaClient, workspaceId: string, id: string) {
   const s = await prisma.invySearch.findFirst({ where: { id, workspaceId } });
@@ -99,6 +106,7 @@ export async function getSearch(prisma: PrismaClient, workspaceId: string, id: s
     rating: r.rating,
     reviews: r.reviews,
     emails: r.emails,
+    socials: socialsOf(r.check),
     reasons: (r.reasons as unknown as InvyReason[]) ?? [],
     check: (r.check as unknown as SiteCheck | null) ?? null,
     why: r.why,
@@ -153,6 +161,7 @@ export async function saveBusinesses(prisma: PrismaClient, workspaceId: string, 
       website: b.website,
       mapsUrl: b.mapsUrl,
       email: b.emails[0] ?? null,
+      socials: socialsOf(b.check),
       why: b.why,
       opportunity: b.opportunity,
       searchId,
@@ -184,9 +193,9 @@ export async function searchCsv(prisma: PrismaClient, workspaceId: string, searc
     where: { searchId, position: { not: null }, ...(ids?.length ? { id: { in: ids } } : {}) },
     orderBy: { position: "asc" },
   });
-  const head = ["#", "Business", "Category", "Address", "Phone", "Email", "Website", "Google rating", "Google reviews", "Why", "Opportunity", "Checked facts", "Google Maps", "Latitude", "Longitude"];
+  const head = ["#", "Business", "Category", "Address", "Phone", "Email", "Social profiles", "Website", "Google rating", "Google reviews", "Why", "Opportunity", "Checked facts", "Google Maps", "Latitude", "Longitude"];
   const lines = rows.map((b) =>
-    [b.position, b.name, b.category, b.address, b.phone, b.emails.join("; "), b.website, b.rating, b.reviews, b.why, b.opportunity, ((b.reasons as unknown as InvyReason[]) ?? []).map((r) => r.text).join(" "), b.mapsUrl, b.lat, b.lng]
+    [b.position, b.name, b.category, b.address, b.phone, b.emails.join("; "), socialsText(socialsOf(b.check)), b.website, b.rating, b.reviews, b.why, b.opportunity, ((b.reasons as unknown as InvyReason[]) ?? []).map((r) => r.text).join(" "), b.mapsUrl, b.lat, b.lng]
       .map((v) => csvCell(v))
       .join(","),
   );
