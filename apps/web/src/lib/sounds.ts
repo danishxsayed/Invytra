@@ -1,10 +1,26 @@
 "use client";
 
 /*
- * Invytra's own sounds, made live with the Web Audio API (no audio files, nothing licensed).
+ * Invytra's sounds. The campaign launch sound is public/sfx/campaign-launched.mp3 (made with
+ * ElevenLabs); if it can't load, a chime made with the Web Audio API plays instead.
  * Browsers only allow sound after a click, so call primeSound() inside the click handler,
  * then play the sound when the action has worked.
  */
+
+const LAUNCH_SFX = "/sfx/campaign-launched.mp3";
+let launchBuffer: Promise<AudioBuffer | null> | null = null;
+
+/** The launch sound, fetched and decoded once (null if it can't be). */
+function loadLaunch(a: AudioContext): Promise<AudioBuffer | null> {
+  launchBuffer ??= fetch(LAUNCH_SFX)
+    .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+    .then((b) => a.decodeAudioData(b))
+    .catch(() => {
+      launchBuffer = null;
+      return null;
+    });
+  return launchBuffer;
+}
 
 let ctx: AudioContext | null = null;
 
@@ -23,14 +39,36 @@ function audio(): AudioContext | null {
 /** Unlocks audio; call it synchronously in the click that will lead to a sound. */
 export function primeSound(): void {
   const a = audio();
-  if (a?.state === "suspended") void a.resume().catch(() => undefined);
+  if (!a) return;
+  if (a.state === "suspended") void a.resume().catch(() => undefined);
+  void loadLaunch(a);
+}
+
+/** Plays when a campaign is launched (any channel). */
+export function playLaunchSound(): void {
+  const a = audio();
+  if (!a) return;
+  if (a.state === "suspended") void a.resume().catch(() => undefined);
+  void loadLaunch(a).then((buf) => {
+    if (!buf) return playChime();
+    try {
+      const src = a.createBufferSource();
+      const vol = a.createGain();
+      vol.gain.value = 0.8;
+      src.buffer = buf;
+      src.connect(vol).connect(a.destination);
+      src.start();
+    } catch {
+      playChime();
+    }
+  });
 }
 
 /**
- * "Launch": a short airy whoosh rising into a bright four-note chime (G major, ending an
+ * Backup "launch" chime: a short airy whoosh rising into a bright four-note chime (G major, ending an
  * octave up) with a soft echo. About 1.5 seconds, gentle volume.
  */
-export function playLaunchSound(): void {
+function playChime(): void {
   const a = audio();
   if (!a) return;
   try {
