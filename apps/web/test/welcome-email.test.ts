@@ -11,6 +11,7 @@ describe("welcome email", () => {
     expect(m.text).toContain('Your workspace "Acme <Sales>" is ready.');
     expect(m.text).toContain("Open your workspace: https://app.invytra.com/");
     expect(m.html).toContain('href="https://app.invytra.com/"');
+    expect(m.html).toContain('<img src="https://app.invytra.com/logo-128.png" width="40" height="40" alt="Invytra"');
     expect(m.html).toContain("Acme &#60;Sales&#62;");
     expect(m.html).not.toContain("<Sales>");
   });

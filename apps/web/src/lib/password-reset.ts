@@ -5,6 +5,7 @@ import type { Result } from "./accounts";
 import { hubOrigin } from "./domains";
 import { MIN_PASSWORD_LENGTH, hashPassword } from "./password";
 import type { PlatformMailer } from "./platform-mail";
+import { emailBrandHeader } from "./welcome-email";
 
 /*
  * Forgot password: a one-use link, valid for an hour, emailed to the account's address.
@@ -37,7 +38,7 @@ export async function requestPasswordReset(prisma: PrismaClient, emailRaw: strin
     to: email,
     subject: "Reset your Invytra password",
     text: `Hi ${first},\n\nSomeone (hopefully you) asked to reset the password of your Invytra account. Choose a new one here:\n\n${link}\n\nThe link works once, for ${RESET_VALID_MINUTES} minutes. If you didn't ask, ignore this email: your password stays the same.\n\nInvytra`,
-    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#1c1917"><p>Hi ${first.replace(/[<>&"]/g, "")},</p><p>Someone (hopefully you) asked to reset the password of your Invytra account.</p><p><a href="${link}" style="display:inline-block;background:#c6f432;color:#1c1917;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Choose a new password</a></p><p style="color:#78716c;font-size:13px">The link works once, for ${RESET_VALID_MINUTES} minutes. If you didn't ask, ignore this email: your password stays the same.</p></div>`,
+    html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#1c1917">${emailBrandHeader(appOrigin())}<p>Hi ${first.replace(/[<>&"]/g, "")},</p><p>Someone (hopefully you) asked to reset the password of your Invytra account.</p><p><a href="${link}" style="display:inline-block;background:#c6f432;color:#1c1917;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Choose a new password</a></p><p style="color:#78716c;font-size:13px">The link works once, for ${RESET_VALID_MINUTES} minutes. If you didn't ask, ignore this email: your password stays the same.</p></div>`,
   });
 }
 

@@ -6,6 +6,13 @@ import type { PlatformEmail, PlatformMailer } from "./platform-mail";
  * the three first steps. Sending is best effort: a mail problem never blocks a sign-up.
  */
 
+/** The Invytra logo and name for the top of platform emails (the image is served by the app). */
+export const emailBrandHeader = (origin: string) =>
+  `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px"><tr>
+<td valign="middle"><img src="${origin}/logo-128.png" width="40" height="40" alt="Invytra" style="display:block;width:40px;height:40px;border:0;border-radius:10px"></td>
+<td valign="middle" style="padding-left:10px;font-size:20px;font-weight:700;letter-spacing:-0.01em;color:#1c1917">Invytra</td>
+</tr></table>`;
+
 const esc = (s: string) => s.replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export function welcomeEmail(p: { to: string; name: string; workspace: string; origin?: string; replyTo?: string }): PlatformEmail {
@@ -33,7 +40,7 @@ export function welcomeEmail(p: { to: string; name: string; workspace: string; o
   ].join("\n");
   const html = `<div style="background:#f5f5f4;padding:32px 16px;font-family:Arial,Helvetica,sans-serif">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;color:#1c1917;font-size:15px;line-height:1.6">
-<p style="margin:0 0 24px;font-size:20px;font-weight:700;letter-spacing:-0.01em">Invytra</p>
+${emailBrandHeader(origin)}
 <p style="margin:0 0 12px;font-size:22px;font-weight:700">Welcome, ${esc(first)}!</p>
 <p style="margin:0 0 20px;color:#44403c">Your workspace <strong>${esc(p.workspace)}</strong> is ready. Here's how to get to your first replies:</p>
 ${steps
