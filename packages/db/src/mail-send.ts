@@ -145,7 +145,7 @@ export async function sendEmail(
 /** One email through a given SMTP server (the platform's own emails, e.g. password resets). */
 export async function sendSystemEmail(
   smtp: { host: string; port: number; user: string; pass: string; from: string },
-  mail: { to: string; subject: string; text: string; html: string },
+  mail: { to: string; subject: string; text: string; html: string; replyTo?: string },
 ): Promise<void> {
   const t = nodemailer.createTransport({
     host: smtp.host,

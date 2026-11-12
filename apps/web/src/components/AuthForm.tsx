@@ -1,9 +1,41 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { FormState } from "@/app/(auth)/actions";
+
+const INPUT =
+  "mt-1.5 block w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-[16px] text-stone-900 shadow-[0_1px_2px_rgba(16,24,40,0.04)] placeholder:text-stone-400 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-200";
+
+/** A password field with an eye button to show or hide what was typed. */
+function PasswordInput({ field }: { field: Field }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <span className="relative mt-1.5 block">
+      <input
+        name={field.name}
+        type={shown ? "text" : "password"}
+        autoComplete={field.autoComplete}
+        placeholder={field.placeholder}
+        required
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        className={`${INPUT} !mt-0 pr-11`}
+      />
+      <button
+        type="button"
+        onClick={() => setShown((v) => !v)}
+        aria-label={shown ? "Hide password" : "Show password"}
+        aria-pressed={shown}
+        className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-lg text-stone-400 hover:text-stone-700 focus-visible:text-stone-900 focus-visible:outline-none"
+      >
+        {shown ? <EyeOff className="h-[18px] w-[18px]" aria-hidden /> : <Eye className="h-[18px] w-[18px]" aria-hidden />}
+      </button>
+    </span>
+  );
+}
 
 interface Field {
   name: string;
@@ -42,15 +74,19 @@ export function AuthForm({
       {fields.map((f) => (
         <label key={f.name} className="block">
           <span className="text-[15px] font-medium text-stone-700">{f.label}</span>
-          <input
-            name={f.name}
-            type={f.type ?? "text"}
-            autoComplete={f.autoComplete}
-            placeholder={f.placeholder}
-            defaultValue={f.type === "password" ? undefined : state.fields?.[f.name]}
-            required
-            className="mt-1.5 block w-full rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-[16px] text-stone-900 shadow-[0_1px_2px_rgba(16,24,40,0.04)] placeholder:text-stone-400 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-200"
-          />
+          {f.type === "password" ? (
+            <PasswordInput field={f} />
+          ) : (
+            <input
+              name={f.name}
+              type={f.type ?? "text"}
+              autoComplete={f.autoComplete}
+              placeholder={f.placeholder}
+              defaultValue={state.fields?.[f.name]}
+              required
+              className={INPUT}
+            />
+          )}
           {f.hint && <span className="mt-1 block text-[14px] text-stone-500">{f.hint}</span>}
         </label>
       ))}

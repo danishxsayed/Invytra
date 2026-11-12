@@ -2,12 +2,14 @@
 
 import { prisma } from "@invytra/db";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { endSession, startSession } from "@/lib/auth";
 import { hubHref, safeNext } from "@/lib/domains";
 import { EmailTakenError, checkLogin, registerUser, signupSchema } from "@/lib/registration";
 import { clearFailures, isThrottled, recordFailure } from "@/lib/throttle";
 import { newPasswordSchema, requestPasswordReset, resetPassword } from "@/lib/password-reset";
 import { platformMailer } from "@/lib/platform-mail";
+import { sendWelcome } from "@/lib/welcome-email";
 
 export interface FormState {
   error?: string;
@@ -22,6 +24,9 @@ export async function signup(_prev: FormState, form: FormData): Promise<FormStat
   try {
     const { userId, workspaceId } = await registerUser(prisma, parsed.data);
     await startSession(userId, workspaceId);
+    // After the response, so a slow or failing mail service never holds up the sign-up.
+    const welcome = { to: parsed.data.email.trim().toLowerCase(), name: parsed.data.name, workspace: parsed.data.company };
+    after(() => sendWelcome(platformMailer(), welcome));
   } catch (e) {
     if (e instanceof EmailTakenError) return { error: e.message, fields: keep };
     throw e;

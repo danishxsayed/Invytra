@@ -11,6 +11,8 @@ export interface PlatformEmail {
   subject: string;
   text: string;
   html: string;
+  /** Where replies go (the From is usually a no-reply address). */
+  replyTo?: string;
 }
 export type PlatformMailer = (mail: PlatformEmail) => Promise<void>;
 
@@ -22,7 +24,7 @@ export function resendMailer(apiKey: string, from: string, fetchImpl: typeof fet
     const res = await fetchImpl("https://api.resend.com/emails", {
       method: "POST",
       headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ from, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text }),
+      body: JSON.stringify({ from, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text, ...(mail.replyTo ? { reply_to: mail.replyTo } : {}) }),
       signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok) {
