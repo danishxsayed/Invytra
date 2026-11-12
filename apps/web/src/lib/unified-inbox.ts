@@ -9,7 +9,7 @@ import { conversationList, MEETING_TAG } from "./inbox";
  * marking done go through that channel's inbox code.
  */
 
-export const UNIFIED_FILTERS = ["needs", "all", "done"] as const;
+export const UNIFIED_FILTERS = ["all", "needs", "done"] as const;
 export type UnifiedFilter = (typeof UNIFIED_FILTERS)[number];
 export const UNIFIED_CHANNELS = ["all", "linkedin", "email"] as const;
 export type UnifiedChannel = (typeof UNIFIED_CHANNELS)[number];

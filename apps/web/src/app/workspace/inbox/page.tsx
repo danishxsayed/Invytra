@@ -21,7 +21,7 @@ const CHANNEL_LABEL: Record<UnifiedChannel, string> = { all: "All channels", lin
 export default async function UnifiedInbox({ searchParams }: { searchParams: Promise<{ f?: string; ch?: string; q?: string; c?: string }> }) {
   const me = await requireUser();
   const sp = await searchParams;
-  const filter = (UNIFIED_FILTERS as readonly string[]).includes(sp.f ?? "") ? (sp.f as UnifiedFilter) : "needs";
+  const filter = (UNIFIED_FILTERS as readonly string[]).includes(sp.f ?? "") ? (sp.f as UnifiedFilter) : "all";
   const channel = (UNIFIED_CHANNELS as readonly string[]).includes(sp.ch ?? "") ? (sp.ch as UnifiedChannel) : "all";
   const usable = inboxChannels(me.workspace.channels);
   const [rows, needs] = await Promise.all([
@@ -32,7 +32,7 @@ export default async function UnifiedInbox({ searchParams }: { searchParams: Pro
   const open = parseKey(sp.c);
   const href = (p: Record<string, string | undefined>) => {
     const u = new URLSearchParams();
-    for (const [k, v] of Object.entries({ f: filter === "needs" ? undefined : filter, ch: channel === "all" ? undefined : channel, q: sp.q, c: sp.c, ...p })) if (v) u.set(k, v);
+    for (const [k, v] of Object.entries({ f: filter === "all" ? undefined : filter, ch: channel === "all" ? undefined : channel, q: sp.q, c: sp.c, ...p })) if (v) u.set(k, v);
     const s = u.toString();
     return hubHref(`/inbox${s ? `?${s}` : ""}`);
   };
@@ -46,14 +46,14 @@ export default async function UnifiedInbox({ searchParams }: { searchParams: Pro
           <div className="space-y-2.5 border-b border-stone-100 p-3">
             <nav className="flex gap-1.5" aria-label="Show">
               {UNIFIED_FILTERS.map((f) => (
-                <a key={f} href={href({ f: f === "needs" ? undefined : f, c: undefined })} className={cx("rounded-full border px-3 py-1 text-[13px] transition", filter === f ? "border-stone-900 bg-stone-900 text-white" : "border-stone-200 bg-white text-stone-700 hover:border-stone-300")}>
+                <a key={f} href={href({ f: f === "all" ? undefined : f, c: undefined })} className={cx("rounded-full border px-3 py-1 text-[13px] transition", filter === f ? "border-stone-900 bg-stone-900 text-white" : "border-stone-200 bg-white text-stone-700 hover:border-stone-300")}>
                   {FILTER_LABEL[f]}
                   {f === "needs" && needsCount > 0 && <span className={filter === f ? "text-white/70" : "text-stone-400"}> {needsCount}</span>}
                 </a>
               ))}
             </nav>
             <form action={hubHref("/inbox")} className="flex gap-2">
-              {filter !== "needs" && <input type="hidden" name="f" value={filter} />}
+              {filter !== "all" && <input type="hidden" name="f" value={filter} />}
               <select name="ch" defaultValue={channel} aria-label="Channel" className="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-[13.5px]">
                 {UNIFIED_CHANNELS.filter((c) => c === "all" || usable.includes(c)).map((c) => (
                   <option key={c} value={c}>
