@@ -154,7 +154,9 @@ After=network.target postgresql.service redis-server.service
 User=$APP_USER
 WorkingDirectory=$HOME_DIR/current/apps/web
 Environment=NODE_ENV=production
-ExecStart=$HOME_DIR/current/apps/web/node_modules/.bin/next start -p 3000 -H 127.0.0.1
+# No -H: Next.js only treats its middleware rewrites as internal when it was started on its
+# default host ("localhost"); port 3000 is still closed to the outside by the firewall.
+ExecStart=$HOME_DIR/current/apps/web/node_modules/.bin/next start -p 3000
 Restart=always
 RestartSec=5
 

@@ -27,7 +27,7 @@ sudo /usr/bin/systemctl restart invytra-worker
 DOMAIN=$(grep '^ROOT_DOMAIN=' .env | cut -d= -f2- | tr -d '"')
 ok=""
 for _ in $(seq 1 30); do
-  if curl -fsS -o /dev/null -H "Host: app.$DOMAIN" http://127.0.0.1:3000/login; then ok=1; break; fi
+  if curl -fs -o /dev/null -H "Host: app.$DOMAIN" http://127.0.0.1:3000/login; then ok=1; break; fi
   sleep 2
 done
 if [ -z "$ok" ]; then
