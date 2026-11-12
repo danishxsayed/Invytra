@@ -39,13 +39,10 @@ export default async function UnifiedInbox({ searchParams }: { searchParams: Pro
   const thread = open && usable.includes(open.channel) ? await Thread({ workspaceId: me.workspace.id, convKey: sp.c!, channel: open.channel, id: open.id }) : null;
 
   return (
-    <div className="space-y-5">
-      <div className={cx(thread && "hidden lg:block")}>
-        <h1 className="text-[28px] font-semibold tracking-tight text-stone-900">Inbox</h1>
-        <p className="mt-1 text-[15px] text-stone-500">Replies from every channel in one place{needsCount ? `: ${needsCount} waiting for you` : ""}.</p>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
-        <Card className={cx("flex min-h-[520px] flex-col overflow-hidden", thread && "hidden lg:flex")}>
+    <div className="lg:h-full">
+      <h1 className="sr-only">Inbox</h1>
+      <div className="grid gap-4 lg:h-full lg:grid-cols-[minmax(320px,400px)_1fr]">
+        <Card className={cx("flex min-h-[520px] flex-col overflow-hidden lg:min-h-0", thread && "hidden lg:flex")}>
           <div className="space-y-2.5 border-b border-stone-100 p-3">
             <nav className="flex gap-1.5" aria-label="Show">
               {UNIFIED_FILTERS.map((f) => (
@@ -71,7 +68,7 @@ export default async function UnifiedInbox({ searchParams }: { searchParams: Pro
             </form>
           </div>
           {rows.length ? (
-            <ul className="flex-1 divide-y divide-stone-100 overflow-y-auto" style={{ maxHeight: "70vh" }}>
+            <ul className="max-h-[70vh] min-h-0 flex-1 divide-y divide-stone-100 overflow-y-auto lg:max-h-none">
               {rows.map((r) => {
                 const on = sp.c === r.key;
                 return (
@@ -109,9 +106,9 @@ export default async function UnifiedInbox({ searchParams }: { searchParams: Pro
           )}
         </Card>
 
-        <div className={cx(!thread && "hidden lg:block")}>
+        <div className={cx("lg:min-h-0", !thread && "hidden lg:block")}>
           {thread ?? (
-            <Card className="flex min-h-[520px] items-center justify-center p-8 text-center text-[15px] text-stone-500">Choose a conversation to read and reply.</Card>
+            <Card className="flex min-h-[520px] items-center justify-center p-8 lg:h-full text-center text-[15px] text-stone-500">Choose a conversation to read and reply.</Card>
           )}
           {thread && (
             <a href={href({ c: undefined })} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-medium text-stone-600 lg:hidden">
@@ -143,7 +140,7 @@ async function Thread({ workspaceId, convKey, channel, id }: { workspaceId: stri
     const lead = c.campaignLead;
     const pending = c.replies.filter((r) => r.status !== "SUCCEEDED");
     return (
-      <Card className="flex min-h-[520px] flex-col">
+      <Card className="flex min-h-[520px] flex-col lg:h-full lg:min-h-0">
         <header className="flex flex-wrap items-start gap-3 border-b border-stone-100 p-4">
           <PersonPhoto name={c.participantName} src={null} size="lg" />
           <div className="min-w-0 flex-1">
@@ -159,7 +156,7 @@ async function Thread({ workspaceId, convKey, channel, id }: { workspaceId: stri
           </div>
           <ThreadButtons convKey={convKey} done={!!c.doneAt || c.lastFromMe} meeting={c.tags.some((t) => t.toLowerCase() === MEETING_TAG.toLowerCase())} />
         </header>
-        <div className="flex-1 space-y-2.5 overflow-y-auto p-4" style={{ maxHeight: "55vh" }}>
+        <div className="max-h-[55vh] min-h-0 flex-1 space-y-2.5 overflow-y-auto p-4 lg:max-h-none">
           {c.messages.map((m) => (
             <Bubble key={m.id} out={m.fromMe} meta={timeAgo(m.sentAt)}>
               {m.text}
@@ -188,7 +185,7 @@ async function Thread({ workspaceId, convKey, channel, id }: { workspaceId: stri
   if (!t) return null;
   const lead = await prisma.emailLead.findUnique({ where: { id }, select: { meetingAt: true } });
   return (
-    <Card className="flex min-h-[520px] flex-col">
+    <Card className="flex min-h-[520px] flex-col lg:h-full lg:min-h-0">
       <header className="flex flex-wrap items-start gap-3 border-b border-stone-100 p-4">
         <PersonPhoto name={t.lead.name ?? t.lead.email} src={null} size="lg" />
         <div className="min-w-0 flex-1">
@@ -201,7 +198,7 @@ async function Thread({ workspaceId, convKey, channel, id }: { workspaceId: stri
         </div>
         <ThreadButtons convKey={convKey} done={t.done || !t.needsReply} meeting={!!lead?.meetingAt} />
       </header>
-      <div className="flex-1 space-y-2.5 overflow-y-auto p-4" style={{ maxHeight: "55vh" }}>
+      <div className="max-h-[55vh] min-h-0 flex-1 space-y-2.5 overflow-y-auto p-4 lg:max-h-none">
         {t.items.map((m) => (
           <Bubble key={m.id} out={m.out} meta={`${m.kind === "CAMPAIGN" ? `Campaign email ${(m.step ?? 0) + 1}` : m.kind === "AUTO_REPLY" ? "Auto-reply" : m.kind === "BOUNCE" ? "Bounce" : m.out ? "Your reply" : "Reply"} · ${timeAgo(m.at)}`}>
             {m.subject && <span className="mb-1 block text-[12.5px] font-semibold opacity-70">{m.subject}</span>}

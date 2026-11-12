@@ -1,6 +1,7 @@
 import { channelById } from "@invytra/shared";
 import { Onboarding } from "@/components/onboarding/Onboarding";
 import { prisma } from "@invytra/db";
+import { MainFrame } from "@/components/MainFrame";
 import { WorkspaceNav } from "@/components/WorkspaceNav";
 import { getAiBalance } from "@/lib/ai-credits";
 import { requireUser } from "@/lib/auth";
@@ -28,7 +29,7 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
         credits={{ left: ai.left, href: creditsHref(me) }}
       />
       <main className="min-w-0 flex-1">
-        <div className="mx-auto max-w-5xl px-4 py-8 sm:px-8 lg:py-10 print:max-w-none print:p-0">{children}</div>
+        <MainFrame>{children}</MainFrame>
       </main>
     </div>
   );
