@@ -6,7 +6,17 @@ const COLUMNS = [
   { title: "Channels", links: [["/#ch-linkedin", "LinkedIn Outreach"], ["/#ch-email", "Email Outreach"], ["/#ch-whatsapp", "WhatsApp"], ["/#ch-more", "Coming next"]] },
   { title: "Product", links: [["/#how", "How it works"], ["/#safety", "Safety"], ["/pricing", "Pricing"], ["/compare", "Compare"]] },
   { title: "Account", links: [["/signup", "Start free trial"], ["/login", "Log in"]] },
-  { title: "Legal", links: [["/privacy", "Privacy policy"], ["/terms", "Terms of service"], ["/data-deletion", "Data deletion"]] },
+  {
+    title: "Legal",
+    links: [
+      ["/privacy", "Privacy policy"],
+      ["/terms", "Terms of service"],
+      ["/refund-policy", "Refunds & cancellation"],
+      ["/delivery-policy", "Delivery policy"],
+      ["/data-deletion", "Data deletion"],
+      ["/contact", "Contact us"],
+    ],
+  },
 ] as const;
 
 export function SiteFooter() {

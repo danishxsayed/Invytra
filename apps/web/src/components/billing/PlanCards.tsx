@@ -71,8 +71,8 @@ export function PlanCards(p: Props) {
         <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[13px] font-semibold text-emerald-800">Save 15% yearly</span>
       </div>
 
-      <div className={cx("mt-8 grid gap-4 sm:grid-cols-2", p.mode === "site" || cur?.plan === "trial" ? "xl:grid-cols-4" : "xl:grid-cols-3")}>
-        {(p.mode === "site" || cur?.plan === "trial") && <TrialCard site={p.mode === "site" ? p.signupHref : null} current={cur?.plan === "trial"} ended={!!cur?.ended} />}
+      <div className={cx("mt-8 grid gap-4 sm:grid-cols-2", p.mode === "site" ? "xl:grid-cols-4" : "xl:grid-cols-3")}>
+        {p.mode === "site" && <TrialCard site={p.signupHref} />}
         <PaidCard plan="starter" cycle={cycle} props={p} />
         <PaidCard plan="growth" cycle={cycle} props={p} />
         <VipCard contactHref={p.contactHref} current={cur?.plan === "vip"} />
@@ -98,7 +98,7 @@ function CardShell({ children, highlight, label }: { children: React.ReactNode; 
   );
 }
 
-function TrialCard({ site, current, ended }: { site: string | null; current: boolean; ended: boolean }) {
+function TrialCard({ site }: { site: string }) {
   return (
     <CardShell label="Free trial">
       <h3 className="font-display text-[22px] font-bold text-stone-900">Free trial</h3>
@@ -112,13 +112,9 @@ function TrialCard({ site, current, ended }: { site: string | null; current: boo
         <Feature>Every feature of that channel</Feature>
         <Feature muted>After {TRIAL.days} days, sending stops until you upgrade. Nothing is deleted.</Feature>
       </ul>
-      {site ? (
-        <a href={site} className="mt-6 inline-flex justify-center rounded-xl border border-stone-900 px-4 py-2.5 text-[15px] font-semibold text-stone-900 hover:bg-stone-50">
-          Start free trial
-        </a>
-      ) : (
-        <p className="mt-6 rounded-xl bg-stone-100 px-4 py-2.5 text-center text-[15px] font-semibold text-stone-600">{ended ? "Trial ended" : current ? "Your current plan" : "Free trial"}</p>
-      )}
+      <a href={site} className="mt-6 inline-flex justify-center rounded-xl border border-stone-900 px-4 py-2.5 text-[15px] font-semibold text-stone-900 hover:bg-stone-50">
+        Start free trial
+      </a>
     </CardShell>
   );
 }

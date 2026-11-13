@@ -1,4 +1,5 @@
 import { FileWarning } from "lucide-react";
+import { SITE } from "@/lib/site";
 
 export interface LegalSection {
   title: string;
@@ -14,10 +15,12 @@ export function LegalPage({ title, updated, intro, sections }: { title: string; 
       <div className="max-w-[760px]">
         <h1 className="font-display text-[44px] font-bold leading-[1.05] tracking-[-0.025em] text-stone-900 sm:text-[54px]">{title}</h1>
         <p className="mt-3 text-[15px] text-stone-500">Last updated {updated}</p>
-        <p className="mt-6 flex items-start gap-3 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-[15px] leading-relaxed text-amber-900">
-          <FileWarning className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
-          This is a draft under legal review. It will be finalised before paid plans go live.
-        </p>
+        {SITE.legalDraft && (
+          <p className="mt-6 flex items-start gap-3 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-[15px] leading-relaxed text-amber-900">
+            <FileWarning className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
+            This is a draft under legal review. It will be finalised before paid plans go live.
+          </p>
+        )}
         <p className="mt-6 text-[18px] leading-relaxed text-stone-700">{intro}</p>
       </div>
       <div className="mt-12 grid gap-12 lg:grid-cols-[240px_1fr]">
