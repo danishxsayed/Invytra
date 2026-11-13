@@ -1,3 +1,4 @@
+import { sendingProblem } from "./subscriptions";
 import type { Prisma, PrismaClient } from "@invytra/db";
 import {
   DEFAULT_CAMPAIGN_SETTINGS,
@@ -94,6 +95,8 @@ async function missingVideo(prisma: PrismaClient, workspaceId: string, steps: Ca
 }
 
 export async function createCampaign(prisma: PrismaClient, workspaceId: string, input: CampaignInput): Promise<Result<string>> {
+  const stop = await sendingProblem(prisma, workspaceId);
+  if (stop) return { ok: false, error: stop };
   const bad = await checkRefs(prisma, workspaceId, input);
   if (bad) return { ok: false, error: bad };
   const c = await prisma.campaign.create({
@@ -193,6 +196,8 @@ export async function setCampaignStatus(
 ): Promise<Result> {
   const c = await getCampaign(prisma, workspaceId, id);
   if (to === "ACTIVE") {
+    const stop = await sendingProblem(prisma, workspaceId);
+    if (stop) return { ok: false, error: stop };
     const problems = await launchProblems(prisma, workspaceId, c);
     if (problems.length) return { ok: false, error: problems[0]! };
   } else if (c.status !== "ACTIVE") return { ok: false, error: "Only a running campaign can be paused." };

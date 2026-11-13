@@ -31,6 +31,7 @@
     "web:start": "pnpm --filter @invytra/web start",
     "user:password": "pnpm --filter @invytra/web user:password",
     "credits:add": "pnpm --filter @invytra/web credits:add",
+    "plan:set": "pnpm --filter @invytra/web plan:set",
     "demo:seed": "pnpm --filter @invytra/web demo:seed"
   },
   "devDependencies": {

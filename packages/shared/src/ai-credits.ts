@@ -7,11 +7,11 @@
 
 import { creditMonthEnd, creditMonthStart, type VerifyPack } from "./verify-credits.js";
 
+/** Defaults by plan (each workspace stores its own allowance: VIP plans have custom ones). */
 export const AI_CREDITS = {
-  /** Every paid plan, each month. */
-  paidMonthly: 500,
-  /** The free trial, each month: enough to try every feature. */
-  trialMonthly: 50,
+  trialMonthly: 20,
+  starterMonthly: 250,
+  growthMonthly: 500,
 } as const;
 
 /** What each AI action costs, in credits. */
@@ -41,7 +41,7 @@ export const AI_PACKS: readonly VerifyPack[] = [
   { id: "ai5k", credits: 5_000, priceCents: 2_200 },
 ];
 
-export const monthlyAiCredits = (plan: string) => (plan === "trial" ? AI_CREDITS.trialMonthly : AI_CREDITS.paidMonthly);
+export const monthlyAiCredits = (plan: string): number => (plan === "trial" ? AI_CREDITS.trialMonthly : plan === "starter" ? AI_CREDITS.starterMonthly : AI_CREDITS.growthMonthly);
 
 export interface AiBalance {
   monthly: number;
@@ -52,8 +52,8 @@ export interface AiBalance {
   resetsAt: Date;
 }
 
-export function aiBalance(ws: { plan: string; aiUsed: number; aiPeriod: Date | null; aiExtra: number }, now: Date): AiBalance {
-  const monthly = monthlyAiCredits(ws.plan);
+export function aiBalance(ws: { plan: string; aiUsed: number; aiPeriod: Date | null; aiExtra: number; aiMonthly?: number }, now: Date): AiBalance {
+  const monthly = ws.aiMonthly ?? monthlyAiCredits(ws.plan);
   const used = ws.aiPeriod && ws.aiPeriod >= creditMonthStart(now) ? ws.aiUsed : 0;
   const monthlyLeft = Math.max(0, monthly - used);
   const extra = Math.max(0, ws.aiExtra);

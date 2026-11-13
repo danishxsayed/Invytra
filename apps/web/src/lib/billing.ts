@@ -1,36 +1,21 @@
 import { RazorpayClient, RazorpayError, checkoutSignatureOk, completePurchase, razorpayKeys, webhookSignatureOk, type InvoiceSnapshot, type PrismaClient, type RazorpayKeys } from "@invytra/db";
-import { TRIAL, channelById } from "@invytra/shared";
 import { z } from "zod";
 import type { Result } from "./accounts";
+import { handlePlanWebhook, type RazorpayEvent } from "./plan-webhook";
 import { orderVerifyPack } from "./verify-credits";
 
 /*
  * Billing for the whole workspace (every channel): plan, payments, invoices, billing details,
  * and paying for credit packs with Razorpay. Owner only: the pages and actions check it.
- * Plans (upgrade, downgrade, renew, cancel) arrive with the final pricing.
+ * Plans (subscribe, upgrade, downgrade, renew, cancel) are in subscriptions.ts.
  */
-
-const DAY = 86_400_000;
-
-export function planOf(ws: { plan: string; createdAt: Date; channels: string[] }, now = new Date()) {
-  const trial = ws.plan === "trial";
-  const trialEnds = new Date(ws.createdAt.getTime() + TRIAL.days * DAY);
-  return {
-    id: ws.plan,
-    name: trial ? "Free trial" : ws.plan.charAt(0).toUpperCase() + ws.plan.slice(1),
-    trial,
-    trialEnds: trial ? trialEnds : null,
-    trialDaysLeft: trial ? Math.max(0, Math.ceil((trialEnds.getTime() - now.getTime()) / DAY)) : null,
-    channels: ws.channels.map((c) => channelById(c as never)?.name ?? c),
-  };
-}
 
 /** Every payment (credit packs so far), newest first. */
 export async function listPayments(prisma: PrismaClient, workspaceId: string) {
   const rows = await prisma.verifyCreditPurchase.findMany({ where: { workspaceId }, orderBy: { createdAt: "desc" }, take: 100 });
   return rows.map((r) => ({
     id: r.id,
-    what: `${r.credits.toLocaleString("en-US")} ${r.kind === "AI" ? "AI" : "email verification"} credits`,
+    what: r.kind === "PLAN" ? (r.description ?? "Plan") : `${r.credits.toLocaleString("en-US")} ${r.kind === "AI" ? "AI" : "email verification"} credits`,
     amountCents: r.priceCents,
     currency: r.currency,
     status: r.status,
@@ -123,7 +108,7 @@ export async function confirmCheckout(
  * Razorpay's webhook (order.paid / payment.captured): completes the payment even when the
  * browser closed before the checkout came back. false = the signature didn't match.
  */
-export async function handleRazorpayWebhook(prisma: PrismaClient, rawBody: string, signature: string, keys: RazorpayKeys | null = razorpayKeys()): Promise<boolean> {
+export async function handleRazorpayWebhook(prisma: PrismaClient, rawBody: string, signature: string, keys: RazorpayKeys | null = razorpayKeys(), client?: RazorpayClient): Promise<boolean> {
   if (!keys?.webhookSecret || !signature || !webhookSignatureOk(keys.webhookSecret, rawBody, signature)) return false;
   let event: { event?: string; payload?: { payment?: { entity?: { id?: string; order_id?: string; method?: string; status?: string } }; order?: { entity?: { id?: string } } } };
   try {
@@ -131,6 +116,8 @@ export async function handleRazorpayWebhook(prisma: PrismaClient, rawBody: strin
   } catch {
     return true;
   }
+  // Plans: new subscriptions, renewals, failed payments, cancellations, upgrades.
+  if (await handlePlanWebhook(prisma, event as RazorpayEvent, keys, new Date(), client ?? new RazorpayClient(keys))) return true;
   if (event.event !== "order.paid" && event.event !== "payment.captured") return true;
   const pay = event.payload?.payment?.entity;
   const orderId = event.payload?.order?.entity?.id ?? pay?.order_id;

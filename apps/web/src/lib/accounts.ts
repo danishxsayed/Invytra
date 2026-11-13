@@ -1,3 +1,4 @@
+import { senderProblem } from "./subscriptions";
 import { isSealed, openSecret, sealSecret, unipileFromEnv, type PrismaClient } from "@invytra/db";
 import {
   DEFAULT_LIMITS,
@@ -211,6 +212,8 @@ export async function setLinkedinEmail(prisma: PrismaClient, workspaceId: string
 export type Result<T = undefined> = { ok: true; value: T } | { ok: false; error: string };
 
 export async function createAccount(prisma: PrismaClient, workspaceId: string, input: NewAccount): Promise<Result<string>> {
+  const limit = await senderProblem(prisma, workspaceId, "linkedin");
+  if (limit) return { ok: false, error: limit };
   if (!input.proxyUrl && proxyRequired()) {
     return { ok: false, error: "Add the proxy for this account. Each LinkedIn account needs its own proxy." };
   }

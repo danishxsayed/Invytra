@@ -3,9 +3,11 @@ import { AI_COSTS, AI_PACKS, aiBalance, monthlyAiCredits } from "../src/ai-credi
 
 describe("AI credits", () => {
   const now = new Date("2026-11-15T10:00:00Z");
-  it("gives paid plans 500 a month and the trial 50", () => {
-    expect(monthlyAiCredits("pro")).toBe(500);
-    expect(monthlyAiCredits("trial")).toBe(50);
+  it("gives Starter 250 a month, Growth 500 and the trial 20 (a workspace's own allowance wins)", () => {
+    expect(monthlyAiCredits("starter")).toBe(250);
+    expect(monthlyAiCredits("growth")).toBe(500);
+    expect(monthlyAiCredits("trial")).toBe(20);
+    expect(aiBalance({ plan: "vip", aiUsed: 0, aiPeriod: null, aiExtra: 0, aiMonthly: 3000 }, now).monthly).toBe(3000);
   });
   it("prices each action", () => {
     expect(AI_COSTS).toEqual({ TEXT: 1, NOTE: 1, HANDWRITTEN: 2, VOICE: 5, VIDEO: 15, INVY: 1 });

@@ -2,6 +2,7 @@ import { creditsHref } from "@/lib/workspace-nav";
 import { prisma } from "@invytra/db";
 import { cookies } from "next/headers";
 import { MainFrame } from "@/components/MainFrame";
+import { PlanBanner } from "@/components/billing/PlanBanner";
 import { Sidebar } from "@/components/Sidebar";
 import { SIDEBAR_COOKIE } from "@/lib/ui-prefs";
 import { requireChannel } from "@/lib/auth";
@@ -17,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen lg:flex">
       <Sidebar workspace={me.workspace.name} user={{ name: me.user.name, email: me.user.email }} accounts={accounts} needsReply={needsReply} collapsed={jar.get(SIDEBAR_COOKIE)?.value === "collapsed"} hubHref={hubHref("/")} aiCredits={{ left: ai.left, href: creditsHref(me) }} />
       <main className="min-w-0 flex-1">
+        <PlanBanner workspaceId={me.workspace.id} owner={me.role === "OWNER"} />
         <MainFrame>{children}</MainFrame>
       </main>
     </div>

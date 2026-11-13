@@ -1,5 +1,5 @@
 import { refundAiCredits, spendAiCredits, type AiSpend, type PrismaClient } from "@invytra/db";
-import { AI_ACTION_LABEL, AI_COSTS, aiBalance, monthlyAiCredits, type AiAction, type AiBalance } from "@invytra/shared";
+import { AI_ACTION_LABEL, AI_COSTS, aiBalance, type AiAction, type AiBalance } from "@invytra/shared";
 import type { Result } from "./accounts";
 
 /*
@@ -8,7 +8,7 @@ import type { Result } from "./accounts";
  */
 
 export async function getAiBalance(prisma: PrismaClient, workspaceId: string, now = new Date()): Promise<AiBalance> {
-  const ws = await prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { plan: true, aiUsed: true, aiPeriod: true, aiExtra: true } });
+  const ws = await prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { plan: true, aiUsed: true, aiPeriod: true, aiExtra: true, aiMonthly: true } });
   return aiBalance(ws, now);
 }
 
@@ -28,7 +28,7 @@ export const outOfAiCredits = (need: number) =>
 /** Takes the credits for one action; the error explains when there aren't enough. */
 export async function chargeAi(prisma: PrismaClient, workspaceId: string, action: AiAction, ref?: string): Promise<Result<AiSpend>> {
   const need = AI_COSTS[action];
-  const s = await spendAiCredits(prisma, workspaceId, need, action, monthlyAiCredits, { ref });
+  const s = await spendAiCredits(prisma, workspaceId, need, action, null, { ref });
   return s ? { ok: true, value: s } : { ok: false, error: outOfAiCredits(need) };
 }
 

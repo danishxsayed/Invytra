@@ -1,3 +1,4 @@
+import { sendingProblem } from "./subscriptions";
 import { openSecret, sendEmail, type MailSender, type PrismaClient } from "@invytra/db";
 import { z } from "zod";
 import type { Result } from "./accounts";
@@ -125,6 +126,8 @@ const reSubject = (s: string) => `Re: ${s.replace(/^\s*((re|aw|sv|fwd?):\s*)+/i,
 /** Answers the lead from their mailbox, threaded under their latest message. Sent right away, any hour. */
 export async function sendEmailReply(prisma: PrismaClient, workspaceId: string, leadId: string, text: string, deps: { sender?: MailSender; now?: Date } = {}): Promise<Result> {
   const now = deps.now ?? new Date();
+  const stop = await sendingProblem(prisma, workspaceId, now);
+  if (stop) return { ok: false, error: stop };
   const lead = await prisma.emailLead.findFirst({ where: { id: leadId, workspaceId }, include: { emailAccount: true, replies: { where: { kind: "REPLY" }, orderBy: { receivedAt: "desc" }, take: 1 } } });
   if (!lead) return { ok: false, error: "Conversation not found." };
   const box = lead.emailAccount;

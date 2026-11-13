@@ -18,43 +18,49 @@ enum MemberRole {
 
 /// A customer (company). Everything a customer owns hangs off a workspace.
 model Workspace {
-  id           String    @id @default(cuid())
-  name         String
-  plan         String    @default("trial")
+  id            String    @id @default(cuid())
+  name          String
+  plan          String    @default("trial")
   /// Outreach channels this workspace's subscription includes (ids from CHANNELS in @invytra/shared)
-  channels     String[]  @default(["linkedin", "email"])
+  channels      String[]  @default(["linkedin", "email"])
   /// Email verification credits: used this credit month (verifyPeriod = its 1st, UTC), and
   /// extra credits bought (never expire). The monthly allowance comes from the plan.
-  verifyUsed   Int       @default(0) @map("verify_used")
-  verifyPeriod DateTime? @map("verify_period")
-  verifyExtra  Int       @default(0) @map("verify_extra")
+  verifyUsed    Int       @default(0) @map("verify_used")
+  verifyPeriod  DateTime? @map("verify_period")
+  verifyExtra   Int       @default(0) @map("verify_extra")
   /// AI credits (one balance for every AI feature on every channel), same idea as above.
-  aiUsed       Int       @default(0) @map("ai_used")
-  aiPeriod     DateTime? @map("ai_period")
-  aiExtra      Int       @default(0) @map("ai_extra")
-  createdAt    DateTime  @default(now()) @map("created_at")
+  aiUsed        Int       @default(0) @map("ai_used")
+  aiPeriod      DateTime? @map("ai_period")
+  aiExtra       Int       @default(0) @map("ai_extra")
+  /// Monthly allowances, set by the plan (see Subscription): AI credits and verification credits
+  aiMonthly     Int       @default(20) @map("ai_monthly")
+  verifyMonthly Int       @default(100) @map("verify_monthly")
+  createdAt     DateTime  @default(now()) @map("created_at")
 
-  members           Membership[]
-  accounts          LinkedinAccount[]
-  leadLists         LeadList[]
-  imports           LeadImport[]
-  leads             Lead[]
-  campaigns         Campaign[]
-  mailboxes         EmailAccount[]
-  emailCampaigns    EmailCampaign[]
-  emailContacts     EmailContact[]
-  emailLists        EmailList[]
-  emailVariables    EmailVariable[]
-  emailSuppressions EmailSuppression[]
-  verifyPurchases   VerifyCreditPurchase[]
-  aiUsage           AiCreditUse[]
-  voices            VoiceClone[]
-  videos            VideoRecording[]
-  invySearches      InvySearch[]
-  invyProspects     InvyProspect[]
-  billingProfile    BillingProfile?
-  doNotContact      DoNotContact[]
-  people            Person[]
+  members            Membership[]
+  accounts           LinkedinAccount[]
+  leadLists          LeadList[]
+  imports            LeadImport[]
+  leads              Lead[]
+  campaigns          Campaign[]
+  mailboxes          EmailAccount[]
+  emailCampaigns     EmailCampaign[]
+  emailContacts      EmailContact[]
+  emailLists         EmailList[]
+  emailVariables     EmailVariable[]
+  emailSuppressions  EmailSuppression[]
+  verifyPurchases    VerifyCreditPurchase[]
+  aiUsage            AiCreditUse[]
+  voices             VoiceClone[]
+  videos             VideoRecording[]
+  invySearches       InvySearch[]
+  invyProspects      InvyProspect[]
+  billingProfile     BillingProfile?
+  subscription       Subscription?
+  subscriptionEvents SubscriptionEvent[]
+  planCheckouts      PlanCheckout[]
+  doNotContact       DoNotContact[]
+  people             Person[]
 
   @@map("workspaces")
 }
@@ -970,30 +976,36 @@ enum VerifyPurchaseStatus {
 enum CreditKind {
   VERIFY
   AI
+  /// A plan payment (subscription, renewal or upgrade): credits 0, description says what
+  PLAN
 }
 
 /// Extra credits a workspace bought (or asked to buy): email verification or AI.
 model VerifyCreditPurchase {
-  id              String               @id @default(cuid())
-  workspaceId     String               @map("workspace_id")
-  kind            CreditKind           @default(VERIFY)
-  credits         Int
-  priceCents      Int                  @map("price_cents")
-  currency        String               @default("USD")
-  status          VerifyPurchaseStatus @default(PENDING)
+  id                String               @id @default(cuid())
+  workspaceId       String               @map("workspace_id")
+  kind              CreditKind           @default(VERIFY)
+  credits           Int
+  priceCents        Int                  @map("price_cents")
+  currency          String               @default("USD")
+  status            VerifyPurchaseStatus @default(PENDING)
   /// Who asked (user id), and the payment's reference once paid
-  requestedBy     String?              @map("requested_by")
-  paymentRef      String?              @map("payment_ref")
-  createdAt       DateTime             @default(now()) @map("created_at")
-  paidAt          DateTime?            @map("paid_at")
+  requestedBy       String?              @map("requested_by")
+  paymentRef        String?              @map("payment_ref")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  paidAt            DateTime?            @map("paid_at")
   /// The Razorpay order this payment goes through (null: paid by hand / before Razorpay)
-  razorpayOrderId String?              @unique @map("razorpay_order_id")
+  razorpayOrderId   String?              @unique @map("razorpay_order_id")
   /// How it was paid, as Razorpay reports it (card, upi, netbanking …)
-  method          String?
+  method            String?
   /// Given when it's paid: INV-<year>-<number>, one sequence for all workspaces
-  invoiceNumber   String?              @unique @map("invoice_number")
+  invoiceNumber     String?              @unique @map("invoice_number")
   /// Who it was billed to and by, frozen when paid (later edits to billing details don't change it)
-  invoice         Json?
+  invoice           Json?
+  /// Plan payments: what it was for ("Growth plan, monthly: Nov 13 – Dec 13, 2026")
+  description       String?
+  /// The Razorpay payment (plan renewals: one invoice per payment, even if Razorpay tells us twice)
+  razorpayPaymentId String?              @unique @map("razorpay_payment_id")
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -1277,4 +1289,94 @@ model InvyProspect {
 
   @@unique([workspaceId, placeId])
   @@map("invy_prospects")
+}
+
+/// A workspace's plan (rules in @invytra/shared pricing.ts). Workspace.plan, channels and the
+/// monthly allowances are kept in step with it (lib: packages/db/src/subscriptions.ts).
+model Subscription {
+  workspaceId            String    @id @map("workspace_id")
+  /// trial | starter | growth | vip
+  plan                   String    @default("trial")
+  /// TRIALING | ACTIVE | PAST_DUE (renewal failed, Razorpay retrying) | CANCELLED (ends at period end) | EXPIRED
+  status                 String    @default("TRIALING")
+  /// monthly | yearly (null on the trial)
+  billingCycle           String?   @map("billing_cycle")
+  /// Channels the plan includes (ids from PLAN_CHANNELS)
+  channels               String[]
+  /// Extra sender accounts per channel beyond the one included ({ "linkedin": 2, "email": 3 })
+  extraSenders           Json      @default("{}") @map("extra_senders")
+  /// VIP: sender accounts per channel, replacing 1 + extra
+  customSenders          Json?     @map("custom_senders")
+  /// Credits each month
+  monthlyCredits         Int       @map("monthly_credits")
+  /// What each billing period charges, in cents
+  priceCents             Int       @default(0) @map("price_cents")
+  currency               String    @default("USD")
+  trialStartedAt         DateTime? @map("trial_started_at")
+  trialEndsAt            DateTime? @map("trial_ends_at")
+  startedAt              DateTime? @map("started_at")
+  currentPeriodStart     DateTime? @map("current_period_start")
+  /// The next renewal (or the end, when cancelled)
+  currentPeriodEnd       DateTime? @map("current_period_end")
+  cancelAtPeriodEnd      Boolean   @default(false) @map("cancel_at_period_end")
+  /// PAID | PENDING | FAILED (the last renewal's payment)
+  paymentStatus          String?   @map("payment_status")
+  razorpaySubscriptionId String?   @unique @map("razorpay_subscription_id")
+  /// A change that starts at the next renewal (downgrade, fewer senders, other channels)
+  pendingChange          Json?     @map("pending_change")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([status, trialEndsAt])
+  @@map("subscriptions")
+}
+
+/// Subscription history: every change, payment and status move.
+model SubscriptionEvent {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  /// trial_started | subscribed | renewed | upgraded | change_scheduled | change_applied | payment_failed | cancelled | resumed | expired | vip_set
+  kind        String
+  detail      Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@map("subscription_events")
+}
+
+/// A plan purchase waiting for its payment: a new subscription (Razorpay subscription) or a
+/// mid-period upgrade (a one-time Razorpay order for the difference).
+model PlanCheckout {
+  id                     String    @id @default(cuid())
+  workspaceId            String    @map("workspace_id")
+  /// SUBSCRIBE | UPGRADE
+  kind                   String
+  /// The plan choice (PlanChoice) and its price
+  choice                 Json
+  amountCents            Int       @map("amount_cents")
+  razorpaySubscriptionId String?   @unique @map("razorpay_subscription_id")
+  razorpayOrderId        String?   @unique @map("razorpay_order_id")
+  /// PENDING | DONE | CANCELLED
+  status                 String    @default("PENDING")
+  requestedBy            String?   @map("requested_by")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  doneAt                 DateTime? @map("done_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@map("plan_checkouts")
+}
+
+/// Razorpay plans made for each price (Razorpay needs a plan object per amount and period).
+model RazorpayPlan {
+  /// "<monthly|yearly>-<cents>"
+  key       String   @id
+  planId    String   @map("plan_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("razorpay_plans")
 }

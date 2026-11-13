@@ -39,3 +39,24 @@ export async function payWithRazorpay(o: { keyId: string; orderId: string; amoun
     rp.open();
   });
 }
+
+type SubscriptionResponse = { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string };
+
+/** Opens the checkout for a plan that renews by itself (card); null when closed without paying. */
+export async function subscribeWithRazorpay(o: { keyId: string; subscriptionId: string; description: string; prefill: { name: string; email: string } }): Promise<SubscriptionResponse | null> {
+  const Razorpay = await load();
+  return new Promise((resolve, reject) => {
+    const rp = new Razorpay({
+      key: o.keyId,
+      subscription_id: o.subscriptionId,
+      name: "Invytra",
+      description: o.description,
+      prefill: o.prefill,
+      theme: { color: "#1c1917" },
+      handler: (r: SubscriptionResponse) => resolve(r),
+      modal: { ondismiss: () => resolve(null) },
+    });
+    rp.on("payment.failed", (r) => reject(new Error(r.error?.description || "The payment didn't go through.")));
+    rp.open();
+  });
+}

@@ -11,7 +11,8 @@
     "test": "vitest run",
     "user:password": "tsx scripts/set-password.ts",
     "credits:add": "tsx scripts/verify-credits.ts",
-    "demo:seed": "tsx scripts/demo-seed.ts"
+    "demo:seed": "tsx scripts/demo-seed.ts",
+    "plan:set": "tsx scripts/plan.ts"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "1.16.8",

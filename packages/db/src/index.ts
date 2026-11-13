@@ -36,3 +36,4 @@ export * from "./billing.js";
 export * from "./people.js";
 export * from "./lipsync.js";
 export * from "./video.js";
+export * from "./subscriptions.js";

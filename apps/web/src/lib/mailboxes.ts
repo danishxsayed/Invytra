@@ -1,3 +1,4 @@
+import { senderProblem } from "./subscriptions";
 import {
   IMAP_PORTS,
   checkDomainDns,
@@ -85,6 +86,8 @@ export async function connectMailbox(
 ): Promise<Result<ConnectResult>> {
   const taken = await takenProblem(prisma, workspaceId, input.email);
   if (taken) return { ok: false, error: taken };
+  const limit = await senderProblem(prisma, workspaceId, "email");
+  if (limit) return { ok: false, error: limit };
   const login = { ...input, username: input.username || input.email, provider: input.provider };
   const checks = await testMailbox(login, deps.tester);
   if (!checks.smtp.ok || !checks.imap.ok) return { ok: true, value: checks };

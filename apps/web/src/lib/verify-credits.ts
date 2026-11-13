@@ -9,7 +9,7 @@ import type { Result } from "./accounts";
  */
 
 export async function getVerifyBalance(prisma: PrismaClient, workspaceId: string, now = new Date()): Promise<VerifyBalance> {
-  const ws = await prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { plan: true, verifyUsed: true, verifyPeriod: true, verifyExtra: true } });
+  const ws = await prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { plan: true, verifyUsed: true, verifyPeriod: true, verifyExtra: true, verifyMonthly: true } });
   return verifyBalance(ws, now);
 }
 

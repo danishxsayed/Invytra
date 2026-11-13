@@ -1,5 +1,5 @@
 import { VoiceError, refundAiCredits, renderCard, spendAiCredits, voiceFromEnv, voiceMessageFile, type CardFont, type CardInk, type CardStyle, type VoiceSample } from "@invytra/db";
-import { AI_COSTS, CARD_FONTS, CARD_INKS, CARD_STYLES, monthlyAiCredits } from "@invytra/shared";
+import { AI_COSTS, CARD_FONTS, CARD_INKS, CARD_STYLES } from "@invytra/shared";
 import type { UnipileCtx } from "./work.js";
 
 /*
@@ -40,7 +40,7 @@ export async function leadOf(ctx: UnipileCtx, campaignLeadId: string | null | un
 
 /** Pays for one extra and makes it; the credits come back if making it fails. */
 export async function paid<T>(ctx: UnipileCtx, lead: { id: string; workspaceId: string } | null, action: "HANDWRITTEN" | "VOICE" | "VIDEO", make: () => Promise<T>): Promise<Made<T> | "NO_CREDITS"> {
-  const spent = lead ? await spendAiCredits(ctx.prisma, lead.workspaceId, AI_COSTS[action], action, monthlyAiCredits, { ref: lead.id }) : null;
+  const spent = lead ? await spendAiCredits(ctx.prisma, lead.workspaceId, AI_COSTS[action], action, null, { ref: lead.id }) : null;
   if (lead && !spent) return "NO_CREDITS";
   const refund = async () => {
     if (lead && spent) await refundAiCredits(ctx.prisma, lead.workspaceId, spent);

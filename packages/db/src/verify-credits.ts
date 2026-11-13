@@ -4,7 +4,7 @@ import type { PrismaClient } from "@prisma/client";
 /*
  * Spending email verification credits, safely when several checks run at once: each spend is
  * one conditional UPDATE, so two checks can never both take the last credit.
- * The monthly allowance comes from the caller (it depends on the plan).
+ * The monthly allowance is the workspace's own (verify_monthly, set by its plan); tests can pass one.
  */
 
 export type CreditSource = "monthly" | "extra";
@@ -17,11 +17,11 @@ async function rollMonth(prisma: PrismaClient, workspaceId: string, now: Date) {
 }
 
 /** Takes one credit (this month's first, then extra); null = none left. */
-export async function spendVerifyCredit(prisma: PrismaClient, workspaceId: string, monthlyFor: (plan: string) => number, now = new Date()): Promise<CreditSource | null> {
+export async function spendVerifyCredit(prisma: PrismaClient, workspaceId: string, monthlyFor?: ((plan: string) => number) | null, now = new Date()): Promise<CreditSource | null> {
   await rollMonth(prisma, workspaceId, now);
-  const ws = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { plan: true } });
+  const ws = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { plan: true, verifyMonthly: true } });
   if (!ws) return null;
-  const monthly = await prisma.workspace.updateMany({ where: { id: workspaceId, verifyUsed: { lt: monthlyFor(ws.plan) } }, data: { verifyUsed: { increment: 1 } } });
+  const monthly = await prisma.workspace.updateMany({ where: { id: workspaceId, verifyUsed: { lt: monthlyFor ? monthlyFor(ws.plan) : ws.verifyMonthly } }, data: { verifyUsed: { increment: 1 } } });
   if (monthly.count) return "monthly";
   const extra = await prisma.workspace.updateMany({ where: { id: workspaceId, verifyExtra: { gt: 0 } }, data: { verifyExtra: { decrement: 1 } } });
   return extra.count ? "extra" : null;
@@ -34,11 +34,11 @@ export async function refundVerifyCredit(prisma: PrismaClient, workspaceId: stri
 }
 
 /** Credits usable right now. */
-export async function verifyCreditsLeft(prisma: PrismaClient, workspaceId: string, monthlyFor: (plan: string) => number, now = new Date()): Promise<number> {
-  const ws = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { plan: true, verifyUsed: true, verifyPeriod: true, verifyExtra: true } });
+export async function verifyCreditsLeft(prisma: PrismaClient, workspaceId: string, monthlyFor?: ((plan: string) => number) | null, now = new Date()): Promise<number> {
+  const ws = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { plan: true, verifyUsed: true, verifyPeriod: true, verifyExtra: true, verifyMonthly: true } });
   if (!ws) return 0;
   const used = ws.verifyPeriod && ws.verifyPeriod >= monthStart(now) ? ws.verifyUsed : 0;
-  return Math.max(0, monthlyFor(ws.plan) - used) + Math.max(0, ws.verifyExtra);
+  return Math.max(0, (monthlyFor ? monthlyFor(ws.plan) : ws.verifyMonthly) - used) + Math.max(0, ws.verifyExtra);
 }
 
 /**

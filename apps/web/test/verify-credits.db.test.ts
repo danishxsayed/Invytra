@@ -17,7 +17,7 @@ d("verification credits", () => {
   beforeAll(async () => {
     prisma = new PrismaClient({ datasources: { db: { url } } });
     await prisma.workspace.deleteMany({ where: { id: { in: [WS, OTHER] } } });
-    await prisma.workspace.createMany({ data: [{ id: WS, name: "Paid", plan: "pro" }, { id: OTHER, name: "Other" }] });
+    await prisma.workspace.createMany({ data: [{ id: WS, name: "Paid", plan: "growth", verifyMonthly: 1000, aiMonthly: 500 }, { id: OTHER, name: "Other" }] });
   });
   afterAll(async () => {
     await prisma.workspace.deleteMany({ where: { id: { in: [WS, OTHER] } } });

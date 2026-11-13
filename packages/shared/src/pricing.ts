@@ -1,78 +1,192 @@
-/**
- * Invytra's price list: one price per connected LinkedIn account ("sender"),
- * cheaper per sender the more you have. The rate for your package applies to
- * every sender. The website shows it; billing (M6) charges it.
+/*
+ * Invytra's plans: a free trial, Starter, Growth and a custom VIP plan. One source of truth
+ * for the pricing cards, checkout, the billing page and the server's checks (channels,
+ * sender accounts, monthly credits). Prices are in US cents.
+ *
+ * - Trial: 7 days, 20 credits, ONE channel, one sender.
+ * - Starter ($39): 250 credits a month, any TWO channels, one sender per channel.
+ * - Growth ($49): 500 credits a month, all three channels, one sender per channel.
+ * - VIP: custom price, credits, channels and sender limits (set by the team).
+ * - Extra senders per channel are an add-on (LinkedIn $20, email mailbox $5 a month);
+ *   a channel without a price here can't have extra senders yet.
+ * - Yearly: 15% off twelve months, add-ons included.
  */
-export type Currency = "USD" | "INR";
-export type Billing = "monthly" | "yearly";
 
-export interface PriceTier {
-  id: "solo" | "team" | "growth" | "agency" | "scale";
+export type Currency = "USD";
+export type BillingCycle = "monthly" | "yearly";
+
+/** The channels plans are made of (WhatsApp counts even while it's on the way). */
+export const PLAN_CHANNELS = ["linkedin", "email", "whatsapp"] as const;
+export type PlanChannel = (typeof PLAN_CHANNELS)[number];
+export const isPlanChannel = (c: string): c is PlanChannel => (PLAN_CHANNELS as readonly string[]).includes(c);
+
+export const PLAN_IDS = ["trial", "starter", "growth", "vip"] as const;
+export type PlanId = (typeof PLAN_IDS)[number];
+export const PAID_PLANS = ["starter", "growth"] as const;
+export type PaidPlanId = (typeof PAID_PLANS)[number];
+
+export interface PlanDef {
+  id: PlanId;
   name: string;
-  minSenders: number;
-  /** null = no upper bound */
-  maxSenders: number | null;
-  /** Per sender per month, billed monthly. INR excludes GST. */
-  perSender: Record<Currency, number>;
-  /** Above this many senders, prices are by quote. */
-  quoteAbove?: number;
+  /** Per month, billed monthly (0 for the trial; null = custom). */
+  monthlyCents: number | null;
+  /** Credits each month (null = custom). */
+  credits: number | null;
+  /** How many of PLAN_CHANNELS it includes (null = custom). */
+  channels: number | null;
+  recommended?: boolean;
 }
 
-export const PRICE_TIERS: PriceTier[] = [
-  { id: "solo", name: "Solo", minSenders: 1, maxSenders: 1, perSender: { USD: 29, INR: 2499 } },
-  { id: "team", name: "Team", minSenders: 2, maxSenders: 9, perSender: { USD: 24, INR: 1999 } },
-  { id: "growth", name: "Growth", minSenders: 10, maxSenders: 24, perSender: { USD: 19, INR: 1599 } },
-  { id: "agency", name: "Agency", minSenders: 25, maxSenders: 49, perSender: { USD: 15, INR: 1249 } },
-  { id: "scale", name: "Scale", minSenders: 50, maxSenders: null, perSender: { USD: 12, INR: 999 }, quoteAbove: 100 },
-];
+export const PLANS: Record<PlanId, PlanDef> = {
+  trial: { id: "trial", name: "Free trial", monthlyCents: 0, credits: 20, channels: 1 },
+  starter: { id: "starter", name: "Starter", monthlyCents: 3900, credits: 250, channels: 2 },
+  growth: { id: "growth", name: "Growth", monthlyCents: 4900, credits: 500, channels: 3, recommended: true },
+  vip: { id: "vip", name: "Custom VIP", monthlyCents: null, credits: null, channels: null },
+};
 
-/** The free plan: 7 days, up to 3 senders, and up to 100 people collected from searches. */
-export const TRIAL = { days: 7, maxSenders: 3, cardRequired: false, maxProfiles: 100 } as const;
-/** Yearly billing: 12 months for the price of 10. */
-export const YEARLY_MONTHS_PAID = 10;
-/** Agency and Scale: bring your own proxies for this much less per sender per month. */
-export const BYO_PROXY_DISCOUNT: Record<Currency, number> = { USD: 3, INR: 249 };
+export const planById = (id: string | null | undefined): PlanDef => PLANS[(PLAN_IDS as readonly string[]).includes(id ?? "") ? (id as PlanId) : "trial"];
+export const isPaidPlan = (id: string): id is PaidPlanId => (PAID_PLANS as readonly string[]).includes(id);
 
-export function tierFor(senders: number): PriceTier {
-  const n = Math.max(1, Math.floor(senders));
-  return PRICE_TIERS.find((t) => n >= t.minSenders && (t.maxSenders === null || n <= t.maxSenders))!;
+/** The free trial. */
+export const TRIAL = { days: 7, channels: 1, sendersPerChannel: 1, credits: 20, cardRequired: false, maxProfiles: 100 } as const;
+
+/** Each extra sender account, per month, by channel (null = not sold yet). */
+export const SENDER_ADDON_CENTS: Record<PlanChannel, number | null> = { linkedin: 2000, email: 500, whatsapp: null };
+/** What a sender is on each channel, for labels. */
+export const SENDER_LABEL: Record<PlanChannel, { one: string; many: string }> = {
+  linkedin: { one: "LinkedIn sender", many: "LinkedIn senders" },
+  email: { one: "email mailbox", many: "email mailboxes" },
+  whatsapp: { one: "WhatsApp number", many: "WhatsApp numbers" },
+};
+/** Most extra senders one channel can add on a standard plan (more: VIP). */
+export const MAX_EXTRA_SENDERS = 50;
+
+/** Yearly billing: 15% off twelve months. */
+export const YEARLY_DISCOUNT = 0.15;
+
+export type SenderCounts = Partial<Record<PlanChannel, number>>;
+
+export interface PlanChoice {
+  plan: PaidPlanId;
+  cycle: BillingCycle;
+  /** Starter: exactly two; Growth: all three (filled in). */
+  channels: PlanChannel[];
+  /** Extra senders per channel, beyond the one included. */
+  extra: SenderCounts;
 }
 
-const round = (v: number, currency: Currency) => (currency === "USD" ? Math.round(v * 100) / 100 : Math.round(v));
-
-export interface Quote {
-  senders: number;
-  tier: PriceTier;
-  /** Per sender, per month (yearly billing shown as its monthly equivalent). */
-  perSender: number;
-  /** All senders, per month (monthly equivalent for yearly billing). */
-  perMonth: number;
-  /** What is actually charged each billing period. */
-  charged: number;
-  /** Fewer-than-next-package senders can cost more than the next package; this is that cheaper option. */
-  betterDeal?: { senders: number; perMonth: number };
-  /** Above the published tiers: price by quote. */
-  quote: boolean;
+export interface QuoteLine {
+  label: string;
+  /** Per billing period (after the yearly discount). */
+  cents: number;
 }
 
-export function priceFor(senders: number, { currency = "USD", billing = "monthly" }: { currency?: Currency; billing?: Billing } = {}): Quote {
-  const n = Math.max(1, Math.floor(senders));
-  const tier = tierFor(n);
-  const factor = billing === "yearly" ? YEARLY_MONTHS_PAID / 12 : 1;
-  const perSender = round(tier.perSender[currency] * factor, currency);
-  const perMonth = round(perSender * n, currency);
-  const charged = billing === "yearly" ? round(tier.perSender[currency] * n * YEARLY_MONTHS_PAID, currency) : perMonth;
-  const next = PRICE_TIERS[PRICE_TIERS.indexOf(tier) + 1];
-  let betterDeal: Quote["betterDeal"];
-  if (next) {
-    const nextMonth = round(round(next.perSender[currency] * factor, currency) * next.minSenders, currency);
-    if (nextMonth <= perMonth) betterDeal = { senders: next.minSenders, perMonth: nextMonth };
+export interface PlanQuote {
+  choice: PlanChoice;
+  lines: QuoteLine[];
+  /** Per month, before the yearly discount. */
+  monthlyCents: number;
+  /** What each billing period charges. */
+  periodCents: number;
+  /** The same period without the yearly discount (for the strikethrough). */
+  listCents: number;
+  savedCents: number;
+}
+
+const yearly = (monthly: number) => Math.round(monthly * 12 * (1 - YEARLY_DISCOUNT));
+
+/** Checks a plan choice and fills in what the plan decides (Growth's channels). */
+export function normalizeChoice(input: { plan: string; cycle?: string; channels?: readonly string[]; extra?: Record<string, unknown> }): { ok: true; choice: PlanChoice } | { ok: false; error: string } {
+  if (!isPaidPlan(input.plan)) return { ok: false, error: "Choose Starter or Growth (VIP is arranged with our team)." };
+  const cycle: BillingCycle = input.cycle === "yearly" ? "yearly" : "monthly";
+  const def = PLANS[input.plan];
+  const picked = [...new Set((input.channels ?? []).filter(isPlanChannel))];
+  const channels = input.plan === "growth" ? [...PLAN_CHANNELS] : picked;
+  if (channels.length !== def.channels) return { ok: false, error: `${def.name} includes ${def.channels} channels: choose ${def.channels}.` };
+  const extra: SenderCounts = {};
+  for (const c of PLAN_CHANNELS) {
+    const n = Math.floor(Number(input.extra?.[c] ?? 0));
+    if (!Number.isFinite(n) || n <= 0) continue;
+    if (!channels.includes(c)) return { ok: false, error: `Add ${SENDER_LABEL[c].many} only to a channel in your plan.` };
+    if (SENDER_ADDON_CENTS[c] === null) return { ok: false, error: `Extra ${SENDER_LABEL[c].many} aren't available yet.` };
+    if (n > MAX_EXTRA_SENDERS) return { ok: false, error: `Up to ${MAX_EXTRA_SENDERS} extra ${SENDER_LABEL[c].many} on this plan. For more, talk to us about VIP.` };
+    extra[c] = n;
   }
-  return { senders: n, tier, perSender, perMonth, charged, betterDeal, quote: !!tier.quoteAbove && n > tier.quoteAbove };
+  return { ok: true, choice: { plan: input.plan, cycle, channels: PLAN_CHANNELS.filter((c) => channels.includes(c)), extra } };
 }
 
-export function formatMoney(amount: number, currency: Currency): string {
-  return currency === "USD"
-    ? `$${amount.toLocaleString("en-US", { maximumFractionDigits: amount % 1 ? 2 : 0, minimumFractionDigits: amount % 1 ? 2 : 0 })}`
-    : `₹${amount.toLocaleString("en-IN")}`;
+/** The price of a plan choice: base plan plus extra senders, monthly or yearly. */
+export function quotePlan(choice: PlanChoice): PlanQuote {
+  const per = (monthly: number) => (choice.cycle === "yearly" ? yearly(monthly) : monthly);
+  const base = PLANS[choice.plan].monthlyCents!;
+  const lines: QuoteLine[] = [{ label: `${PLANS[choice.plan].name} plan`, cents: per(base) }];
+  let monthlyCents = base;
+  for (const c of PLAN_CHANNELS) {
+    const n = choice.extra[c] ?? 0;
+    const price = SENDER_ADDON_CENTS[c];
+    if (!n || price === null) continue;
+    monthlyCents += n * price;
+    lines.push({ label: `${n} extra ${n === 1 ? SENDER_LABEL[c].one : SENDER_LABEL[c].many}`, cents: per(n * price) });
+  }
+  const periodCents = lines.reduce((s, l) => s + l.cents, 0);
+  const listCents = choice.cycle === "yearly" ? monthlyCents * 12 : monthlyCents;
+  return { choice, lines, monthlyCents, periodCents, listCents, savedCents: listCents - periodCents };
 }
+
+/** "$39", "$397.80" */
+export function formatMoney(cents: number, _currency: Currency = "USD"): string {
+  const v = cents / 100;
+  return `$${v.toLocaleString("en-US", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
+}
+
+/* ---------- What a workspace is entitled to ---------- */
+
+export type SubscriptionStatus = "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELLED" | "EXPIRED";
+
+/** The parts of a subscription the rules below need. */
+export interface SubscriptionLike {
+  plan: string;
+  status: string;
+  channels: readonly string[];
+  extraSenders: unknown;
+  /** VIP: sender accounts per channel (replaces 1 + extra). */
+  customSenders?: unknown;
+  trialEndsAt: Date | null;
+  currentPeriodEnd: Date | null;
+}
+
+const counts = (v: unknown): SenderCounts => {
+  const out: SenderCounts = {};
+  if (v && typeof v === "object")
+    for (const c of PLAN_CHANNELS) {
+      const n = Math.floor(Number((v as Record<string, unknown>)[c] ?? 0));
+      if (Number.isFinite(n) && n > 0) out[c] = n;
+    }
+  return out;
+};
+export const senderCounts = counts;
+
+/** The status right now: a trial or a cancelled plan past its end has expired even before the nightly check marks it. */
+export function effectiveStatus(s: SubscriptionLike, now = new Date()): SubscriptionStatus {
+  if (s.status === "TRIALING" && s.trialEndsAt && s.trialEndsAt <= now) return "EXPIRED";
+  if (s.status === "CANCELLED" && (!s.currentPeriodEnd || s.currentPeriodEnd <= now)) return "EXPIRED";
+  return (["TRIALING", "ACTIVE", "PAST_DUE", "CANCELLED", "EXPIRED"] as const).find((x) => x === s.status) ?? "EXPIRED";
+}
+
+/** Whether campaigns may send (and new ones start): trial running, plan paid up or in its retry window, or cancelled but not yet ended. */
+export const canSend = (s: SubscriptionLike, now = new Date()) => effectiveStatus(s, now) !== "EXPIRED";
+
+/** Sender accounts allowed on a channel: none if the plan doesn't include it. */
+export function senderLimit(s: SubscriptionLike, channel: PlanChannel): number {
+  if (!s.channels.includes(channel)) return 0;
+  if (s.plan === "vip") {
+    const custom = counts(s.customSenders)[channel];
+    if (custom) return custom;
+  }
+  return 1 + (counts(s.extraSenders)[channel] ?? 0);
+}
+
+export const EXPIRED_MESSAGE = "Your free trial has expired. Upgrade your plan to continue using Invytra's outreach features.";
+export const ENDED_MESSAGE = "Your plan has ended. Choose a plan to continue using Invytra's outreach features.";
+/** Why sending is off, in the user's words. */
+export const notSendingMessage = (s: SubscriptionLike) => (s.plan === "trial" ? EXPIRED_MESSAGE : ENDED_MESSAGE);

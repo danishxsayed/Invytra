@@ -19,7 +19,8 @@ export const pageBudget = (count: number) => Math.min(12, Math.max(2, Math.ceil(
 export interface InvyDeps {
   places: PlacesSearch | null;
   brain: InvyBrain | null;
-  monthlyCredits: (plan: string) => number;
+  /** Tests only: a monthly allowance by plan instead of the workspace's own. */
+  monthlyCredits?: (plan: string) => number;
   checkSite?: (website: string | null) => Promise<SiteCheck>;
   /** Called with a short progress line ("Checking 12 websites…"). */
   now?: () => Date;

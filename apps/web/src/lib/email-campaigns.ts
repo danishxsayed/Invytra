@@ -1,3 +1,4 @@
+import { sendingProblem } from "./subscriptions";
 import type { Prisma, PrismaClient } from "@invytra/db";
 import { DEFAULT_EMAIL_SEQUENCE, emailSequenceSchema, localDayStart, recipientTimeZone, timeZoneSchema, unknownVars, waitingText, zonedTime, type EmailStep } from "@invytra/shared";
 import { isSuppressed } from "./email-contacts";
@@ -16,6 +17,8 @@ export const campaignNameSchema = z.string().trim().min(1, "Give the campaign a 
 const find = (prisma: PrismaClient, workspaceId: string, id: string) => prisma.emailCampaign.findFirst({ where: { id, workspaceId } });
 
 export async function createEmailCampaign(prisma: PrismaClient, workspaceId: string, name: string): Promise<Result<{ id: string }>> {
+  const stop = await sendingProblem(prisma, workspaceId);
+  if (stop) return { ok: false, error: stop };
   const c = await prisma.emailCampaign.create({ data: { workspaceId, name, steps: DEFAULT_EMAIL_SEQUENCE as unknown as Prisma.InputJsonValue }, select: { id: true } });
   return { ok: true, value: c };
 }
@@ -172,6 +175,8 @@ export async function launchEmailCampaign(prisma: PrismaClient, workspaceId: str
   const c = await find(prisma, workspaceId, id);
   if (!c) return NOT_FOUND;
   if (c.status !== "DRAFT" && c.status !== "SCHEDULED") return { ok: false, error: "This campaign was already started." };
+  const stop = await sendingProblem(prisma, workspaceId);
+  if (stop) return { ok: false, error: stop };
   const problems = await launchProblems(prisma, c);
   if (problems.length) return { ok: false, error: problems[0]! };
   const waiting = { campaignId: id, status: "ACTIVE" as const, stepIndex: 0 };
@@ -223,6 +228,8 @@ export async function setEmailCampaignPaused(prisma: PrismaClient, workspaceId: 
   if (paused && c.status !== "ACTIVE") return { ok: false, error: "Only a sending campaign can be paused." };
   if (!paused) {
     if (c.status !== "PAUSED") return { ok: false, error: "Only a paused campaign can be resumed." };
+    const stop = await sendingProblem(prisma, workspaceId);
+    if (stop) return { ok: false, error: stop };
     const problems = (await launchProblems(prisma, c)).filter((p) => !p.startsWith("Add leads"));
     if (problems.length) return { ok: false, error: problems[0]! };
   }

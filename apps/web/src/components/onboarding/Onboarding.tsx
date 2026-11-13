@@ -21,28 +21,29 @@ type Option = { id: string; label: string; soon?: boolean };
 type Step =
   | { key: "role" | "goal" | "accounts"; kind: "one"; question: string; options: readonly Option[] }
   | { key: "channels"; kind: "many"; question: string; options: readonly Option[] }
+  | { key: "channels"; kind: "trial"; question: string; options: readonly Option[] }
   | { key: "heardFrom"; kind: "heard"; question: string; options: readonly Option[] }
   | { key: "plan"; kind: "plan"; question: string };
 
 const NO_PROGRESS = { linkedinAccounts: 0, mailboxes: 0, people: 0, campaignsLive: 0, voices: 0, doNotContact: 0 };
 
-/** The questions after sign-up, one per screen; every one can be skipped. Ends with their setup plan. */
-export function Onboarding({ firstName, whatsappLive }: { firstName: string; whatsappLive: boolean }) {
+/**
+ * The questions after sign-up, one per screen; every one can be skipped except, on the free
+ * trial, its one channel (asked first). Ends with their setup plan.
+ */
+export function Onboarding({ firstName, whatsappLive, trial = false }: { firstName: string; whatsappLive: boolean; trial?: boolean }) {
   const router = useRouter();
   const [i, setI] = useState(0);
   const [a, setA] = useState<OnboardingAnswers>({});
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
 
+  const channelOptions = ONBOARDING_CHANNELS.map((c) => ({ ...c, soon: c.id === "whatsapp" && !whatsappLive }));
   const steps: Step[] = [
+    ...(trial ? [{ key: "channels", kind: "trial", question: "Which channel do you want to try first?", options: channelOptions } as Step] : []),
     { key: "role", kind: "one", question: "What best describes you?", options: ROLES },
     { key: "goal", kind: "one", question: "What do you want Invytra to help you with?", options: GOALS },
-    {
-      key: "channels",
-      kind: "many",
-      question: "Where will you reach people?",
-      options: ONBOARDING_CHANNELS.map((c) => ({ ...c, soon: c.id === "whatsapp" && !whatsappLive })),
-    },
+    ...(trial ? [] : [{ key: "channels", kind: "many", question: "Where will you reach people?", options: channelOptions } as Step]),
     ...(a.channels?.length && !a.channels.includes("linkedin") ? [] : [{ key: "accounts", kind: "one", question: "How many LinkedIn accounts will you run?", options: ACCOUNT_COUNTS } as Step]),
     { key: "heardFrom", kind: "heard", question: "How did you hear about Invytra?", options: HEARD_FROM },
     { key: "plan", kind: "plan", question: "Here's your setup plan" },
@@ -71,7 +72,7 @@ export function Onboarding({ firstName, whatsappLive }: { firstName: string; wha
         <span className="flex items-center gap-2 text-[16px] font-semibold text-stone-900">
           <LogoMark size={26} /> Invytra
         </span>
-        {step.kind !== "plan" && (
+        {step.kind !== "plan" && !(step.kind === "trial" && !a.channels?.length) && (
           <button type="button" disabled={pending} onClick={() => finish(a)} className="text-[14px] font-medium text-stone-500 hover:text-stone-900">
             Skip setup
           </button>
@@ -96,6 +97,30 @@ export function Onboarding({ firstName, whatsappLive }: { firstName: string; wha
                   <li key={o.id}>
                     <Choice on={a[step.key] === o.id} round onClick={() => pickOne(step.key, o.id)}>
                       {o.label}
+                    </Choice>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {step.kind === "trial" && (
+            <>
+              <p className="mb-3 text-[14px] text-stone-400">Your 7-day free trial includes one channel. You can add more when you choose a plan.</p>
+              <ul className="space-y-1">
+                {step.options.map((o) => (
+                  <li key={o.id}>
+                    <Choice
+                      on={a.channels?.[0] === o.id}
+                      round
+                      disabled={o.soon}
+                      onClick={() => {
+                        setA((x) => ({ ...x, channels: [o.id] as OnboardingAnswers["channels"] }));
+                        setTimeout(next, 180);
+                      }}
+                    >
+                      {o.label}
+                      {o.soon && <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-[12px] font-semibold text-sky-800">Coming soon</span>}
                     </Choice>
                   </li>
                 ))}
@@ -185,7 +210,12 @@ export function Onboarding({ firstName, whatsappLive }: { firstName: string; wha
                 Continue
               </button>
             ) : null}
-            {step.kind !== "plan" && (
+            {step.kind === "trial" && a.channels?.length ? (
+              <button type="button" onClick={next} className="rounded-xl bg-stone-900 px-5 py-2.5 text-[15px] font-semibold text-white hover:bg-stone-800">
+                Continue
+              </button>
+            ) : null}
+            {step.kind !== "plan" && step.kind !== "trial" && (
               <button
                 type="button"
                 onClick={() => {
@@ -218,14 +248,15 @@ export function Onboarding({ firstName, whatsappLive }: { firstName: string; wha
   );
 }
 
-function Choice({ on, round, onClick, children }: { on: boolean; round?: boolean; onClick: () => void; children: React.ReactNode }) {
+function Choice({ on, round, disabled, onClick, children }: { on: boolean; round?: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"
       role={round ? "radio" : "checkbox"}
       aria-checked={on}
+      disabled={disabled}
       onClick={onClick}
-      className={cx("flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left text-[17px] transition", on ? "bg-stone-100 text-stone-900" : "text-stone-800 hover:bg-stone-50")}
+      className={cx("flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left text-[17px] transition disabled:cursor-not-allowed disabled:opacity-60", on ? "bg-stone-100 text-stone-900" : "text-stone-800 hover:bg-stone-50")}
     >
       <span
         className={cx(

@@ -1,5 +1,5 @@
 import { aiFromEnv, readProfileContext, refundAiCredits, spendAiCredits, type AiLineWriter } from "@invytra/db";
-import { AI_COSTS, DEFAULT_AI_SETTINGS, aiLineMaxChars, campaignSettingsSchema, monthlyAiCredits } from "@invytra/shared";
+import { AI_COSTS, DEFAULT_AI_SETTINGS, aiLineMaxChars, campaignSettingsSchema } from "@invytra/shared";
 import type { UnipileCtx } from "./work.js";
 
 /** No AI line and no fallback for this person: the step is skipped, nothing generic is sent. */
@@ -16,7 +16,7 @@ async function leadFor(ctx: Ctx, campaignLeadId?: string | null) {
 }
 
 /** One personalized note/line's worth of AI credits (null = the workspace has none left). */
-const charge = (ctx: Ctx, lead: { id: string; workspaceId: string }) => spendAiCredits(ctx.prisma, lead.workspaceId, AI_COSTS.NOTE, "NOTE", monthlyAiCredits, { ref: lead.id });
+const charge = (ctx: Ctx, lead: { id: string; workspaceId: string }) => spendAiCredits(ctx.prisma, lead.workspaceId, AI_COSTS.NOTE, "NOTE", null, { ref: lead.id });
 
 /**
  * The {aiLine} for a note, message or comment about to go out: the one already written for

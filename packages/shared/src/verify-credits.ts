@@ -45,8 +45,8 @@ export interface VerifyBalance {
 }
 
 /** What a workspace can still use (a used count from an earlier month counts as 0). */
-export function verifyBalance(ws: { plan: string; verifyUsed: number; verifyPeriod: Date | null; verifyExtra: number }, now: Date): VerifyBalance {
-  const monthly = monthlyVerifyCredits(ws.plan);
+export function verifyBalance(ws: { plan: string; verifyUsed: number; verifyPeriod: Date | null; verifyExtra: number; verifyMonthly?: number }, now: Date): VerifyBalance {
+  const monthly = ws.verifyMonthly ?? monthlyVerifyCredits(ws.plan);
   const used = ws.verifyPeriod && ws.verifyPeriod >= creditMonthStart(now) ? ws.verifyUsed : 0;
   const monthlyLeft = Math.max(0, monthly - used);
   const extra = Math.max(0, ws.verifyExtra);

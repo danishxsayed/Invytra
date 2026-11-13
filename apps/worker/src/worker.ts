@@ -18,8 +18,7 @@ import { emailCampaignTick } from "./email/campaigns.js";
 import { emailReplyTick } from "./email/replies.js";
 import { verifyTick } from "./email/verify.js";
 import { createRuntime } from "./runtime.js";
-import { syncPeople, unipileFromEnv } from "@invytra/db";
-import { monthlyAiCredits } from "@invytra/shared";
+import { expireDueSubscriptions, syncPeople, unipileFromEnv } from "@invytra/db";
 import { invyBrainFromEnv } from "./invy/brain.js";
 import { placesFromEnv } from "./invy/places.js";
 import { requeueStuckInvySearches, runNextInvySearch } from "./invy/run.js";
@@ -119,6 +118,10 @@ async function main() {
     if (ticking) return;
     ticking = true;
     try {
+      // Trials past their 7 days and cancelled plans past their paid period stop first
+      // (their campaigns are paused, so nothing below sends for them).
+      const expired = await expireDueSubscriptions(rt.prisma);
+      if (expired) log(`Plans: ${expired} trial(s) or plan(s) ended; their campaigns are paused`);
       const imp = await importTick({ prisma: rt.prisma, queue });
       if (imp.added || imp.finished) log(`Imports: ${imp.added} new lead(s) added${imp.finished ? `, ${imp.finished} import(s) finished` : ""}`);
       const t = await campaignTick({ prisma: rt.prisma, queue });
@@ -198,7 +201,7 @@ async function main() {
 
   // Ask Invy: searches the dashboard queued (Google Maps + website checks + AI), one at a time.
   await requeueStuckInvySearches(rt.prisma).catch(() => undefined);
-  const invyDeps = { places: placesFromEnv(), brain: invyBrainFromEnv(), monthlyCredits: monthlyAiCredits };
+  const invyDeps = { places: placesFromEnv(), brain: invyBrainFromEnv() };
   let invyBusy = false;
   const runInvy = async () => {
     if (invyBusy) return;

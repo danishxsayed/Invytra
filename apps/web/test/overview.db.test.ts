@@ -22,7 +22,7 @@ d("overview", () => {
   beforeAll(async () => {
     prisma = new PrismaClient({ datasources: { db: { url } } });
     await prisma.workspace.deleteMany({ where: { id: WS } });
-    await prisma.workspace.create({ data: { id: WS, name: "Ov", plan: "trial", createdAt: ago(5), channels: ["linkedin", "email"], aiExtra: 0, aiUsed: 45, aiPeriod: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)) } });
+    await prisma.workspace.create({ data: { id: WS, name: "Ov", plan: "trial", createdAt: ago(5), channels: ["linkedin", "email"], aiExtra: 0, aiMonthly: 50, aiUsed: 45, aiPeriod: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)) } });
     await prisma.linkedinAccount.createMany({
       data: [
         { id: "ov-a1", workspaceId: WS, label: "Main", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE" },
@@ -82,10 +82,11 @@ d("overview", () => {
   it("lists what needs attention, with fixes; billing fixes only for the owner", async () => {
     const items = await needsAttention(prisma, me("OWNER"), now);
     const ids = items.map((i) => i.id);
-    expect(ids).toEqual(expect.arrayContaining(["li-ov-a2", "mb-ov-m1", "trial", "ai", "li-replies", "em-replies"]));
+    expect(ids).toEqual(expect.arrayContaining(["li-ov-a2", "mb-ov-m1", "ai", "li-replies", "em-replies"]));
+    // The trial's days left are in the plan banner now, not in this list.
+    expect(ids).not.toContain("trial");
     expect(items.find((i) => i.id === "li-ov-a2")).toMatchObject({ tone: "urgent", action: { label: "Reconnect", href: expect.stringContaining("/app/accounts/ov-a2") } });
     expect(items.find((i) => i.id === "mb-ov-m1")).toMatchObject({ detail: "Login refused" });
-    expect(items.find((i) => i.id === "trial")).toMatchObject({ title: "Your free trial ends in 2 days", action: { href: expect.stringContaining("/billing") } });
     const member = await needsAttention(prisma, me("MEMBER"), now);
     expect(member.find((i) => i.id === "ai")!.action).toBeNull();
     expect(member.find((i) => i.id === "li-ov-a2")!.action).not.toBeNull();

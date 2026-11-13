@@ -47,7 +47,7 @@ d("Unipile accounts", () => {
   beforeAll(async () => {
     prisma = new PrismaClient({ datasources: { db: { url } } });
     await prisma.workspace.deleteMany({ where: { id: WS } });
-    await prisma.workspace.create({ data: { id: WS, name: "Uni" } });
+    await prisma.workspace.create({ data: { id: WS, name: "Uni", aiMonthly: 50 } });
     await prisma.linkedinAccount.create({
       data: { id: ACC, workspaceId: WS, label: "uni", proxyUrl: "", workingHours: {}, limits: {}, status: "ACTIVE", engine: "UNIPILE", unipileAccountId: "uni-1", premiumCheckedAt: new Date() },
     });

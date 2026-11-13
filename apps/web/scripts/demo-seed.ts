@@ -56,7 +56,9 @@ const url = (slug: string) => `https://www.linkedin.com/in/${slug}/`;
 
 await prisma.workspace.deleteMany({ where: { id: WS } });
 await prisma.user.deleteMany({ where: { email: EMAIL } });
-await prisma.workspace.create({ data: { id: WS, name: "Northwind Studio", plan: "pro", channels: ["linkedin", "email"] } });
+await prisma.workspace.create({ data: { id: WS, name: "Northwind Studio", plan: "vip", channels: ["linkedin", "email"], aiMonthly: 500, verifyMonthly: 1000 } });
+// A custom plan big enough for the demo's senders.
+await prisma.subscription.create({ data: { workspaceId: WS, plan: "vip", status: "ACTIVE", channels: ["linkedin", "email"], customSenders: { linkedin: 10, email: 10 }, monthlyCredits: 500, startedAt: new Date() } });
 const user = await prisma.user.create({ data: { email: EMAIL, name: "Aisha Rahman", passwordHash: await hashPassword("demo-password-2026") } });
 await prisma.membership.create({ data: { userId: user.id, workspaceId: WS, role: "OWNER" } });
 

@@ -1,44 +1,66 @@
 import { describe, expect, it } from "vitest";
-import { PRICE_TIERS, formatMoney, priceFor, tierFor } from "../src/index.js";
+import { PLANS, TRIAL, canSend, effectiveStatus, formatMoney, normalizeChoice, notSendingMessage, quotePlan, senderLimit, type PlanChoice } from "../src/index.js";
 
-describe("price list", () => {
-  it("covers every sender count with no gaps or overlaps", () => {
-    for (let n = 1; n <= 500; n++) {
-      expect(PRICE_TIERS.filter((t) => n >= t.minSenders && (t.maxSenders === null || n <= t.maxSenders))).toHaveLength(1);
-    }
-    for (let i = 1; i < PRICE_TIERS.length; i++) {
-      expect(PRICE_TIERS[i]!.perSender.USD).toBeLessThan(PRICE_TIERS[i - 1]!.perSender.USD);
-      expect(PRICE_TIERS[i]!.perSender.INR).toBeLessThan(PRICE_TIERS[i - 1]!.perSender.INR);
-    }
+const choice = (c: Partial<PlanChoice> & Pick<PlanChoice, "plan">): PlanChoice => ({ cycle: "monthly", channels: c.plan === "growth" ? ["linkedin", "email", "whatsapp"] : ["linkedin", "email"], extra: {}, ...c });
+
+describe("plans", () => {
+  it("has the trial, Starter, Growth and VIP", () => {
+    expect(PLANS.starter).toMatchObject({ monthlyCents: 3900, credits: 250, channels: 2 });
+    expect(PLANS.growth).toMatchObject({ monthlyCents: 4900, credits: 500, channels: 3, recommended: true });
+    expect(PLANS.vip.monthlyCents).toBeNull();
+    expect(TRIAL).toMatchObject({ days: 7, channels: 1, credits: 20 });
   });
 
-  it("prices packages", () => {
-    expect(priceFor(1)).toMatchObject({ perSender: 29, perMonth: 29, charged: 29 });
-    expect(priceFor(5)).toMatchObject({ perSender: 24, perMonth: 120, tier: { id: "team" } });
-    expect(priceFor(25)).toMatchObject({ perSender: 15, perMonth: 375, tier: { id: "agency" } });
-    expect(priceFor(50, { currency: "INR" })).toMatchObject({ perSender: 999, perMonth: 49950 });
-    expect(priceFor(150).quote).toBe(true);
+  it("adds $20 a month per extra LinkedIn sender (the spec's table)", () => {
+    const totals = [0, 1, 2, 3].map((n) => quotePlan(choice({ plan: "starter", extra: { linkedin: n } })).periodCents);
+    expect(totals).toEqual([3900, 5900, 7900, 9900]);
+    const q = quotePlan(choice({ plan: "starter", extra: { linkedin: 2 } }));
+    expect(q.lines).toEqual([
+      { label: "Starter plan", cents: 3900 },
+      { label: "2 extra LinkedIn senders", cents: 4000 },
+    ]);
   });
 
-  it("charges 10 months for a year", () => {
-    const y = priceFor(5, { billing: "yearly" });
-    expect(y.charged).toBe(1200);
-    expect(y.perSender).toBe(20);
-    expect(y.perMonth).toBe(100);
-    expect(priceFor(1, { billing: "yearly", currency: "INR" }).charged).toBe(24990);
+  it("charges email mailboxes $5 each, and WhatsApp numbers aren't sold yet", () => {
+    expect(quotePlan(choice({ plan: "growth", extra: { email: 3 } })).periodCents).toBe(4900 + 1500);
+    expect(normalizeChoice({ plan: "growth", extra: { whatsapp: 1 } })).toMatchObject({ ok: false, error: expect.stringContaining("aren't available yet") });
   });
 
-  it("points out when the next package costs less", () => {
-    expect(priceFor(9).betterDeal).toEqual({ senders: 10, perMonth: 190 });
-    expect(priceFor(5).betterDeal).toBeUndefined();
-    expect(priceFor(24).betterDeal).toEqual({ senders: 25, perMonth: 375 });
+  it("takes 15% off a year, add-ons included, and shows the full price to strike through", () => {
+    expect(quotePlan(choice({ plan: "starter", cycle: "yearly" }))).toMatchObject({ periodCents: 39780, listCents: 46800, savedCents: 7020 });
+    expect(quotePlan(choice({ plan: "growth", cycle: "yearly" })).periodCents).toBe(49980);
+    expect(quotePlan(choice({ plan: "starter", cycle: "yearly", extra: { linkedin: 1 } })).periodCents).toBe(39780 + 20400);
+    expect(formatMoney(39780)).toBe("$397.80");
+    expect(formatMoney(3900)).toBe("$39");
   });
 
-  it("handles odd input and formats money", () => {
-    expect(tierFor(0).id).toBe("solo");
-    expect(priceFor(3.7).senders).toBe(3);
-    expect(formatMoney(1200, "USD")).toBe("$1,200");
-    expect(formatMoney(24.17, "USD")).toBe("$24.17");
-    expect(formatMoney(149950, "INR")).toBe("₹1,49,950");
+  it("checks the channels: Starter exactly two, Growth all three", () => {
+    expect(normalizeChoice({ plan: "starter", channels: ["linkedin"] })).toMatchObject({ ok: false });
+    expect(normalizeChoice({ plan: "starter", channels: ["linkedin", "email", "whatsapp"] })).toMatchObject({ ok: false });
+    expect(normalizeChoice({ plan: "starter", channels: ["email", "whatsapp", "email"] })).toMatchObject({ ok: true, choice: { channels: ["email", "whatsapp"] } });
+    expect(normalizeChoice({ plan: "growth", channels: [] })).toMatchObject({ ok: true, choice: { channels: ["linkedin", "email", "whatsapp"] } });
+    expect(normalizeChoice({ plan: "starter", channels: ["linkedin", "email"], extra: { whatsapp: 2 } })).toMatchObject({ ok: false, error: expect.stringContaining("only to a channel in your plan") });
+    expect(normalizeChoice({ plan: "vip" })).toMatchObject({ ok: false });
+    expect(normalizeChoice({ plan: "starter", channels: ["linkedin", "email"], extra: { linkedin: 51 } })).toMatchObject({ ok: false, error: expect.stringContaining("VIP") });
+  });
+
+  it("gives one sender per channel in the plan, plus extras; VIP limits are its own", () => {
+    const base = { status: "ACTIVE", trialEndsAt: null, currentPeriodEnd: null };
+    const s = { ...base, plan: "starter", channels: ["linkedin", "email"], extraSenders: { linkedin: 2 } };
+    expect([senderLimit(s, "linkedin"), senderLimit(s, "email"), senderLimit(s, "whatsapp")]).toEqual([3, 1, 0]);
+    const vip = { ...base, plan: "vip", channels: ["linkedin", "email"], extraSenders: {}, customSenders: { linkedin: 25 } };
+    expect([senderLimit(vip, "linkedin"), senderLimit(vip, "email")]).toEqual([25, 1]);
+  });
+
+  it("stops sending when a trial or a cancelled plan runs out, even before it's marked", () => {
+    const now = new Date("2026-11-20T00:00:00Z");
+    const trial = { plan: "trial", status: "TRIALING", channels: ["email"], extraSenders: {}, trialEndsAt: new Date("2026-11-19T23:00:00Z"), currentPeriodEnd: null };
+    expect(effectiveStatus(trial, now)).toBe("EXPIRED");
+    expect(canSend({ ...trial, trialEndsAt: new Date("2026-11-21T00:00:00Z") }, now)).toBe(true);
+    expect(notSendingMessage(trial)).toBe("Your free trial has expired. Upgrade your plan to continue using Invytra's outreach features.");
+    const cancelled = { plan: "growth", status: "CANCELLED", channels: [], extraSenders: {}, trialEndsAt: null, currentPeriodEnd: new Date("2026-11-25T00:00:00Z") };
+    expect(canSend(cancelled, now)).toBe(true);
+    expect(canSend({ ...cancelled, currentPeriodEnd: new Date("2026-11-19T00:00:00Z") }, now)).toBe(false);
+    expect(canSend({ ...cancelled, status: "PAST_DUE" }, now)).toBe(true);
   });
 });

@@ -5,7 +5,6 @@ import {
   DNC_REASON,
   REPLIED_ELSEWHERE,
   emailSequenceSchema,
-  monthlyAiCredits,
   localDayStart,
   mailboxReadiness,
   nextSendAfter,
@@ -166,7 +165,7 @@ export async function emailCampaignTick(d: CampaignTickDeps): Promise<CampaignTi
           res.skipped++;
           continue;
         }
-        spent = await spendAiCredits(prisma, c.workspaceId, AI_COSTS.HANDWRITTEN, "HANDWRITTEN", monthlyAiCredits, { ref: lead.id, now });
+        spent = await spendAiCredits(prisma, c.workspaceId, AI_COSTS.HANDWRITTEN, "HANDWRITTEN", null, { ref: lead.id, now });
         if (spent) {
           try {
             image = { png: await renderCard({ text: ct.text, style: step.card.style, font: step.card.font, ink: step.card.ink }), alt: "Handwritten note" };

@@ -1,6 +1,6 @@
 import { prisma } from "@invytra/db";
 import { CHANNELS, canUseChannel, channelById, planIntro, setupPlan, type SetupStepId } from "@invytra/shared";
-import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, Plug, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, Lock, Plug, Sparkles } from "lucide-react";
 import { ChannelLogo } from "@/components/ChannelLogo";
 import { NeedsAttention } from "@/components/overview/NeedsAttention";
 import { SetupPlan } from "@/components/overview/SetupPlan";
@@ -74,7 +74,7 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
             {notice.status !== "live"
               ? `${notice.name} is coming soon. We'll let you know when it opens.`
-              : `${notice.name} isn't included in your workspace's plan yet.`}
+              : `${notice.name} isn't in your plan. ${me.role === "OWNER" ? "Upgrade your plan on the Billing page to use it." : "Ask your workspace owner to add it."}`}
           </p>
         )}
 
@@ -115,10 +115,14 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-stone-500">
-                        <Clock className="h-3.5 w-3.5" aria-hidden /> {soon ? "Not available yet" : "Not in your plan"}
+                        {soon ? <Clock className="h-3.5 w-3.5" aria-hidden /> : <Lock className="h-3.5 w-3.5" aria-hidden />} {soon ? "Not available yet" : "Locked: not in your plan"}
                       </span>
                     )}
-                    {usable ? (
+                    {!usable && !soon && me.role === "OWNER" ? (
+                      <a href={hubHref("/billing#plans")} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-900 bg-white px-3.5 py-2 text-[14px] font-semibold text-stone-900 hover:bg-stone-50">
+                        Upgrade to unlock
+                      </a>
+                    ) : usable ? (
                       <a
                         href={channelHref(c.id)}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-stone-900 px-3.5 py-2 text-[14px] font-semibold text-white transition hover:bg-stone-700"

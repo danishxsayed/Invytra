@@ -56,7 +56,7 @@ d("email verification job", () => {
 
   it("uses this month's credits, then extra ones, then waits until more are added", async () => {
     // A paid plan with 999 of 1,000 used and 1 extra credit: two checks, then none left.
-    await prisma.workspace.update({ where: { id: WS }, data: { plan: "pro", verifyUsed: 999, verifyPeriod: new Date("2026-11-01T00:00:00Z"), verifyExtra: 1 } });
+    await prisma.workspace.update({ where: { id: WS }, data: { plan: "growth", verifyMonthly: 1000, verifyUsed: 999, verifyPeriod: new Date("2026-11-01T00:00:00Z"), verifyExtra: 1 } });
     await prisma.emailContact.createMany({ data: ["a@fine.co", "b@fine.co", "c@fine.co"].map((email) => ({ workspaceId: WS, email, verification: "PENDING" as const })) });
     const r = await verifyTick({ prisma, verifier, mx, now, concurrency: 1 });
     expect(r.checked).toBe(2); // one monthly credit and one extra

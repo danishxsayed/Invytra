@@ -9,7 +9,7 @@ import { hideSetupPlan, saveOnboarding } from "@/lib/onboarding";
 /** The answers after sign-up (some or none); the workspace opens afterwards. */
 export async function saveOnboardingAction(answers: unknown): Promise<Result> {
   const me = await requireUser();
-  const r = await saveOnboarding(prisma, me.user.id, answers);
+  const r = await saveOnboarding(prisma, me.user.id, answers, me.role === "OWNER" ? me.workspace.id : undefined);
   if (r.ok) revalidatePath("/", "layout");
   return r;
 }

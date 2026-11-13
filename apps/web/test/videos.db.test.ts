@@ -38,7 +38,7 @@ d("videos", () => {
     process.env.VIDEO_DIR = path.join(dir, "store");
     prisma = new PrismaClient({ datasources: { db: { url } } });
     await prisma.workspace.deleteMany({ where: { id: { in: [A, B] } } });
-    await prisma.workspace.createMany({ data: [{ id: A, name: "A", plan: "pro" }, { id: B, name: "B" }] });
+    await prisma.workspace.createMany({ data: [{ id: A, name: "A", plan: "growth", aiMonthly: 500 }, { id: B, name: "B" }] });
     await prisma.voiceClone.createMany({
       data: [
         { id: "vc-video-a", workspaceId: A, name: "Me", providerVoiceId: "el-a", consentAt: new Date(), consentByUserId: "u" },

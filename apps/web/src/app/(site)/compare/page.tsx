@@ -1,4 +1,4 @@
-import { TRIAL, formatMoney, priceFor } from "@invytra/shared";
+import { PLANS, SENDER_ADDON_CENTS, TRIAL, YEARLY_DISCOUNT, formatMoney } from "@invytra/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cx } from "@/components/ui";
@@ -16,10 +16,10 @@ export const metadata: Metadata = {
 const ROWS: { tool: string; monthly: string; annual: string; trial: string; note: string; us?: boolean }[] = [
   {
     tool: "Invytra",
-    monthly: `$${SITE.price.usd}`,
-    annual: formatMoney(priceFor(1, { billing: "yearly" }).perSender, "USD"),
+    monthly: formatMoney(PLANS.starter.monthlyCents!),
+    annual: formatMoney(Math.round(PLANS.starter.monthlyCents! * (1 - YEARLY_DISCOUNT))),
     trial: `${TRIAL.days} days`,
-    note: `Every feature in every package; down to $${SITE.price.lowestUsd} per sender as you add more`,
+    note: `Starter: 2 channels and 250 credits; Growth (${formatMoney(PLANS.growth.monthlyCents!)}) adds every channel. Extra LinkedIn senders ${formatMoney(SENDER_ADDON_CENTS.linkedin!)} each`,
     us: true,
   },
   { tool: "Expandi", monthly: "$99", annual: "$79", trial: "7 days", note: "Custom pricing for agencies with 10+ seats" },
@@ -32,9 +32,9 @@ const ROWS: { tool: string; monthly: string; annual: string; trial: string; note
 const VOLUME: { tool: string; five: string; twentyFive: string; note: string; us?: boolean }[] = [
   {
     tool: "Invytra",
-    five: formatMoney(priceFor(5).perMonth, "USD"),
-    twentyFive: formatMoney(priceFor(25).perMonth, "USD"),
-    note: "Every feature, managed proxy included",
+    five: formatMoney(PLANS.starter.monthlyCents! + 4 * SENDER_ADDON_CENTS.linkedin!),
+    twentyFive: formatMoney(PLANS.starter.monthlyCents! + 24 * SENDER_ADDON_CENTS.linkedin!),
+    note: "Starter with extra LinkedIn senders; email outreach included. Custom VIP plans for agencies",
     us: true,
   },
   { tool: "HeyReach", five: "$395", twentyFive: "$999", note: "25 senders on the Agency plan, which needs your own proxies" },
@@ -173,7 +173,7 @@ export default function ComparePage() {
 
       <div className="mt-20 flex flex-wrap items-center justify-between gap-6 rounded-[28px] bg-stone-900 px-8 py-10 text-white sm:px-12">
         <p className="max-w-[560px] font-display text-[28px] font-semibold leading-snug sm:text-[34px]">
-          Try it with up to {TRIAL.maxSenders} accounts for {TRIAL.days} days, free.
+          Try it free for {TRIAL.days} days, on the channel of your choice.
         </p>
         <Link href="/signup" className="rounded-xl bg-brand-400 px-5 py-3 text-[16px] font-semibold text-stone-900 hover:bg-brand-300">
           Start your free trial

@@ -1,14 +1,19 @@
 import { prisma, razorpayKeys } from "@invytra/db";
-import { CheckCircle2, Clock, CreditCard, FileText, Lock, ReceiptText, Sparkles } from "lucide-react";
+import { PLAN_CHANNELS, SENDER_LABEL, channelById, formatMoney, type PlanChoice } from "@invytra/shared";
+import { AlertTriangle, CheckCircle2, Clock, CreditCard, FileText, History, Lock, ReceiptText, Sparkles } from "lucide-react";
 import { AiCredits } from "@/components/credits/AiCredits";
 import { BillingDetails } from "@/components/billing/BillingDetails";
+import { PlanActions } from "@/components/billing/PlanActions";
+import { PlanCards, PlanCompare } from "@/components/billing/PlanCards";
 import { VerifyCredits } from "@/components/email/contacts/VerifyCredits";
 import { Card, cx } from "@/components/ui";
 import { aiUsageThisMonth, getAiBalance } from "@/lib/ai-credits";
 import { requireUser } from "@/lib/auth";
-import { listPayments, planOf } from "@/lib/billing";
+import { listPayments } from "@/lib/billing";
 import { hubHref } from "@/lib/domains";
 import { timeAgo } from "@/lib/format";
+import { SITE } from "@/lib/site";
+import { planView, subscriptionHistory } from "@/lib/subscriptions";
 import { getVerifyBalance, listVerifyOrders } from "@/lib/verify-credits";
 import { canSeeBilling } from "@/lib/workspace-nav";
 
@@ -44,8 +49,8 @@ export default async function BillingPage() {
     );
   }
   const ws = me.workspace.id;
-  const [full, ai, usage, aiOrders, verify, verifyOrders, payments, profile] = await Promise.all([
-    prisma.workspace.findUniqueOrThrow({ where: { id: ws }, select: { plan: true, createdAt: true, channels: true } }),
+  const [plan, ai, usage, aiOrders, verify, verifyOrders, payments, profile, history] = await Promise.all([
+    planView(prisma, ws),
     getAiBalance(prisma, ws),
     aiUsageThisMonth(prisma, ws),
     listVerifyOrders(prisma, ws, "AI"),
@@ -53,8 +58,9 @@ export default async function BillingPage() {
     listVerifyOrders(prisma, ws, "VERIFY"),
     listPayments(prisma, ws),
     prisma.billingProfile.findUnique({ where: { workspaceId: ws } }),
+    subscriptionHistory(prisma, ws),
   ]);
-  const plan = planOf(full);
+  const trial = plan.plan === "trial";
   const orders = (rows: typeof aiOrders) => rows.map((o) => ({ id: o.id, credits: o.credits, priceCents: o.priceCents, status: o.status as "PENDING" | "PAID", when: timeAgo(o.createdAt) }));
   const shortDay = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   const online = !!razorpayKeys();
@@ -67,40 +73,110 @@ export default async function BillingPage() {
       </div>
 
       <section className="space-y-4">
-        <Heading icon={CreditCard} title="Plan" />
+        <Heading icon={CreditCard} title="Your plan" />
         <Card className="p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-[24px] font-semibold text-stone-900">{plan.name}</p>
-                {plan.trial ? (
-                  <span className={cx("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[13px] font-medium ring-1", plan.trialDaysLeft ? "bg-sky-50 text-sky-800 ring-sky-600/20" : "bg-rose-50 text-rose-800 ring-rose-600/20")}>
-                    <Clock className="h-3.5 w-3.5" aria-hidden /> {plan.trialDaysLeft ? `${plan.trialDaysLeft} day${plan.trialDaysLeft === 1 ? "" : "s"} left` : "Trial ended"}
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[13px] font-medium text-emerald-800 ring-1 ring-emerald-600/20">
-                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Active
-                  </span>
-                )}
+                <StatusPill status={plan.status} trial={trial} daysLeft={plan.trialEndsAt ? Math.max(0, Math.ceil((plan.trialEndsAt.getTime() - Date.now()) / 86_400_000)) : null} />
+                {plan.cycle && <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[13px] font-medium capitalize text-stone-600">{plan.cycle}</span>}
               </div>
               <p className="mt-1 text-[15px] text-stone-600">
-                {plan.trial && plan.trialEnds ? `Free trial ${plan.trialDaysLeft ? "ends" : "ended"} ${day(plan.trialEnds)}.` : "Your current plan."} Includes {plan.channels.join(", ")}.
+                {trial && plan.trialEndsAt
+                  ? `Free trial ${plan.status === "EXPIRED" ? "ended" : "ends"} ${day(plan.trialEndsAt)}.`
+                  : plan.status === "EXPIRED"
+                    ? "This plan has ended."
+                    : plan.cancelAtPeriodEnd && plan.periodEnd
+                      ? `Cancelled: runs until ${day(plan.periodEnd)}.`
+                      : plan.periodEnd
+                        ? `${formatMoney(plan.priceCents)} a ${plan.cycle === "yearly" ? "year" : "month"}, renews ${day(plan.periodEnd)}.`
+                        : "Your current plan."}
+                {plan.status !== "EXPIRED" && ` ${plan.credits} credits a month.`}
               </p>
             </div>
-            <button type="button" disabled className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg bg-stone-100 px-3.5 py-2 text-[15px] font-medium text-stone-400">
-              Change plan
-            </button>
+            {!trial && plan.renewsAutomatically && <PlanActions canCancel={!plan.cancelAtPeriodEnd && plan.status !== "EXPIRED"} pending={!!plan.pending} endsOn={plan.periodEnd ? day(plan.periodEnd) : null} />}
           </div>
-          <p className="mt-4 rounded-xl bg-stone-50 px-4 py-3 text-[14px] text-stone-600">
-            Plans and prices are being finalised. Upgrading, downgrading, renewing and cancelling open here at launch, and apply to every channel in this workspace.
-          </p>
+
+          <dl className="mt-5 grid gap-3 sm:grid-cols-3">
+            {PLAN_CHANNELS.map((c) => {
+              const inPlan = plan.channels.includes(c);
+              const ch = channelById(c);
+              return (
+                <div key={c} className={cx("rounded-xl border px-4 py-3", inPlan ? "border-stone-200" : "border-dashed border-stone-200 bg-stone-50")}>
+                  <dt className="flex items-center gap-1.5 text-[14px] font-medium text-stone-900">
+                    {inPlan ? <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden /> : <Lock className="h-4 w-4 text-stone-400" aria-hidden />}
+                    {ch?.name ?? c}
+                    {ch?.status !== "live" && <span className="rounded-full bg-sky-100 px-1.5 text-[11px] font-semibold text-sky-800">soon</span>}
+                  </dt>
+                  <dd className={cx("mt-1 text-[13.5px]", inPlan && plan.used[c] > plan.limits[c] ? "text-amber-700" : "text-stone-500")}>
+                    {!inPlan
+                      ? "Locked: not in your plan"
+                      : plan.used[c] > plan.limits[c]
+                        ? `${plan.used[c]} connected; the plan allows ${plan.limits[c]}`
+                        : `${plan.used[c]} of ${plan.limits[c]} ${plan.limits[c] === 1 ? SENDER_LABEL[c].one : SENDER_LABEL[c].many} in use`}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+
+          {plan.paymentFailed && plan.status !== "EXPIRED" && (
+            <p className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> The last renewal payment didn&apos;t go through. Razorpay retries it over the next few days; check the card with your bank.
+            </p>
+          )}
+          {plan.pending && (
+            <p className="mt-4 rounded-xl bg-sky-50 px-4 py-3 text-[14px] text-sky-900">
+              From {day(new Date(plan.pending.at))}: {describe(plan.pending.choice)}, {formatMoney(plan.pending.priceCents)} a {plan.pending.choice.cycle === "yearly" ? "year" : "month"}.
+            </p>
+          )}
+          {plan.status === "EXPIRED" && (
+            <p className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-[14px] text-rose-900">
+              Sending is off: campaigns are paused and new ones can&apos;t start. Everything you made is still here. Choose a plan below to carry on.
+            </p>
+          )}
         </Card>
       </section>
 
+      {plan.plan === "vip" && plan.status !== "EXPIRED" ? (
+        <section className="space-y-4">
+          <Heading id="plans" icon={Sparkles} title="Custom VIP plan" />
+          <Card className="p-6 text-[15px] text-stone-600">
+            Your plan was set up with our team. To change channels, senders or credits, write to{" "}
+            <a href={`mailto:${SITE.email}`} className="font-medium text-stone-900 underline">
+              {SITE.email}
+            </a>
+            .
+          </Card>
+        </section>
+      ) : (
+        <section className="space-y-4">
+          <Heading
+            id="plans"
+            icon={Sparkles}
+            title={trial || plan.status === "EXPIRED" ? "Choose a plan" : "Change your plan"}
+            hint={trial || plan.status === "EXPIRED" || plan.cancelAtPeriodEnd ? "Pay by card; plans renew automatically. Cancel any time." : "More senders or a bigger plan apply now (you pay the difference for the days left). Less applies from your next renewal."}
+          />
+          <PlanCards
+            mode="app"
+            contactHref={`mailto:${SITE.email}?subject=${encodeURIComponent(`Invytra custom VIP plan (${me.workspace.name})`)}`}
+            whatsappLive={channelById("whatsapp")?.status === "live"}
+            current={{ plan: plan.plan, cycle: plan.cycle, channels: plan.channels, extra: plan.extra, canSubscribe: trial || plan.status === "EXPIRED" || plan.cancelAtPeriodEnd || !plan.renewsAutomatically, ended: plan.status === "EXPIRED" }}
+          />
+          <details className="group rounded-2xl">
+            <summary className="cursor-pointer text-[14px] font-medium text-stone-600 hover:text-stone-900">Compare plans</summary>
+            <div className="mt-3">
+              <PlanCompare />
+            </div>
+          </details>
+        </section>
+      )}
+
       <section className="space-y-4">
         <Heading id="credits" icon={Sparkles} title="Credits and usage" hint="Monthly credits come with your plan; extra packs never expire." />
-        <AiCredits c={{ ...ai, resetsOn: shortDay(ai.resetsAt), trial: plan.trial, usage, orders: orders(aiOrders) }} />
-        <VerifyCredits c={{ ...verify, resetsOn: shortDay(verify.resetsAt), trial: plan.trial, orders: orders(verifyOrders) }} />
+        <AiCredits c={{ ...ai, resetsOn: shortDay(ai.resetsAt), trial, usage, orders: orders(aiOrders) }} />
+        <VerifyCredits c={{ ...verify, resetsOn: shortDay(verify.resetsAt), trial, orders: orders(verifyOrders) }} />
       </section>
 
       <section className="space-y-4">
@@ -169,10 +245,28 @@ export default async function BillingPage() {
       </section>
 
       <section className="space-y-4">
+        <Heading icon={History} title="Plan history" hint="Every change to your plan, payment and renewal." />
+        <Card className="overflow-hidden">
+          {history.length ? (
+            <ol className="divide-y divide-stone-100">
+              {history.map((e) => (
+                <li key={e.id} className="flex flex-wrap items-baseline justify-between gap-2 px-5 py-3 text-[14.5px]">
+                  <span className="text-stone-800">{eventText(e.kind, e.detail as Record<string, unknown> | null)}</span>
+                  <span className="text-[13px] text-stone-500">{day(e.createdAt)}</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="px-5 py-8 text-center text-[15px] text-stone-500">Nothing yet.</p>
+          )}
+        </Card>
+      </section>
+
+      <section className="space-y-4">
         <Heading icon={Lock} title="Payment method" />
         <Card className="p-6 text-[15px] leading-relaxed text-stone-600">
           {online ? (
-            <p>Payments go through Razorpay: cards, UPI, net banking and wallets. You choose how to pay each time at checkout. Invytra never sees or stores your card details.</p>
+            <p>Payments go through Razorpay. Plans are paid by card in US dollars and renew automatically; credit packs can also be paid with UPI or net banking. Invytra never sees or stores your card details.</p>
           ) : (
             <p>Online payment isn't switched on yet. When you buy credits, the order is saved here and our team contacts you to complete it; the credits are added as soon as it's paid.</p>
           )}
@@ -180,4 +274,64 @@ export default async function BillingPage() {
       </section>
     </div>
   );
+}
+
+const describe = (c: PlanChoice) => {
+  const extras = PLAN_CHANNELS.filter((ch) => c.extra[ch]).map((ch) => `+${c.extra[ch]} ${c.extra[ch] === 1 ? SENDER_LABEL[ch].one : SENDER_LABEL[ch].many}`);
+  return `${c.plan === "growth" ? "Growth" : "Starter"} (${c.channels.map((ch) => channelById(ch)?.name ?? ch).join(", ")}${extras.length ? `; ${extras.join(", ")}` : ""})`;
+};
+
+function StatusPill({ status, trial, daysLeft }: { status: string; trial: boolean; daysLeft: number | null }) {
+  const look =
+    status === "EXPIRED"
+      ? { cls: "bg-rose-50 text-rose-800 ring-rose-600/20", text: trial ? "Trial ended" : "Ended", Icon: AlertTriangle }
+      : status === "PAST_DUE"
+        ? { cls: "bg-amber-50 text-amber-800 ring-amber-600/20", text: "Payment failed", Icon: AlertTriangle }
+        : status === "CANCELLED"
+          ? { cls: "bg-stone-100 text-stone-700 ring-stone-500/20", text: "Cancelled", Icon: Clock }
+          : trial
+            ? { cls: "bg-sky-50 text-sky-800 ring-sky-600/20", text: `${daysLeft ?? 0} day${daysLeft === 1 ? "" : "s"} left`, Icon: Clock }
+            : { cls: "bg-emerald-50 text-emerald-800 ring-emerald-600/20", text: "Active", Icon: CheckCircle2 };
+  return (
+    <span className={cx("inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[13px] font-medium ring-1", look.cls)}>
+      <look.Icon className="h-3.5 w-3.5" aria-hidden /> {look.text}
+    </span>
+  );
+}
+
+function eventText(kind: string, d: Record<string, unknown> | null): string {
+  const s = (k: string) => (typeof d?.[k] === "string" ? (d[k] as string) : "");
+  const money = (k: string) => (typeof d?.[k] === "number" ? formatMoney(d[k] as number) : "");
+  switch (kind) {
+    case "trial_started":
+      return "Free trial started";
+    case "trial_channel":
+      return `Trial channel: ${channelById(s("channel"))?.name ?? s("channel")}`;
+    case "subscribed":
+      return `Subscribed: ${s("plan")}${money("priceCents") ? `, ${money("priceCents")}` : ""}`;
+    case "upgraded":
+      return `Upgraded to ${s("to")}${money("paidCents") ? ` (paid ${money("paidCents")} for the rest of the period)` : ""}`;
+    case "change_scheduled":
+      return `Change scheduled for the next renewal: ${s("to")}`;
+    case "change_applied":
+      return `Plan changed at renewal: ${s("to")}`;
+    case "change_dropped":
+      return "Scheduled change dropped";
+    case "renewed":
+      return `Renewed${money("amountCents") ? `: ${money("amountCents")}` : ""}`;
+    case "payment_failed":
+      return "Renewal payment failed (retrying)";
+    case "cancelled":
+      return "Plan cancelled (runs to the end of the period)";
+    case "expired":
+      return `${s("reason") ? s("reason").charAt(0).toUpperCase() + s("reason").slice(1) : "Ended"}: sending stopped`;
+    case "trial_extended":
+      return "Free trial extended";
+    case "vip_set":
+      return "Custom VIP plan set up";
+    case "renewal_price_not_updated":
+      return "Upgrade paid; renewal price update pending (our team will fix it)";
+    default:
+      return kind.replace(/_/g, " ");
+  }
 }

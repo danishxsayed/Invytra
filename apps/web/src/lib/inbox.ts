@@ -1,3 +1,4 @@
+import { sendingProblem } from "./subscriptions";
 import { UnipileError, recordReply, unipileFromEnv, type Prisma, type PrismaClient, type UnipileClient } from "@invytra/db";
 import { MESSAGE_MAX, outreachTextProblem, parseProfileUrl } from "@invytra/shared";
 import type { Result } from "./accounts";
@@ -179,6 +180,8 @@ export async function sendReply(
   /** For accounts connected through Unipile: replies go straight out (no queue, no browser). */
   unipile: UnipileClient | null = unipileFromEnv(),
 ): Promise<Result<string>> {
+  const stop = await sendingProblem(prisma, workspaceId);
+  if (stop) return { ok: false, error: stop };
   const body = text.trim();
   if (!body) return { ok: false, error: "Write your reply first." };
   if (body.length > MESSAGE_MAX) return { ok: false, error: `Keep it under ${MESSAGE_MAX.toLocaleString()} characters.` };

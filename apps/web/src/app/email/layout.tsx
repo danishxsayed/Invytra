@@ -2,6 +2,7 @@ import { creditsHref } from "@/lib/workspace-nav";
 import { LayoutGrid } from "lucide-react";
 import { EmailNav } from "@/components/email/EmailNav";
 import { ChannelLogo } from "@/components/ChannelLogo";
+import { PlanBanner } from "@/components/billing/PlanBanner";
 import { prisma } from "@invytra/db";
 import { requireChannel } from "@/lib/auth";
 import { inboxCounts } from "@/lib/email-inbox";
@@ -29,6 +30,7 @@ export default async function EmailLayout({ children }: { children: React.ReactN
           </a>
         </div>
       </header>
+      <PlanBanner workspaceId={me.workspace.id} owner={me.role === "OWNER"} />
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
     </div>
   );

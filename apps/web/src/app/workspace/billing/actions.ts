@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { Result } from "@/lib/accounts";
 import { requireUser } from "@/lib/auth";
 import { confirmCheckout, saveBillingProfile, startPackCheckout, type Checkout } from "@/lib/billing";
+import { cancelPlan, choosePlan, confirmPlanCheckout, keepCurrentPlan, type PlanCheckoutStart } from "@/lib/plan-checkout";
 import { cancelVerifyOrder } from "@/lib/verify-credits";
 import { canSeeBilling } from "@/lib/workspace-nav";
 
@@ -48,5 +49,46 @@ export async function cancelCreditOrderAction(orderId: unknown): Promise<Result>
   if (!me) return NOT_OWNER;
   const r = await cancelVerifyOrder(prisma, me.workspace.id, z.string().min(1).max(40).parse(orderId));
   if (r.ok) revalidatePath("/", "layout");
+  return r;
+}
+
+/** A plan card's button: subscribe, or change the plan that's running. */
+export async function choosePlanAction(input: unknown): Promise<Result<PlanCheckoutStart & { prefill: { name: string; email: string } }>> {
+  const me = await owner();
+  if (!me) return NOT_OWNER;
+  const r = await choosePlan(prisma, me.workspace.id, me.user.id, input);
+  if (r.ok) revalidatePath("/", "layout");
+  return r.ok ? { ok: true, value: { ...r.value, prefill: { name: me.user.name, email: me.user.email } } } : r;
+}
+
+const planConfirmSchema = z.object({
+  checkoutId: z.string().min(1).max(40),
+  paymentId: z.string().min(1).max(60),
+  signature: z.string().min(1).max(200),
+  subscriptionId: z.string().max(60).optional(),
+  orderId: z.string().max(60).optional(),
+});
+
+export async function confirmPlanAction(input: unknown): Promise<Result<{ message: string }>> {
+  const me = await owner();
+  if (!me) return NOT_OWNER;
+  const r = await confirmPlanCheckout(prisma, me.workspace.id, planConfirmSchema.parse(input));
+  revalidatePath("/", "layout");
+  return r;
+}
+
+export async function cancelPlanAction(): Promise<Result<{ endsAt: Date | null }>> {
+  const me = await owner();
+  if (!me) return NOT_OWNER;
+  const r = await cancelPlan(prisma, me.workspace.id);
+  revalidatePath("/", "layout");
+  return r;
+}
+
+export async function keepCurrentPlanAction(): Promise<Result> {
+  const me = await owner();
+  if (!me) return NOT_OWNER;
+  const r = await keepCurrentPlan(prisma, me.workspace.id);
+  revalidatePath("/", "layout");
   return r;
 }

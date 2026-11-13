@@ -1,4 +1,5 @@
-import { DEFAULT_WORKSPACE_ID, type PrismaClient } from "@invytra/db";
+import { DEFAULT_WORKSPACE_ID, startTrial, type PrismaClient } from "@invytra/db";
+import { DEFAULT_WORKSPACE_CHANNELS, TRIAL } from "@invytra/shared";
 import { z } from "zod";
 import { MIN_PASSWORD_LENGTH, hashPassword, verifyPassword } from "./password";
 
@@ -35,6 +36,9 @@ export async function registerUser(
       ? await tx.workspace.update({ where: { id: DEFAULT_WORKSPACE_ID }, data: { name: input.company } })
       : await tx.workspace.create({ data: { name: input.company } });
     await tx.membership.create({ data: { userId: user.id, workspaceId: workspace.id, role: "OWNER" } });
+    // The 7-day free trial. Its one channel is chosen at onboarding.
+    if (!(await tx.subscription.findUnique({ where: { workspaceId: workspace.id } })))
+      await startTrial(tx, workspace.id, { days: TRIAL.days, credits: TRIAL.credits, channels: [...DEFAULT_WORKSPACE_CHANNELS] });
     return { userId: user.id, workspaceId: workspace.id };
   });
 }

@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@invytra/db";
-import { TRIAL, aiBalance, verifyBalance } from "@invytra/shared";
+import { aiBalance, verifyBalance } from "@invytra/shared";
 import type { CurrentUser } from "./auth";
 import { channelHref, hubHref } from "./domains";
 import { canSeeBilling } from "./workspace-nav";
@@ -65,7 +65,7 @@ export async function needsAttention(prisma: PrismaClient, me: CurrentUser, now 
   const workspaceId = me.workspace.id;
   const owner = canSeeBilling(me);
   const [ws, accounts, mailboxes, waitingLi, waitingEmail] = await Promise.all([
-    prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { plan: true, createdAt: true, aiUsed: true, aiPeriod: true, aiExtra: true, verifyUsed: true, verifyPeriod: true, verifyExtra: true, channels: true } }),
+    prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { plan: true, createdAt: true, aiUsed: true, aiPeriod: true, aiExtra: true, aiMonthly: true, verifyUsed: true, verifyPeriod: true, verifyExtra: true, verifyMonthly: true, channels: true } }),
     prisma.linkedinAccount.findMany({ where: { workspaceId, status: { in: ["NEEDS_ATTENTION", "DISCONNECTED"] } }, select: { id: true, label: true, status: true, statusReason: true } }),
     prisma.emailAccount.findMany({ where: { workspaceId, status: "ERROR" }, select: { id: true, email: true, statusReason: true } }),
     prisma.conversation.count({ where: { account: { workspaceId }, lastFromMe: false, doneAt: null } }),
@@ -84,12 +84,6 @@ export async function needsAttention(prisma: PrismaClient, me: CurrentUser, now 
     });
   for (const m of mailboxes)
     out.push({ id: `mb-${m.id}`, tone: "urgent", title: `Mailbox ${m.email} can't send`, detail: m.statusReason ?? "Its campaigns skip it until it's fixed.", action: { label: "Fix mailbox", href: channelHref("email", "/email/mailboxes") } });
-
-  if (ws.plan === "trial") {
-    const left = Math.ceil((ws.createdAt.getTime() + TRIAL.days * DAY - now.getTime()) / DAY);
-    if (left <= 0) out.push({ id: "trial", tone: "urgent", title: "Your free trial has ended", detail: owner ? "Choose a plan to keep your campaigns running." : "Ask your workspace owner to choose a plan.", action: billing("Choose a plan") });
-    else if (left <= 3) out.push({ id: "trial", tone: "warn", title: `Your free trial ends in ${left} day${left === 1 ? "" : "s"}`, detail: owner ? "Choose a plan so nothing stops." : "Your workspace owner can choose a plan.", action: billing("See plans") });
-  }
 
   const ai = aiBalance(ws, now);
   if (ai.left < LOW_AI)

@@ -1,3 +1,4 @@
+import { sendingProblem } from "./subscriptions";
 import type { Prisma, PrismaClient } from "@invytra/db";
 import { INVY_MESSAGE_MAX, type InvyReason, type SiteCheck, type SocialLink } from "@invytra/shared";
 import type { Result } from "./accounts";
@@ -15,6 +16,8 @@ export type InvyMsg = { role: "user" | "invy"; text: string; at: string };
 const cleanText = (t: string) => t.replace(/\s+/g, " ").trim().slice(0, INVY_MESSAGE_MAX);
 
 export async function startSearch(prisma: PrismaClient, workspaceId: string, userId: string, text: string): Promise<Result<{ id: string }>> {
+  const stop = await sendingProblem(prisma, workspaceId);
+  if (stop) return { ok: false, error: stop };
   const t = cleanText(text);
   if (t.length < 4) return { ok: false, error: "Tell Invy what to find, e.g. “20 dental clinics in Mumbai without online booking”." };
   const s = await prisma.invySearch.create({
@@ -26,6 +29,8 @@ export async function startSearch(prisma: PrismaClient, workspaceId: string, use
 
 /** A follow-up in the same search ("only in Koramangala", "10 more"). */
 export async function followUp(prisma: PrismaClient, workspaceId: string, id: string, text: string): Promise<Result> {
+  const stop = await sendingProblem(prisma, workspaceId);
+  if (stop) return { ok: false, error: stop };
   const t = cleanText(text);
   if (!t) return { ok: false, error: "Type a message." };
   const s = await prisma.invySearch.findFirst({ where: { id, workspaceId } });

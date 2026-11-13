@@ -24,7 +24,11 @@ made from those answers, weekly numbers, needs attention), unified inbox (Linked
 `syncPeople`, no page of its own; someone who replied on one channel isn't contacted on another),
 do-not-contact list (`do_not_contact`, checked by every channel), settings (owner can delete the
 workspace: `lib/delete-workspace.ts`, paid invoices kept in `archived_invoices`), billing (owner only,
-Razorpay). Message extras (LinkedIn, paid in AI credits): handwritten notes, voice notes (ElevenLabs
+Razorpay). Plans (`packages/shared/src/pricing.ts`): 7-day trial (1 channel, 1 sender, 20 credits),
+Starter $39 (2 channels, 250 credits), Growth $49 (all 3, 500), VIP custom (`pnpm plan:set`); 1 sender per
+channel + add-ons (LinkedIn $20, mailbox $5), yearly 15% off; `subscriptions` table + history, Razorpay
+Subscriptions (`lib/plan-checkout.ts`, `lib/plan-webhook.ts`), limits enforced server-side (`lib/subscriptions.ts`:
+sendingProblem / senderProblem), worker expires trials and pauses campaigns. Message extras (LinkedIn, paid in AI credits): handwritten notes, voice notes (ElevenLabs
 voice copies, `/workspace/voices`) and video notes (`/workspace/videos`: one recording, the opening
 "Hi there," re-spoken per person and lip-synced with HeyGen (or sync.so), one video per greeting reused;
 `packages/db/src/video.ts` + `lipsync.ts`, files in VIDEO_DIR). Ask Invy (`/workspace/invy`): find businesses from a sentence: worker

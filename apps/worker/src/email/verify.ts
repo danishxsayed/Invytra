@@ -10,7 +10,6 @@ import {
   type PrismaClient,
   type VerifyOutcome,
 } from "@invytra/db";
-import { monthlyVerifyCredits } from "@invytra/shared";
 
 /*
  * Email verification in the background, every minute: contacts marked "pending" are checked
@@ -43,7 +42,7 @@ export async function verifyTick(d: VerifyTickDeps): Promise<{ checked: number; 
   if (verifier) {
     const waitingWs = await prisma.emailContact.groupBy({ by: ["workspaceId"], where: { verification: "PENDING" } });
     for (const { workspaceId } of waitingWs) {
-      if ((await verifyCreditsLeft(prisma, workspaceId, monthlyVerifyCredits, now)) > 0) continue;
+      if ((await verifyCreditsLeft(prisma, workspaceId, null, now)) > 0) continue;
       blocked.push(workspaceId);
       await prisma.emailContact.updateMany({ where: { workspaceId, verification: "PENDING", NOT: { verifyDetail: `Waiting: ${NO_CREDITS}` } }, data: { verifyDetail: `Waiting: ${NO_CREDITS}` } });
     }
@@ -64,7 +63,7 @@ export async function verifyTick(d: VerifyTickDeps): Promise<{ checked: number; 
     const free = await freeChecks(c.email, mx);
     if (free) return free;
     if (!verifier) return { status: "UNKNOWN", detail: "Passed the free checks; no verification service is set up for the mailbox check" };
-    const credit = await spendVerifyCredit(prisma, c.workspaceId, monthlyVerifyCredits, now);
+    const credit = await spendVerifyCredit(prisma, c.workspaceId, null, now);
     if (!credit) return "no-credit";
     let r: VerifyOutcome;
     try {

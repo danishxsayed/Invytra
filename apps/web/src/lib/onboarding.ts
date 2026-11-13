@@ -1,13 +1,19 @@
 import type { PrismaClient } from "@invytra/db";
 import { onboardingSchema, readAnswers, type OnboardingAnswers, type SetupProgress } from "@invytra/shared";
 import type { Result } from "./accounts";
+import { setTrialChannel } from "./subscriptions";
 
 /** Saves the answers after sign-up (any can be skipped) and marks the questions done. */
-export async function saveOnboarding(prisma: PrismaClient, userId: string, input: unknown): Promise<Result> {
+export async function saveOnboarding(prisma: PrismaClient, userId: string, input: unknown, workspaceId?: string): Promise<Result> {
   const r = onboardingSchema.safeParse(input);
   if (!r.success) return { ok: false, error: "Some answers weren't understood. Please try again." };
   const answers: OnboardingAnswers = { ...r.data };
   if (answers.heardFrom !== "other") delete answers.heardOther;
+  // The free trial's one channel (LinkedIn if none was chosen).
+  if (workspaceId) {
+    const set = await setTrialChannel(prisma, workspaceId, answers.channels?.length === 1 ? answers.channels[0]! : "linkedin");
+    if (!set.ok) return set;
+  }
   await prisma.user.update({ where: { id: userId }, data: { onboarding: answers, onboardedAt: new Date() } });
   return { ok: true, value: undefined };
 }
