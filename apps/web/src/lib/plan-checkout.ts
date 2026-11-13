@@ -72,7 +72,15 @@ export type PlanCheckoutStart =
   | { kind: "scheduled"; message: string };
 
 export const dayText = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-const failed = (e: unknown) => ({ ok: false as const, error: e instanceof RazorpayError ? e.message : "Couldn't reach the payment service. Please try again." });
+const failed = (e: unknown) => ({
+  ok: false as const,
+  error:
+    e instanceof RazorpayError
+      ? /currency/i.test(e.message)
+        ? "Card payments in US dollars aren't switched on for our payment account yet. Please try again soon, or write to us and we'll set up your plan."
+        : e.message
+      : "Couldn't reach the payment service. Please try again.",
+});
 
 /**
  * The plan card's button: a new subscription (trial, expired or cancelled plans), or a change

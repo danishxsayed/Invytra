@@ -190,3 +190,26 @@ export const EXPIRED_MESSAGE = "Your free trial has expired. Upgrade your plan t
 export const ENDED_MESSAGE = "Your plan has ended. Choose a plan to continue using Invytra's outreach features.";
 /** Why sending is off, in the user's words. */
 export const notSendingMessage = (s: SubscriptionLike) => (s.plan === "trial" ? EXPIRED_MESSAGE : ENDED_MESSAGE);
+
+/* ---------- A plan choice in a link (pricing page → sign-up → checkout) ---------- */
+
+/** "plan=starter&cycle=yearly&channels=linkedin,email&extra=linkedin:2" */
+export function choiceToParams(c: PlanChoice): string {
+  const extra = PLAN_CHANNELS.filter((ch) => c.extra[ch]).map((ch) => `${ch}:${c.extra[ch]}`).join(",");
+  const p = new URLSearchParams({ plan: c.plan, cycle: c.cycle, channels: c.channels.join(",") });
+  if (extra) p.set("extra", extra);
+  return p.toString();
+}
+
+/** The plan choice in a link, checked like any other (null when there isn't a valid one). */
+export function choiceFromParams(get: (key: string) => string | null | undefined): PlanChoice | null {
+  const plan = get("plan");
+  if (!plan) return null;
+  const extra: Record<string, number> = {};
+  for (const pair of (get("extra") ?? "").split(",")) {
+    const [ch, n] = pair.split(":");
+    if (ch && n) extra[ch] = Number(n);
+  }
+  const r = normalizeChoice({ plan, cycle: get("cycle") ?? undefined, channels: (get("channels") ?? "").split(",").filter(Boolean), extra });
+  return r.ok ? r.choice : null;
+}

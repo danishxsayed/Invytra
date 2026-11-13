@@ -1,5 +1,7 @@
 import { channelById } from "@invytra/shared";
+import { Suspense } from "react";
 import { Onboarding } from "@/components/onboarding/Onboarding";
+import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
 import { prisma } from "@invytra/db";
 import { MainFrame } from "@/components/MainFrame";
 import { PlanBanner } from "@/components/billing/PlanBanner";
@@ -13,10 +15,8 @@ import { canSeeBilling, creditsHref } from "@/lib/workspace-nav";
 /** Every workspace-level page (overview, settings, billing, voices) shares this menu. */
 export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const me = await requireUser();
-  // New here: the questions after sign-up first (once; they can skip).
-  if (!me.user.onboarded) return <Onboarding firstName={me.user.name.split(" ")[0] || me.user.name} whatsappLive={channelById("whatsapp")?.status === "live"} trial={me.workspace.plan === "trial" && me.role === "OWNER"} />;
   const [ai, waiting] = await Promise.all([getAiBalance(prisma, me.workspace.id), unifiedNeedsCount(prisma, me.workspace.id, me.workspace.channels)]);
-  return (
+  const page = (
     <div className="min-h-screen lg:flex">
       <WorkspaceNav
         workspace={me.workspace.name}
@@ -35,4 +35,12 @@ export default async function WorkspaceLayout({ children }: { children: React.Re
       </main>
     </div>
   );
+  // New here: the questions after sign-up first (once; they can skip), unless they're paying for a plan they chose.
+  if (!me.user.onboarded)
+    return (
+      <Suspense fallback={null}>
+        <OnboardingGate onboarding={<Onboarding firstName={me.user.name.split(" ")[0] || me.user.name} whatsappLive={channelById("whatsapp")?.status === "live"} trial={me.workspace.plan === "trial" && me.role === "OWNER"} />}>{page}</OnboardingGate>
+      </Suspense>
+    );
+  return page;
 }

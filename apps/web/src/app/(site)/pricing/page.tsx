@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PlanCards, PlanCompare } from "@/components/billing/PlanCards";
 import { Faq } from "@/components/site/Faq";
+import { hubHref } from "@/lib/domains";
 import { SITE } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -59,7 +60,7 @@ export default function PricingPage() {
       </div>
 
       <div className="mt-12">
-        <PlanCards mode="site" signupHref="/signup" contactHref={`mailto:${SITE.email}?subject=${encodeURIComponent("Invytra custom VIP plan")}`} whatsappLive={whatsappLive} />
+        <PlanCards mode="site" signupHref={hubHref("/signup")} checkoutHref={hubHref("/billing")} contactHref={`mailto:${SITE.email}?subject=${encodeURIComponent("Invytra custom VIP plan")}`} whatsappLive={whatsappLive} />
       </div>
 
       <section className="mt-20">

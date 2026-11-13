@@ -64,3 +64,17 @@ describe("plans", () => {
     expect(canSend({ ...cancelled, status: "PAST_DUE" }, now)).toBe(true);
   });
 });
+
+describe("a plan choice in a link", () => {
+  it("goes there and back, and anything invalid is ignored", async () => {
+    const { choiceToParams, choiceFromParams } = await import("../src/index.js");
+    const c = { plan: "starter", cycle: "yearly", channels: ["linkedin", "email"], extra: { linkedin: 2, email: 1 } } as const;
+    const qs = choiceToParams(c as never);
+    expect(qs).toBe("plan=starter&cycle=yearly&channels=linkedin%2Cemail&extra=linkedin%3A2%2Cemail%3A1");
+    const p = new URLSearchParams(qs);
+    expect(choiceFromParams((k) => p.get(k))).toEqual(c);
+    expect(choiceFromParams(() => null)).toBeNull();
+    const bad = new URLSearchParams("plan=starter&channels=linkedin");
+    expect(choiceFromParams((k) => bad.get(k))).toBeNull();
+  });
+});

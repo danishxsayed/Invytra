@@ -3,6 +3,7 @@
 import {
   PLANS,
   PLAN_CHANNELS,
+  choiceToParams,
   SENDER_ADDON_CENTS,
   SENDER_LABEL,
   TRIAL,
@@ -16,7 +17,7 @@ import {
 } from "@invytra/shared";
 import { Check, Crown, Loader2, Minus, Plus, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { choosePlanAction, confirmPlanAction } from "@/app/workspace/billing/actions";
 import { payWithRazorpay, subscribeWithRazorpay } from "../credits/razorpay-checkout";
 import { cx } from "../ui";
@@ -35,8 +36,10 @@ export interface CurrentPlan {
 }
 
 type Props =
-  | { mode: "site"; signupHref: string; contactHref: string; whatsappLive: boolean }
-  | { mode: "app"; contactHref: string; whatsappLive: boolean; current: CurrentPlan };
+  /** checkoutHref: the Billing page (after sign-up, a paid card's choice is paid there). */
+  | { mode: "site"; signupHref: string; checkoutHref: string; contactHref: string; whatsappLive: boolean }
+  /** autoStart: a plan chosen on the pricing page before sign-up; its checkout opens once. */
+  | { mode: "app"; contactHref: string; whatsappLive: boolean; current: CurrentPlan; autoStart?: PlanChoice };
 
 const yearlyOf = (monthlyCents: number) => Math.round(monthlyCents * 12 * (1 - YEARLY_DISCOUNT));
 
@@ -46,7 +49,7 @@ const yearlyOf = (monthlyCents: number) => Math.round(monthlyCents * 12 * (1 - Y
  * the plan (billing page).
  */
 export function PlanCards(p: Props) {
-  const [cycle, setCycle] = useState<BillingCycle>(p.mode === "app" && p.current.cycle ? p.current.cycle : "monthly");
+  const [cycle, setCycle] = useState<BillingCycle>(p.mode === "app" ? (p.autoStart?.cycle ?? p.current.cycle ?? "monthly") : "monthly");
   const cur = p.mode === "app" ? p.current : null;
   return (
     <div>
@@ -171,16 +174,18 @@ function PaidCard({ plan, cycle, props: p }: { plan: PaidPlanId; cycle: BillingC
   const router = useRouter();
   const def = PLANS[plan];
   const cur = p.mode === "app" ? p.current : null;
+  const auto = p.mode === "app" && p.autoStart?.plan === plan ? p.autoStart : null;
   const onThis = cur?.plan === plan && !cur.canSubscribe;
   const startChannels = (): PlanChannel[] => {
     if (plan === "growth") return [...PLAN_CHANNELS];
+    if (auto) return [...auto.channels];
     const mine = (cur?.channels ?? []).filter((c) => PLAN_CHANNELS.includes(c));
     const pick = [...mine];
     for (const c of ["linkedin", "email", "whatsapp"] as const) if (pick.length < 2 && !pick.includes(c)) pick.push(c);
     return pick.slice(0, 2);
   };
   const [channels, setChannels] = useState<PlanChannel[]>(startChannels);
-  const [extra, setExtra] = useState<Partial<Record<PlanChannel, number>>>(() => (cur?.plan === plan ? { ...cur.extra } : {}));
+  const [extra, setExtra] = useState<Partial<Record<PlanChannel, number>>>(() => (auto ? { ...auto.extra } : cur?.plan === plan ? { ...cur.extra } : {}));
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -217,10 +222,25 @@ function PaidCard({ plan, cycle, props: p }: { plan: PaidPlanId; cycle: BillingC
       }
     });
 
+  // Chosen on the pricing page before signing up: open its checkout once, then tidy the address.
+  const started = useRef(false);
+  useEffect(() => {
+    if (!auto || started.current) return;
+    started.current = true;
+    document.getElementById("plans")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.replaceState(null, "", window.location.pathname + "#plans");
+    act();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const button =
     p.mode === "site" ? (
-      <a href={p.signupHref} className={cx("mt-6 inline-flex justify-center rounded-xl px-4 py-2.5 text-[15px] font-semibold", def.recommended ? "bg-stone-900 text-white hover:bg-stone-800" : "border border-stone-900 text-stone-900 hover:bg-stone-50")}>
-        Start free trial
+      <a
+        href={ready ? `${p.signupHref}?next=${encodeURIComponent(`${p.checkoutHref}?${choiceToParams(choice)}&pay=1`)}` : undefined}
+        aria-disabled={!ready}
+        className={cx("mt-6 inline-flex justify-center rounded-xl px-4 py-2.5 text-[15px] font-semibold", !ready && "pointer-events-none opacity-50", def.recommended ? "bg-stone-900 text-white hover:bg-stone-800" : "border border-stone-900 text-stone-900 hover:bg-stone-50")}
+      >
+        Choose {def.name}
       </a>
     ) : (
       <button
@@ -346,7 +366,7 @@ function PaidCard({ plan, cycle, props: p }: { plan: PaidPlanId; cycle: BillingC
 
       <div className="flex-1" />
       {button}
-      {p.mode === "site" && <p className="mt-2 text-center text-[13px] text-stone-500">{TRIAL.days}-day free trial, no card</p>}
+      {p.mode === "site" && <p className="mt-2 text-center text-[13px] text-stone-500">Pay by card after creating your account</p>}
       {msg && (
         <p role={msg.ok ? "status" : "alert"} className={cx("mt-3 rounded-lg px-3 py-2 text-[13.5px]", msg.ok ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800")}>
           {msg.text}

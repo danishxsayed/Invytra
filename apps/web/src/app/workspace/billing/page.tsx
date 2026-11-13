@@ -1,5 +1,5 @@
 import { prisma, razorpayKeys } from "@invytra/db";
-import { PLAN_CHANNELS, SENDER_LABEL, channelById, formatMoney, type PlanChoice } from "@invytra/shared";
+import { PLAN_CHANNELS, SENDER_LABEL, channelById, choiceFromParams, formatMoney, type PlanChoice } from "@invytra/shared";
 import { AlertTriangle, CheckCircle2, Clock, CreditCard, FileText, History, Lock, ReceiptText, Sparkles } from "lucide-react";
 import { AiCredits } from "@/components/credits/AiCredits";
 import { BillingDetails } from "@/components/billing/BillingDetails";
@@ -37,7 +37,10 @@ function Heading({ id, icon: Icon, title, hint }: { id?: string; icon: typeof Cr
 }
 
 /** Billing for the whole workspace: plan, credits and usage, payments and invoices, billing details. Owner only. */
-export default async function BillingPage() {
+export default async function BillingPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const sp = await searchParams;
+  // A plan chosen on the pricing page (before sign-up): its checkout opens straight away.
+  const chosen = sp.pay === "1" ? choiceFromParams((k) => sp[k] ?? null) : null;
   const me = await requireUser();
   if (!canSeeBilling(me)) {
     return (
@@ -162,6 +165,7 @@ export default async function BillingPage() {
             mode="app"
             contactHref={`mailto:${SITE.email}?subject=${encodeURIComponent(`Invytra custom VIP plan (${me.workspace.name})`)}`}
             whatsappLive={channelById("whatsapp")?.status === "live"}
+            autoStart={chosen && me.role === "OWNER" ? chosen : undefined}
             current={{ plan: plan.plan, cycle: plan.cycle, channels: plan.channels, extra: plan.extra, canSubscribe: trial || plan.status === "EXPIRED" || plan.cancelAtPeriodEnd || !plan.renewsAutomatically, ended: plan.status === "EXPIRED" }}
           />
           <details className="group rounded-2xl">
