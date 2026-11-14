@@ -55,30 +55,26 @@ export default async function EmailInboxPage({ searchParams }: { searchParams: P
   const href = (o: { v?: string; c?: string }) => `/email/inbox?${new URLSearchParams({ v: o.v ?? view, ...(o.c && { c: o.c }) })}`;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-stone-900">Inbox</h1>
-          <p className="text-[15px] text-stone-500">Replies to your campaigns, from every mailbox (including any that landed in its spam folder). Answer here and it goes out from the same mailbox, in the same thread.</p>
-        </div>
-        <EmailInboxLive />
-      </div>
+    <div className="space-y-3">
       {unreadable.map((m) => (
         <p key={m.email} className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[14px] text-amber-900 ring-1 ring-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> Couldn't read replies in {m.email}: {m.replyError}
         </p>
       ))}
-      <nav className="flex flex-wrap gap-1" aria-label="Inbox views">
-        {INBOX_VIEWS.map((v) => (
-          <a key={v} href={href({ v })} aria-current={v === view ? "page" : undefined} className={cx("rounded-lg px-3 py-1.5 text-[14px] font-medium", v === view ? "bg-stone-900 text-white" : "text-stone-600 hover:bg-stone-100")}>
-            {VIEW_LABEL[v]}
-            {v === view && ` (${rows.length})`}
-          </a>
-        ))}
-      </nav>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <nav className="flex flex-wrap gap-1" aria-label="Inbox views">
+          {INBOX_VIEWS.map((v) => (
+            <a key={v} href={href({ v })} aria-current={v === view ? "page" : undefined} className={cx("rounded-lg px-3 py-1.5 text-[14px] font-medium", v === view ? "bg-stone-900 text-white" : "text-stone-600 hover:bg-stone-100")}>
+              {VIEW_LABEL[v]}
+              {v === view && ` (${rows.length})`}
+            </a>
+          ))}
+        </nav>
+        <EmailInboxLive />
+      </div>
 
       {rows.length === 0 && !convo ? (
-        <Card>
+        <Card className="flex items-center justify-center lg:h-[calc(100vh-160px)] lg:min-h-[480px]">
           <EmptyState
             icon={view === "bounces" ? MailWarning : view === "needs" ? Reply : Inbox}
             title={view === "needs" ? "You're all caught up" : `No ${VIEW_LABEL[view].toLowerCase()} yet`}
@@ -86,7 +82,7 @@ export default async function EmailInboxPage({ searchParams }: { searchParams: P
           />
         </Card>
       ) : (
-        <div className="grid overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 lg:h-[calc(100vh-260px)] lg:min-h-[520px] lg:grid-cols-[360px_1fr]">
+        <div className="grid overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 lg:h-[calc(100vh-160px)] lg:min-h-[480px] lg:grid-cols-[360px_1fr]">
           <ul className={cx("divide-y divide-stone-100 overflow-y-auto border-stone-200 lg:border-r", q.c && "hidden lg:block")}>
             {rows.map((r) => (
               <li key={r.leadId}>
