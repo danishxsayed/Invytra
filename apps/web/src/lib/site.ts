@@ -9,7 +9,7 @@ export const SITE = {
   address: ["Crawlers Technologies Pvt Ltd", "Hubballi, Karnataka", "India"],
   phone: "+91 97387 38578",
   /** Show the "draft under legal review" notice on the legal pages (turn off once reviewed). */
-  legalDraft: true,
+  legalDraft: false,
   trialDays: 7,
   /** When competitor prices on /compare were last checked. */
   compareCheckedOn: "October 2026",

@@ -10,6 +10,7 @@ import { clearFailures, isThrottled, recordFailure } from "@/lib/throttle";
 import { newPasswordSchema, requestPasswordReset, resetPassword } from "@/lib/password-reset";
 import { platformMailer } from "@/lib/platform-mail";
 import { sendWelcome } from "@/lib/welcome-email";
+import { acceptInvite } from "@/lib/team";
 
 export interface FormState {
   error?: string;
@@ -84,4 +85,13 @@ export async function chooseNewPassword(_prev: FormState, form: FormData): Promi
   const r = await resetPassword(prisma, token, parsed.data.password);
   if (!r.ok) return { error: r.error };
   redirect(hubHref("/login?reset=1"));
+}
+
+/** The invitation link's form: creates the teammate's account in the workspace and signs them in. */
+export async function acceptInvitation(_prev: FormState, form: FormData): Promise<FormState> {
+  const name = String(form.get("name") ?? "");
+  const r = await acceptInvite(prisma, { token: String(form.get("token") ?? ""), name, password: String(form.get("password") ?? "") });
+  if (!r.ok) return { error: r.error, fields: { name } };
+  await startSession(r.value.userId, r.value.workspaceId);
+  redirect(hubHref("/"));
 }

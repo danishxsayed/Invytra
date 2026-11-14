@@ -90,20 +90,20 @@ d("videos", () => {
     expect(await updateVideo(prisma, B, id, { name: "x" })).toEqual({ ok: false, error: "That video is gone." });
   });
 
-  it("makes a try-out for 15 credits, and gives them back when it fails", async () => {
+  it("makes a try-out for 50 credits, and gives them back when it fails", async () => {
     const before = await used();
     const r = await tryVideo(prisma, A, id, "Hi Alex,", { voice, lipsync });
     expect(r).toEqual({ ok: true, value: { file: `${A}/try-${id}.mp4` } });
     expect(existsSync(videoPath(`${A}/try-${id}.mp4`))).toBe(true);
-    expect(await used()).toBe(before + 15);
+    expect(await used()).toBe(before + 50);
     // The same greeting again: made once, reused.
     expect((await tryVideo(prisma, A, id, "Hi Alex,", { voice, lipsync })).ok).toBe(true);
     expect(syncs).toBe(1);
-    expect(await used()).toBe(before + 30);
+    expect(await used()).toBe(before + 100);
     fail = true;
     expect(await tryVideo(prisma, A, id, "Hi Sam,", { voice, lipsync })).toEqual({ ok: false, error: "The lip-sync service account is out of credit." });
     fail = false;
-    expect(await used()).toBe(before + 30);
+    expect(await used()).toBe(before + 100);
     expect(await tryVideo(prisma, A, id, "Hi", { voice, lipsync: null })).toMatchObject({ ok: false, error: expect.stringContaining("aren't available") });
     expect(await tryVideo(prisma, B, id, "Hi", { voice, lipsync })).toEqual({ ok: false, error: "That video is gone." });
   }, 60_000);

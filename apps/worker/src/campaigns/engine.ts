@@ -317,9 +317,9 @@ async function enqueueStep(
   if ((plan.type === "CONNECTION_REQUEST" || plan.type === "MESSAGE") && plan.aiWrite) payload.aiWrite = true;
   // A handwritten card drawn for this person and sent with the message (2 AI credits).
   if (plan.type === "MESSAGE" && plan.card) payload.card = plan.card;
-  // A voice note in the customer's own voice (5 AI credits).
+  // A voice note in the customer's own voice (10 AI credits).
   if (plan.type === "MESSAGE" && plan.voice) payload.voice = plan.voice;
-  // A video note: their recording, the greeting personalized and lip-synced (15 AI credits).
+  // A video note: their recording, the greeting personalized and lip-synced (110 AI credits).
   if (plan.type === "MESSAGE" && plan.video) payload.video = plan.video;
   // {aiLine}: written when it goes out (accounts through Unipile); the fallback line otherwise.
   const ai = campaignSettingsSchema.safeParse(c.settings).data?.ai;

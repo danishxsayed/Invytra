@@ -19,10 +19,11 @@ export const AI_COSTS = {
   TEXT: 1,
   NOTE: 1,
   HANDWRITTEN: 2,
-  VOICE: 5,
-  VIDEO: 15,
-  // Ask Invy: per business shown.
-  INVY: 1,
+  // Priced from what each costs us (ElevenLabs per character, HeyGen per second, Google per search).
+  VOICE: 10,
+  VIDEO: 50,
+  // Ask Invy: per business shown (Google searches several to find each match).
+  INVY: 3,
 } as const;
 export type AiAction = keyof typeof AI_COSTS;
 

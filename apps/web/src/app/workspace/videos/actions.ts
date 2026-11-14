@@ -26,7 +26,7 @@ export async function removeVideoAction(videoId: unknown): Promise<Result> {
   return r;
 }
 
-/** Makes the video with a sample greeting (15 AI credits); the player loads it from /api/videos/<id>?f=try. */
+/** Makes the video with a sample greeting (50 AI credits); the player loads it from /api/videos/<id>?f=try. */
 export async function tryVideoAction(videoId: unknown, greeting: unknown): Promise<Result<{ src: string }>> {
   const me = await requireUser();
   const vid = id.parse(videoId);

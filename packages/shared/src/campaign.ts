@@ -45,7 +45,7 @@ export const stepSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("EVENT"), delayDays: delay, eventUrl: z.string().max(300) }),
   /** aiWrite: AI writes the note for each person from their profile, using the note as its guide. */
   z.object({ type: z.literal("INVITE"), delayDays: delay, note: z.string().max(NOTE_MAX, `Notes can be at most ${NOTE_MAX} characters`), aiWrite: z.boolean().optional() }),
-  /** card: a handwritten note image sent with the message (2 AI credits each). voice: a voice note in the customer's voice (5 each). */
+  /** card: a handwritten note image sent with the message (2 AI credits each). voice: a voice note in the customer's voice (10 each). */
   z.object({
     type: z.literal("MESSAGE"),
     delayDays: delay,
@@ -55,7 +55,7 @@ export const stepSchema = z.discriminatedUnion("type", [
     voice: voiceNoteSchema.optional(),
     /** A "Send voice message" step: only the voice note (no text, AI writer or handwritten note). */
     voiceOnly: z.boolean().optional(),
-    /** A video note: their recording, the greeting at the start personalized (15 AI credits each). */
+    /** A video note: their recording, the greeting at the start personalized (50 AI credits each). */
     video: videoNoteSchema.optional(),
     /** A "Send video message" step: only the video. */
     videoOnly: z.boolean().optional(),

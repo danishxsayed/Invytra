@@ -62,11 +62,11 @@ d("Ask Invy search", () => {
     await prisma.$disconnect();
   });
 
-  it("finds 5 without a website, with evidence, Invy's words, and 5 credits", async () => {
+  it("finds 5 without a website, with evidence, Invy's words, and 15 credits (3 each)", async () => {
     await start("is-1", "Find 5 restaurants in Bangalore without a website");
     expect(await runNextInvySearch(prisma, deps)).toBe(true);
     const s = await prisma.invySearch.findUniqueOrThrow({ where: { id: "is-1" } });
-    expect(s).toMatchObject({ status: "DONE", title: "Restaurants in Bangalore without a website", summary: "Found 5.", creditsUsed: 5, progress: null });
+    expect(s).toMatchObject({ status: "DONE", title: "Restaurants in Bangalore without a website", summary: "Found 5.", creditsUsed: 15, progress: null });
     expect((s.messages as InvyMessage[]).at(-1)!.text).toBe("Looking for restaurants without a website. Here are 5 restaurants.");
     const b = await shown("is-1");
     expect(b.map((x) => x.position)).toEqual([1, 2, 3, 4, 5]);
@@ -75,7 +75,7 @@ d("Ask Invy search", () => {
     expect(b[0]!.why).toContain("no website on its Google listing");
     // One page (15 looked at, 5 matched) was enough.
     expect(calls).toEqual([{ q: "restaurants in Bangalore", token: null }]);
-    expect(await credits()).toBe(5);
+    expect(await credits()).toBe(15);
   });
 
   it("“5 more”: continues on the next page, pays only for the new ones", async () => {
@@ -85,7 +85,7 @@ d("Ask Invy search", () => {
     const b = await shown("is-1");
     expect(b).toHaveLength(10);
     expect(new Set(b.map((x) => x.placeId)).size).toBe(10);
-    expect(await credits()).toBe(10);
+    expect(await credits()).toBe(30);
   });
 
   it("asks back when the request is unclear (no charge)", async () => {
@@ -95,7 +95,7 @@ d("Ask Invy search", () => {
     const s = await prisma.invySearch.findUniqueOrThrow({ where: { id: "is-2" } });
     expect(s.status).toBe("DONE");
     expect((s.messages as InvyMessage[]).at(-1)).toMatchObject({ role: "invy", text: "Which city should I look in?" });
-    expect(await credits()).toBe(10);
+    expect(await credits()).toBe(30);
     question = null;
   });
 
@@ -115,7 +115,7 @@ d("Ask Invy search", () => {
   });
 
   it("out of credits: shows what's paid for and says so", async () => {
-    await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: monthlyAiCredits("pro") - 2, aiExtra: 0 } });
+    await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: monthlyAiCredits("pro") - 6, aiExtra: 0 } });
     criteria = { ...criteria, count: 5 };
     await start("is-4", "Find 5 restaurants in Bangalore without a website");
     // Fresh page results: the saved one and those in other searches are still allowed here.

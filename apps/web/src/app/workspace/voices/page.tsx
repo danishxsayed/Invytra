@@ -18,7 +18,7 @@ export default async function VoicesPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight text-stone-900">Your voice</h1>
           <p className="mt-1 text-[15px] leading-relaxed text-stone-500">
-            Record your voice once. Invytra then sends voice notes in your voice, with each person's name, from LinkedIn message steps. Each voice note uses 5 AI credits.
+            Record your voice once. Invytra then sends voice notes in your voice, with each person's name, from LinkedIn message steps. Each voice note uses 10 AI credits.
           </p>
         </div>
         <VoiceList voices={voices.map((v) => ({ id: v.id, name: v.name, added: timeAgo(v.createdAt) }))} />

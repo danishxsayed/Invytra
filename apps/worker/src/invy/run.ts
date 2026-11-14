@@ -7,7 +7,7 @@ import { checkSite as realCheckSite } from "./site-check.js";
 /*
  * Runs one Ask Invy search (in the worker): understand the latest message, look through Google
  * results page by page (within a budget), check websites, keep the businesses that match with
- * their evidence, charge 1 AI credit for each business shown, and have Invy explain them.
+ * their evidence, charge 3 AI credits for each business shown, and have Invy explain them.
  */
 
 export type InvyMessage = { role: "user" | "invy"; text: string; at: string };
@@ -128,7 +128,7 @@ export async function runInvySearch(prisma: PrismaClient, searchId: string, deps
       await prisma.invySearch.update({ where: { id: s.id }, data: { cursor } });
     }
 
-    // 4. Show up to `count` matches, paying 1 credit for each one shown for the first time.
+    // 4. Show up to `count` matches, paying 3 credits for each one shown for the first time.
     const shown = await prisma.invyBusiness.findMany({ where: { searchId: s.id, match: true, position: { not: null } }, orderBy: { position: "asc" } });
     const room = Math.max(0, k.count - shown.length);
     let candidates = await prisma.invyBusiness.findMany({ where: { searchId: s.id, match: true, position: null }, orderBy: [{ rating: { sort: "desc", nulls: "last" } }, { createdAt: "asc" }], take: room });

@@ -51,7 +51,7 @@ export async function removeVoice(prisma: PrismaClient, workspaceId: string, id:
   return { ok: true, value: undefined };
 }
 
-/** Text read in the voice, to hear how it sounds: a short line 1 AI credit, a whole voice note 5. mp3 as a data URL. */
+/** Text read in the voice, to hear how it sounds: a short line 1 AI credit, a whole voice note 10. mp3 as a data URL. */
 export async function tryVoice(prisma: PrismaClient, workspaceId: string, id: string, text: string, maker: VoiceMaker | null = voiceFromEnv()): Promise<Result<{ audio: string }>> {
   const line = text.trim().slice(0, VOICE_SCRIPT_MAX);
   if (!line) return { ok: false, error: "Type a line to hear." };

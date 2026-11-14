@@ -1,6 +1,6 @@
 "use client";
 
-import { INVY_EXAMPLES, INVY_MESSAGE_MAX } from "@invytra/shared";
+import { AI_COSTS, INVY_EXAMPLES, INVY_MESSAGE_MAX } from "@invytra/shared";
 import { ArrowUp, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -46,7 +46,7 @@ export function AskBox({ base, credits }: { base: string; credits: number }) {
           className="w-full resize-none bg-transparent px-1 text-[17px] leading-relaxed placeholder:text-stone-400 focus:outline-none"
         />
         <div className="flex items-center gap-3">
-          <p className="flex-1 text-[12px] text-stone-400">1 AI credit per business found · {credits.toLocaleString("en-US")} left</p>
+          <p className="flex-1 text-[12px] text-stone-400">{AI_COSTS.INVY} AI credits per business found · {credits.toLocaleString("en-US")} left</p>
           <button type="submit" disabled={!text.trim() || pending} className="inline-flex items-center gap-1.5 rounded-xl bg-stone-900 px-4 py-2 text-[14px] font-semibold text-white hover:bg-stone-700 disabled:opacity-40">
             {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <ArrowUp className="h-4 w-4" aria-hidden />} Ask Invy
           </button>

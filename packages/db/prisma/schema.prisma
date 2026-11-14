@@ -61,6 +61,7 @@ model Workspace {
   planCheckouts      PlanCheckout[]
   doNotContact       DoNotContact[]
   people             Person[]
+  WorkspaceInvite    WorkspaceInvite[]
 
   @@map("workspaces")
 }
@@ -1379,4 +1380,26 @@ model RazorpayPlan {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("razorpay_plans")
+}
+
+/// A teammate invited by email: the emailed link (only its hash is kept) lets them create their
+/// account straight into this workspace. Pending until accepted, cancelled or expired (7 days).
+model WorkspaceInvite {
+  id          String     @id @default(cuid())
+  workspaceId String     @map("workspace_id")
+  email       String
+  role        MemberRole @default(MEMBER)
+  tokenHash   String     @unique @map("token_hash")
+  invitedById String?    @map("invited_by_id")
+  expiresAt   DateTime   @map("expires_at")
+  acceptedAt  DateTime?  @map("accepted_at")
+  revokedAt   DateTime?  @map("revoked_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  /// Last time the email went out (resending refreshes the link)
+  sentAt      DateTime   @default(now()) @map("sent_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, email])
+  @@map("workspace_invites")
 }

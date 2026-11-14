@@ -7,6 +7,8 @@ import { z } from "zod";
 import type { Result } from "@/lib/accounts";
 import { endSession, requireUser, startSession } from "@/lib/auth";
 import { deleteWorkspace } from "@/lib/delete-workspace";
+import { platformMailer } from "@/lib/platform-mail";
+import { cancelInvite, inviteMember, removeMember } from "@/lib/team";
 import { changePassword, passwordSchema, profileSchema, renameWorkspace, signOutEverywhere, updateProfile, workspaceSchema } from "@/lib/settings";
 
 const first = (e: { issues: { message: string }[] }) => e.issues[0]!.message;
@@ -54,4 +56,31 @@ export async function deleteWorkspaceAction(input: unknown): Promise<Result> {
   if (!r.ok) return r;
   await endSession();
   redirect("/login?deleted=1");
+}
+
+const NOT_OWNER = { ok: false as const, error: "Only the workspace owner can manage the team." };
+
+/** Invites a teammate by email (or sends a fresh link to someone already invited). */
+export async function inviteMemberAction(email: string): Promise<Result<{ resent: boolean }>> {
+  const me = await requireUser();
+  if (me.role !== "OWNER") return NOT_OWNER;
+  const r = await inviteMember(prisma, me.workspace.id, { id: me.user.id, name: me.user.name }, String(email ?? ""), platformMailer());
+  revalidatePath("/", "layout");
+  return r;
+}
+
+export async function cancelInviteAction(inviteId: string): Promise<Result> {
+  const me = await requireUser();
+  if (me.role !== "OWNER") return NOT_OWNER;
+  const r = await cancelInvite(prisma, me.workspace.id, String(inviteId));
+  revalidatePath("/", "layout");
+  return r;
+}
+
+export async function removeMemberAction(userId: string): Promise<Result> {
+  const me = await requireUser();
+  if (me.role !== "OWNER") return NOT_OWNER;
+  const r = await removeMember(prisma, me.workspace.id, me.user.id, String(userId));
+  revalidatePath("/", "layout");
+  return r;
 }

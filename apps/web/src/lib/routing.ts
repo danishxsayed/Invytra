@@ -4,7 +4,7 @@ import { HUB_PAGES, hostKind, channelOrigin, domainConfig, hubOrigin, siteOrigin
 export type RouteDecision = { type: "next" } | { type: "rewrite"; path: string } | { type: "redirect"; url: string };
 
 export { HUB_PAGES };
-const AUTH_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
+const AUTH_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/invite"];
 const is = (path: string, base: string) => path === base || path.startsWith(`${base}/`);
 
 /**

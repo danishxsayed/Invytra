@@ -105,7 +105,7 @@ export async function removeVideo(prisma: PrismaClient, workspaceId: string, id:
 }
 
 /**
- * The video as one person would get it, with `greeting` (e.g. "Hi Alex,"): 15 AI credits,
+ * The video as one person would get it, with `greeting` (e.g. "Hi Alex,"): 50 AI credits,
  * paid back if it can't be made. Saved as <workspace>/try-<id>.mp4 (one per recording).
  */
 export async function tryVideo(

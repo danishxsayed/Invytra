@@ -20,7 +20,7 @@ describe("session tokens", () => {
     const [h, p, s] = t.split(".");
     const forged = Buffer.from(JSON.stringify({ sub: "u1", wid: "someone-else" })).toString("base64url");
     expect(await verifySession(`${h}.${forged}.${s}`, key)).toBeNull();
-    expect(await verifySession(`${h}.${p}.x${s!.slice(1)}`, key)).toBeNull();
+    expect(await verifySession(`${h}.${p}.${s![0] === "x" ? "y" : "x"}${s!.slice(1)}`, key)).toBeNull();
   });
   it("rejects missing or garbage tokens", async () => {
     expect(await verifySession(undefined, key)).toBeNull();

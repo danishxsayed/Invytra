@@ -340,27 +340,27 @@ d("Unipile accounts", () => {
     expect(spoken.at(-1)).toEqual({ voiceId: "el-voice-1", text: "Hey Gus, quick hello from me!" });
     expect(fake.voiceMessages.filter((m) => m.providerId === "P-GUS")).toHaveLength(1);
     expect(fake.voiceMessages.at(-1)!.type).toMatch(/^audio\//);
-    expect(await used("VOICE")).toBe(v0 + 5);
+    expect(await used("VOICE")).toBe(v0 + 10);
 
     // With text: the text first, then the voice note.
     await run("hal-m", { text: "Hi {firstName}, sent you a voice note.", voice: { voiceId: "vc-1", script: "Hi {firstName}!" } });
     expect(fake.chats.find((c) => c.providerId === "P-HAL")?.messages.map((m) => m.text)).toEqual(["Hi Hal, sent you a voice note.", ""]);
-    expect(await used("VOICE")).toBe(v0 + 10);
+    expect(await used("VOICE")).toBe(v0 + 20);
 
-    // The voice message fails to send: the text still went, the 5 credits come back.
+    // The voice message fails to send: the text still went, the 10 credits come back.
     fake.failVoice = true;
     const half = await run("ivy-n", { text: "Hello {firstName}", voice: { voiceId: "vc-1", script: "Hi!" } });
     fake.failVoice = false;
     expect(half.status).toBe("SUCCEEDED");
     expect((half.payload as { result: { voiceProblem?: string } }).result.voiceProblem).toMatch(/VOICE_NOT_SENT/);
-    expect(await used("VOICE")).toBe(v0 + 10);
+    expect(await used("VOICE")).toBe(v0 + 20);
 
     // The voice service refuses and there's nothing else: fails, credits back. A deleted voice: skipped.
     refuse = true;
     const refused = await run("jo-p", { text: "", voice: { voiceId: "vc-1", script: "Hi!" } });
     refuse = false;
     expect(refused.status).not.toBe("SUCCEEDED");
-    expect(await used("VOICE")).toBe(v0 + 10);
+    expect(await used("VOICE")).toBe(v0 + 20);
     const gone = await run("jo-p", { text: "", voice: { voiceId: "vc-deleted", script: "Hi!" } });
     expect(gone.status).toBe("SKIPPED");
   });
@@ -401,7 +401,7 @@ d("Unipile accounts", () => {
       return prisma.action.findUniqueOrThrow({ where: { id } });
     };
     const used = () => prisma.aiCreditUse.aggregate({ where: { workspaceId: WS, action: "VIDEO" }, _sum: { credits: true } }).then((r) => r._sum.credits ?? 0);
-    await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: 0, aiExtra: 0 } });
+    await prisma.workspace.update({ where: { id: WS }, data: { aiUsed: 0, aiExtra: 500 } });
 
     // The video alone: greeting with their name, sent as a video message that plays in the chat.
     const alone = await run("kim-a", { text: "", video: { videoId: "vr-1", intro: "Hi {firstName}," } });
@@ -410,32 +410,32 @@ d("Unipile accounts", () => {
     expect(synced).toBe(1);
     expect(fake.videoMessages.filter((m) => m.providerId === "P-KIM")).toEqual([expect.objectContaining({ type: "video/mp4" })]);
     expect(fake.videoMessages.at(-1)!.bytes).toBeGreaterThan(10_000);
-    expect(await used()).toBe(15);
+    expect(await used()).toBe(50);
 
     // Text, a voice note and a video: three messages, text first.
     await run("lee-b", { text: "Hi {firstName}!", voice: { voiceId: "vc-v", script: "Hello {firstName}" }, video: { videoId: "vr-1", intro: "Hey {firstName}," } });
     expect(fake.chats.find((c) => c.providerId === "P-LEE")?.messages.map((m) => m.text)).toEqual(["Hi Lee!", "", ""]);
     expect(fake.videoMessages.some((m) => m.providerId === "P-LEE")).toBe(true);
-    expect(await used()).toBe(30);
+    expect(await used()).toBe(100);
 
-    // The video fails to send: the text still went, the 15 credits come back.
+    // The video fails to send: the text still went, the 50 credits come back.
     fake.failVideo = true;
     const half = await run("max-c", { text: "Hello {firstName}", video: { videoId: "vr-1", intro: "Hi {firstName}," } });
     fake.failVideo = false;
     expect(half.status).toBe("SUCCEEDED");
     expect((half.payload as { result: { videoProblem?: string } }).result.videoProblem).toMatch(/VIDEO_NOT_SENT/);
-    expect(await used()).toBe(30);
+    expect(await used()).toBe(100);
 
     // Lip-sync refuses and there's nothing else: not sent, credits back. No voice for the recording: skipped.
     refuse = true;
     const refused = await run("ned-d", { text: "", video: { videoId: "vr-1", intro: "Hi {firstName}," } });
     refuse = false;
     expect(refused.status).not.toBe("SUCCEEDED");
-    expect(await used()).toBe(30);
+    expect(await used()).toBe(100);
     const noVoice = await run("ned-d", { text: "", video: { videoId: "vr-novoice", intro: "Hi {firstName}," } });
     expect([noVoice.status, noVoice.error]).toEqual(["SKIPPED", "NO_VIDEO"]);
 
-    // Another Kim: the same "Hi Kim," video, made once (no new lip-sync), still 15 credits.
+    // Another Kim: the same "Hi Kim," video, made once (no new lip-sync), still 50 credits.
     fake.add({ slug: "kim-z", providerId: "P-KIM2", first: "Kim", last: "Other", distance: "FIRST_DEGREE" });
     await prisma.campaignLead.create({ data: { id: "cl-kim-z", campaignId: "uni-c", workspaceId: WS, profileUrl: "https://www.linkedin.com/in/kim-z/", accountId: ACC, lastActionAt: new Date(Date.now() - 3_600_000) } });
     const before = synced;
@@ -443,6 +443,6 @@ d("Unipile accounts", () => {
     expect(again.status).toBe("SUCCEEDED");
     expect(synced).toBe(before);
     expect(fake.videoMessages.some((m) => m.providerId === "P-KIM2")).toBe(true);
-    expect(await used()).toBe(45);
+    expect(await used()).toBe(150);
   }, 90_000);
 });

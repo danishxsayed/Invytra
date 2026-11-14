@@ -3,7 +3,7 @@ import { leadOf, paid, type Made } from "./card.js";
 import type { UnipileCtx } from "./work.js";
 
 /*
- * Video notes (15 AI credits): the customer's recording, its opening greeting re-spoken in
+ * Video notes (50 AI credits): the customer's recording, its opening greeting re-spoken in
  * their copied voice with this person's name and lip-synced. Paid back if it can't be made or sent.
  */
 

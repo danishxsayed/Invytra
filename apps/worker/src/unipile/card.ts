@@ -59,7 +59,7 @@ export async function cardImageFor(ctx: UnipileCtx, campaignLeadId: string | nul
 }
 
 /**
- * The voice note for one person (5 AI credits): the script read in the chosen voice, as a
+ * The voice note for one person (10 AI credits): the script read in the chosen voice, as a
  * LinkedIn voice message. "NO_VOICE" when the voice was deleted or voice notes aren't set up
  * (no ELEVENLABS_API_KEY); a VoiceError (credits given back) when the voice service refuses.
  */

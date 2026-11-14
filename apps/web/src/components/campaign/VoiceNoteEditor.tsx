@@ -11,7 +11,7 @@ import { myVoicesAction, tryVoiceAction } from "@/app/workspace/voices/actions";
 import { sampleCardText } from "./CardEditor";
 import { cx } from "../ui";
 
-/** "Add a voice note": a short script read in your own voice for each person (5 AI credits). LinkedIn only. */
+/** "Add a voice note": a short script read in your own voice for each person (10 AI credits). LinkedIn only. */
 export function VoiceNoteEditor({
   voice,
   onChange,
@@ -60,7 +60,7 @@ export function VoiceNoteEditor({
           Your own voice reads this to each person, with their name, as a
           LinkedIn voice message.
           <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[12px] font-medium text-violet-800 ring-1 ring-violet-200">
-            5 AI credits each
+            10 AI credits each
           </span>
         </p>
       ) : (
@@ -83,7 +83,7 @@ export function VoiceNoteEditor({
               <Mic className="h-4 w-4 text-violet-700" aria-hidden /> Add a
               voice note
               <span className="rounded-full bg-white px-2 py-0.5 text-[12px] font-medium text-violet-800 ring-1 ring-violet-200">
-                5 AI credits each
+                10 AI credits each
               </span>
             </span>
             <span className="mt-0.5 block text-[13px] leading-snug text-stone-500">

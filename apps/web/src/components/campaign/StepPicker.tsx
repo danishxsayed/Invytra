@@ -23,7 +23,7 @@ const CARD: Record<Kind, CardDef> = {
   LIKE_POST: { kind: "LIKE_POST", title: "Like post", body: "Like their latest post to get noticed before you pitch.", icon: ThumbsUp, tone: "bg-violet-600 text-white" },
   COMMENT: { kind: "COMMENT", title: "Like and comment on post", body: "Like their latest post and leave a short comment to start a conversation.", icon: MessageCircle, tone: "bg-amber-700 text-white" },
   INMAIL: { kind: "INMAIL", title: "Send InMail", body: "Message people you aren't connected with (needs Premium or Sales Navigator).", icon: Mail, tone: "bg-emerald-700 text-white" },
-  VOICE: { kind: "VOICE", title: "Send voice message", body: "A voice note in your own voice, with their name (5 AI credits each).", icon: Mic, tone: "bg-violet-700 text-white" },
+  VOICE: { kind: "VOICE", title: "Send voice message", body: "A voice note in your own voice, with their name (10 AI credits each).", icon: Mic, tone: "bg-violet-700 text-white" },
   VIDEO: { kind: "VIDEO", title: "Send video message", body: `Your recorded video, with their name said at the start (${AI_COSTS.VIDEO} AI credits each).`, icon: Video, tone: "bg-rose-600 text-white" },
   EVENT: { kind: "EVENT", title: "Invite to event", body: "Invite a connection to one of your LinkedIn events.", icon: CalendarPlus, tone: "bg-indigo-600 text-white" },
 };

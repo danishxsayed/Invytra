@@ -10,7 +10,7 @@ describe("AI credits", () => {
     expect(aiBalance({ plan: "vip", aiUsed: 0, aiPeriod: null, aiExtra: 0, aiMonthly: 3000 }, now).monthly).toBe(3000);
   });
   it("prices each action", () => {
-    expect(AI_COSTS).toEqual({ TEXT: 1, NOTE: 1, HANDWRITTEN: 2, VOICE: 5, VIDEO: 15, INVY: 1 });
+    expect(AI_COSTS).toEqual({ TEXT: 1, NOTE: 1, HANDWRITTEN: 2, VOICE: 10, VIDEO: 50, INVY: 3 });
     expect(AI_PACKS.map((p) => [p.credits, p.priceCents])).toEqual([[2000, 1000], [5000, 2200]]);
   });
   it("counts this month, then extra, and starts fresh next month", () => {

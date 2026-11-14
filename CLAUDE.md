@@ -32,8 +32,8 @@ sendingProblem / senderProblem), worker expires trials and pauses campaigns. Mes
 voice copies, `/workspace/voices`) and video notes (`/workspace/videos`: one recording, the opening
 "Hi there," re-spoken per person and lip-synced with HeyGen (or sync.so), one video per greeting reused;
 `packages/db/src/video.ts` + `lipsync.ts`, files in VIDEO_DIR). Ask Invy (`/workspace/invy`): find businesses from a sentence: worker
-`apps/worker/src/invy/` (Google Places, safe website checks incl. public emails and social links, OpenAI criteria + reasoning, 1 AI credit per business
-shown), rules in `packages/shared/src/invy.ts`, map + cards in `apps/web/src/components/invy/`. Deployment: `docs/DEPLOY.md` (one Hostinger VPS, `deploy/go-live.sh` once, then `git push live main`). M6 go-live (plan pricing, team invites) is next. Phase 0's engine is done (`docs/PHASE-0-POC.md`); its
+`apps/worker/src/invy/` (Google Places, safe website checks incl. public emails and social links, OpenAI criteria + reasoning, 3 AI credits per business
+shown), rules in `packages/shared/src/invy.ts`, map + cards in `apps/web/src/components/invy/`. Deployment: `docs/DEPLOY.md` (one Hostinger VPS, `deploy/go-live.sh` once, then `git push live main`). Team: the owner invites teammates by email (`lib/team.ts`, `workspace_invites`, link `/invite?token=`, 7 days, one use, hash stored), resends/cancels, removes members. Next: WhatsApp channel. Phase 0's engine is done (`docs/PHASE-0-POC.md`); its
 7-day soak test still needs spare accounts and proxies.
 
 ## Tech stack

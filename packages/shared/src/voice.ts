@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /*
  * Voice notes on LinkedIn message steps: a short script read in the customer's own (copied)
- * voice for each person, their name filled in. 5 AI credits each.
+ * voice for each person, their name filled in. 10 AI credits each.
  */
 
 /** About 45 seconds of speech (LinkedIn voice messages can be up to a minute). */

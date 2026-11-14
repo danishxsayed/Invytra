@@ -1,8 +1,10 @@
 import { prisma } from "@invytra/db";
 import { AudioLines, Building2, ChevronRight, KeyRound, ShieldCheck, Trash2, UserRound, Users, Video } from "lucide-react";
 import { DeleteWorkspace } from "@/components/DeleteWorkspace";
+import { TeamManager } from "@/components/settings/TeamManager";
+import { listInvites } from "@/lib/team";
 import { PasswordForm, ProfileForm, SignOutOthers, WorkspaceForm } from "@/components/SettingsForms";
-import { Avatar, Card } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { getAiBalance } from "@/lib/ai-credits";
 import { requireUser } from "@/lib/auth";
 import { hubHref } from "@/lib/domains";
@@ -30,7 +32,7 @@ function Section({ icon: Icon, title, hint, children }: { icon: typeof UserRound
 /** Settings for the whole workspace (every channel), and the signed-in person's own account. */
 export default async function WorkspaceSettingsPage() {
   const me = await requireUser();
-  const members = await teamMembers(prisma, me.workspace.id);
+  const [members, invites] = await Promise.all([teamMembers(prisma, me.workspace.id), listInvites(prisma, me.workspace.id)]);
   const voices = await prisma.voiceClone.count({ where: { workspaceId: me.workspace.id } });
   const videos = await prisma.videoRecording.count({ where: { workspaceId: me.workspace.id } });
   const now = new Date();
@@ -50,25 +52,11 @@ export default async function WorkspaceSettingsPage() {
         </Section>
 
         <Section icon={Users} title="Team" hint="Everyone here shares the same channels, accounts, lists, campaigns and inbox.">
-          <ul className="divide-y divide-stone-100 rounded-xl border border-stone-200">
-            {members.map((m) => (
-              <li key={m.user.id} className="flex items-center gap-3 px-4 py-3">
-                <Avatar name={m.user.name} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-medium text-stone-900">
-                    {m.user.name}
-                    {m.user.id === me.user.id && <span className="font-normal text-stone-400"> (you)</span>}
-                  </p>
-                  <p className="truncate text-[14px] text-stone-500">{m.user.email}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[14px] font-medium text-stone-700">{m.role === "OWNER" ? "Owner" : "Member"}</p>
-                  {m.user.lastLoginAt && <p className="text-[13px] text-stone-400">Last login {timeAgo(m.user.lastLoginAt, now)}</p>}
-                </div>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-[14px] text-stone-500">Inviting teammates by email comes with the public launch (needs email sending on the server).</p>
+          <TeamManager
+            canManage={owner}
+            members={members.map((m) => ({ id: m.user.id, name: m.user.name, email: m.user.email, owner: m.role === "OWNER", you: m.user.id === me.user.id, lastLogin: m.user.lastLoginAt ? timeAgo(m.user.lastLoginAt, now) : null }))}
+            invites={invites.map((i) => ({ id: i.id, email: i.email, sent: timeAgo(i.sentAt, now) }))}
+          />
         </Section>
 
         <Section icon={AudioLines} title="Voices" hint="Copies of your voice for voice notes, used by every channel that sends them.">

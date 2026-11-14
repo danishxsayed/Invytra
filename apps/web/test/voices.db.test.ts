@@ -50,17 +50,17 @@ d("voices", () => {
     expect(cloned).toEqual(["Tahur"]);
   });
 
-  it("plays a line for 1 credit (a whole note 5), and pays back when the service fails", async () => {
+  it("plays a line for 1 credit (a whole note 10), and pays back when the service fails", async () => {
     const [v] = await listVoices(prisma, A);
     const before = await used();
     expect(await tryVoice(prisma, A, v!.id, "Hi Alex!", maker)).toMatchObject({ ok: true, value: { audio: expect.stringMatching(/^data:audio\/mpeg;base64,/) } });
     expect(await used()).toBe(before + 1);
     await tryVoice(prisma, A, v!.id, "word ".repeat(40), maker);
-    expect(await used()).toBe(before + 6);
+    expect(await used()).toBe(before + 11);
     fail = true;
     expect(await tryVoice(prisma, A, v!.id, "Hi", maker)).toMatchObject({ ok: false, error: expect.stringMatching(/out of characters/) });
     fail = false;
-    expect(await used()).toBe(before + 6);
+    expect(await used()).toBe(before + 11);
     // Another workspace can't use it.
     expect(await tryVoice(prisma, B, v!.id, "Hi", maker)).toMatchObject({ ok: false });
   });
