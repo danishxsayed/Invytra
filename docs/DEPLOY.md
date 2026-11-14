@@ -30,7 +30,7 @@ release if the new one doesn't answer. The last 3 releases are kept.
 ## Useful commands (ssh invytra@<server IP>)
 
 - Logs: `journalctl -u invytra-web -f`, `journalctl -u invytra-worker -f`
-- Restart: `sudo systemctl restart invytra-web` / `invytra-worker`
+- Restart: `sudo /usr/bin/systemctl restart invytra-web` and `sudo /usr/bin/systemctl restart invytra-worker` (exactly so: only these run without a password)
 - Settings: `nano ~/shared/.env`, then restart both. New API keys from the Mac:
   `bash deploy/go-live.sh <ip> --keys`, then restart.
 - Backups: `~/backups/invytra-*.dump` (02:30 daily, 14 days). Restore:
