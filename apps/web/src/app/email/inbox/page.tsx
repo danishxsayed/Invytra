@@ -1,4 +1,5 @@
 import { prisma } from "@invytra/db";
+import { PickConversation } from "@/components/inbox/PickConversation";
 import { AlertTriangle, ArrowLeft, Inbox, MailWarning, Reply } from "lucide-react";
 import { EmailInboxLive } from "@/components/email/inbox/EmailInboxLive";
 import { ReplyBox } from "@/components/email/inbox/ReplyBox";
@@ -45,10 +46,9 @@ export default async function EmailInboxPage({ searchParams }: { searchParams: P
   const me = await requireChannel("email");
   const q = await searchParams;
   const view = (INBOX_VIEWS as readonly string[]).includes(q.v ?? "") ? (q.v as InboxView) : "needs";
-  // Open the chosen conversation first (it marks their messages read), then list.
-  let convo = q.c ? await getConversation(prisma, me.workspace.id, q.c) : null;
+  // Open the chosen conversation first (it marks their messages read), then list. Nothing is opened until one is picked.
+  const convo = q.c ? await getConversation(prisma, me.workspace.id, q.c) : null;
   const rows = await listConversations(prisma, me.workspace.id, view);
-  if (!convo && rows[0]) convo = await getConversation(prisma, me.workspace.id, rows[0].leadId);
   const openId = convo?.lead.id;
   for (const r of rows) if (r.leadId === openId) r.unread = 0;
   const unreadable = await prisma.emailAccount.findMany({ where: { workspaceId: me.workspace.id, replyError: { not: null } }, select: { email: true, replyError: true } });
@@ -138,7 +138,9 @@ export default async function EmailInboxPage({ searchParams }: { searchParams: P
               <ReplyBox leadId={convo.lead.id} from={convo.mailbox?.email ?? null} done={convo.done} canReply={!!convo.mailbox} />
             </section>
           ) : (
-            <div className="hidden items-center justify-center text-[15px] text-stone-500 lg:flex">Choose a conversation.</div>
+            <div className="hidden items-center justify-center lg:flex">
+              <PickConversation body="Read the whole email thread and reply from the same mailbox, without leaving Invytra." />
+            </div>
           )}
         </div>
       )}

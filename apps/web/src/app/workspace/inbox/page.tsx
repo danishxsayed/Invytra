@@ -1,4 +1,5 @@
 import { prisma } from "@invytra/db";
+import { PickConversation } from "@/components/inbox/PickConversation";
 import { ArrowLeft, CalendarCheck, ExternalLink, Inbox, Search } from "lucide-react";
 import { ChannelLogo } from "@/components/ChannelLogo";
 import { PersonPhoto } from "@/components/PersonPhoto";
@@ -108,7 +109,9 @@ export default async function UnifiedInbox({ searchParams }: { searchParams: Pro
 
         <div className={cx("lg:min-h-0", !thread && "hidden lg:block")}>
           {thread ?? (
-            <Card className="flex min-h-[520px] items-center justify-center p-8 lg:h-full text-center text-[15px] text-stone-500">Choose a conversation to read and reply.</Card>
+            <Card className="flex min-h-[520px] items-center justify-center p-8 lg:h-full">
+              <PickConversation body="LinkedIn chats and email replies from every channel, in one place. Open one to read it and reply." />
+            </Card>
           )}
           {thread && (
             <a href={href({ c: undefined })} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-medium text-stone-600 lg:hidden">

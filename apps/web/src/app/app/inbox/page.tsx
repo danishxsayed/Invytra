@@ -5,6 +5,7 @@ import { ConversationView, type ConversationViewData } from "@/components/inbox/
 import { FilterBar } from "@/components/inbox/FilterBar";
 import { InboxLive } from "@/components/inbox/InboxLive";
 import { Avatar, EmptyState, cx } from "@/components/ui";
+import { PickConversation } from "@/components/inbox/PickConversation";
 import { requireChannel } from "@/lib/auth";
 import { progressText } from "@/lib/campaign-text";
 import { dayLabel, shortWhen } from "@/lib/format";
@@ -162,11 +163,7 @@ export default async function InboxPage({
             <ConversationView key={open.id} c={toView(open, now)} suggestions={[...new Set([...options.tags, ...SUGGESTED_TAGS])]} backHref={href({ c: null })} />
           ) : (
             <div className="flex h-full items-center justify-center p-10">
-              <EmptyState
-                icon={MessagesSquare}
-                title="Pick a conversation"
-                body="Read the whole chat, tag it, pause the campaign for that person, and reply without leaving Invytra."
-              />
+              <PickConversation body="Read the whole chat, tag it, pause the campaign for that person, and reply without leaving Invytra." />
             </div>
           )}
         </div>
