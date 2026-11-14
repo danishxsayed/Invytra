@@ -1,17 +1,17 @@
 /*
- * The workspace's do-not-contact list: people (LinkedIn profile or email), whole email domains
+ * The workspace's do-not-contact list: people (LinkedIn profile, email or phone number), whole email domains
  * and companies that no channel ever contacts. Entries are typed in freely (one per line) and
  * recognised here; every channel matches people against them with dncMatch().
  */
 
-export const DNC_KINDS = ["LINKEDIN", "EMAIL", "DOMAIN", "COMPANY"] as const;
+export const DNC_KINDS = ["LINKEDIN", "EMAIL", "PHONE", "DOMAIN", "COMPANY"] as const;
 export type DncKind = (typeof DNC_KINDS)[number];
-export const DNC_KIND_LABEL: Record<DncKind, string> = { LINKEDIN: "LinkedIn profile", EMAIL: "Email", DOMAIN: "Domain", COMPANY: "Company" };
+export const DNC_KIND_LABEL: Record<DncKind, string> = { LINKEDIN: "LinkedIn profile", EMAIL: "Email", PHONE: "Phone number", DOMAIN: "Domain", COMPANY: "Company" };
 export const DNC_MAX_PER_ADD = 2000;
 
 export interface DncEntry {
   kind: DncKind;
-  /** Normalised: slug, lowercased email/domain, or company key. */
+  /** Normalised: slug, lowercased email/domain, phone digits with country code, or company key. */
   value: string;
 }
 
@@ -40,6 +40,14 @@ export function companyKey(name: string | null | undefined): string {
     .trim();
 }
 
+/** "+971 50-123 4567" / "00971501234567" → "971501234567" (null when it isn't a phone number with its country code). */
+export function phoneKey(raw: string | null | undefined): string | null {
+  const s = (raw ?? "").trim();
+  if (!/^[+\d][\d\s().-]{6,24}$/.test(s)) return null;
+  const d = s.replace(/^00/, "+").replace(/[^\d]/g, "");
+  return /^[1-9]\d{7,14}$/.test(d) ? d : null;
+}
+
 const cleanDomain = (d: string) => d.toLowerCase().replace(/^@/, "").replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/[/?#].*$/, "").trim();
 const isDomain = (d: string) => /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d);
 
@@ -50,6 +58,8 @@ export function parseDncLine(raw: string): DncEntry | null {
   const slug = linkedinSlug(line);
   if (slug) return { kind: "LINKEDIN", value: slug };
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(line)) return { kind: "EMAIL", value: line.toLowerCase() };
+  const phone = phoneKey(line);
+  if (phone) return { kind: "PHONE", value: phone };
   const d = cleanDomain(line);
   if (!/\s/.test(line) && isDomain(d)) return { kind: "DOMAIN", value: d };
   const key = companyKey(line);
@@ -77,12 +87,13 @@ export function parseDncText(text: string): { entries: DncEntry[]; unreadable: s
 export interface DncPerson {
   profileUrl?: string | null;
   email?: string | null;
+  phone?: string | null;
   company?: string | null;
 }
 
 /** A fast matcher over a workspace's list. */
 export function dncMatcher(entries: DncEntry[]) {
-  const by: Record<DncKind, Set<string>> = { LINKEDIN: new Set(), EMAIL: new Set(), DOMAIN: new Set(), COMPANY: new Set() };
+  const by: Record<DncKind, Set<string>> = { LINKEDIN: new Set(), EMAIL: new Set(), PHONE: new Set(), DOMAIN: new Set(), COMPANY: new Set() };
   for (const e of entries) by[e.kind]?.add(e.value);
   /** The entry this person is blocked by, or null. */
   return (p: DncPerson): DncEntry | null => {
@@ -98,6 +109,8 @@ export function dncMatcher(entries: DncEntry[]) {
         if (by.DOMAIN.has(d)) return { kind: "DOMAIN", value: d };
       }
     }
+    const phone = phoneKey(p.phone);
+    if (phone && by.PHONE.has(phone)) return { kind: "PHONE", value: phone };
     const co = companyKey(p.company);
     if (co && by.COMPANY.has(co)) return { kind: "COMPANY", value: co };
     return null;

@@ -64,6 +64,7 @@ model Workspace {
   WorkspaceInvite    WorkspaceInvite[]
   whatsappNumbers    WhatsappNumber[]
   whatsappTemplates  WhatsappTemplate[]
+  whatsappContacts   WhatsappContact[]
 
   @@map("workspaces")
 }
@@ -1133,6 +1134,7 @@ model InvoiceCounter {
 enum DncKind {
   LINKEDIN
   EMAIL
+  PHONE
   DOMAIN
   COMPANY
 }
@@ -1461,4 +1463,39 @@ model WhatsappTemplate {
   @@unique([wabaId, name, language])
   @@index([workspaceId])
   @@map("whatsapp_templates")
+}
+
+/// Someone the workspace may message on WhatsApp: their number, tags, variables and consent.
+model WhatsappContact {
+  id            String    @id @default(cuid())
+  workspaceId   String    @map("workspace_id")
+  /// Digits with the country code, no "+" (971501234567): also their WhatsApp id
+  phone         String
+  firstName     String?   @map("first_name")
+  lastName      String?   @map("last_name")
+  /// The name on their WhatsApp profile (from their messages)
+  profileName   String?   @map("profile_name")
+  email         String?
+  company       String?
+  tags          String[]  @default([])
+  /// Custom variables: { key: value }
+  vars          Json      @default("{}")
+  /// IMPORT, MANUAL, INBOUND, LINK (see WA_CONSENT)
+  consentSource String?   @map("consent_source")
+  consentAt     DateTime? @map("consent_at")
+  /// Who confirmed it, for imports and manual adds
+  consentBy     String?   @map("consent_by")
+  optedOutAt    DateTime? @map("opted_out_at")
+  /// Their message ("STOP"), or "Removed by <name>"
+  optOutReason  String?   @map("opt_out_reason")
+  /// Their last message: free-form replies are allowed for 24 hours after it
+  lastInboundAt DateTime? @map("last_inbound_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, phone])
+  @@index([workspaceId, createdAt])
+  @@map("whatsapp_contacts")
 }

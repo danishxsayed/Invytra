@@ -33,10 +33,10 @@ export interface AddDncResult {
   stopped: { linkedin: number; email: number };
 }
 
-/** Adds lines (LinkedIn profiles, emails, domains, companies) and stops anyone they match in campaigns. */
+/** Adds lines (LinkedIn profiles, emails, phone numbers, domains, companies) and stops anyone they match in campaigns. */
 export async function addDnc(prisma: PrismaClient, workspaceId: string, userId: string, text: string, note?: string): Promise<Result<AddDncResult>> {
   const { entries, unreadable } = parseDncText(text.slice(0, 200_000));
-  if (!entries.length) return { ok: false, error: unreadable.length ? "Couldn't read any of those. Use LinkedIn profile links, emails, domains (acme.com) or company names." : "Paste at least one entry." };
+  if (!entries.length) return { ok: false, error: unreadable.length ? "Couldn't read any of those. Use LinkedIn profile links, emails, phone numbers (+971 50 123 4567), domains (acme.com) or company names." : "Paste at least one entry." };
   if (entries.length > DNC_MAX_PER_ADD) return { ok: false, error: `Add at most ${DNC_MAX_PER_ADD.toLocaleString("en-US")} at a time.` };
   const labels = new Map<string, string>();
   for (const raw of text.split(/[\n,;]+/)) {
@@ -48,6 +48,9 @@ export async function addDnc(prisma: PrismaClient, workspaceId: string, userId: 
     skipDuplicates: true,
   });
   const stopped = await stopBlocked(prisma, workspaceId, entries);
+  const phones = entries.filter((e) => e.kind === "PHONE").map((e) => e.value);
+  if (phones.length)
+    await prisma.whatsappContact.updateMany({ where: { workspaceId, phone: { in: phones }, optedOutAt: null }, data: { optedOutAt: new Date(), optOutReason: "On your do-not-contact list" } });
   return { ok: true, value: { added: r.count, alreadyThere: entries.length - r.count, unreadable: unreadable.slice(0, 20), stopped } };
 }
 

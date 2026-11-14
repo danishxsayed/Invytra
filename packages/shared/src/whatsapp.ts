@@ -1,3 +1,5 @@
+import { phoneKey } from "./do-not-contact.js";
+
 /*
  * WhatsApp (official Cloud API): the rules for message templates and numbers, shared by the
  * web app (builder, preview, checks before submitting to Meta) and the worker. Meta's limits
@@ -207,7 +209,4 @@ export function waLimitLabel(tier: string | null | undefined): string {
 }
 
 /** Digits only, with the country code ("+971 50 123 4567" → "971501234567"); null when it can't be a phone number. */
-export function waPhone(raw: string): string | null {
-  const d = raw.replace(/[^\d+]/g, "").replace(/^00/, "+").replace(/^\+/, "");
-  return /^[1-9]\d{7,14}$/.test(d) ? d : null;
-}
+export const waPhone = (raw: string): string | null => phoneKey(raw);

@@ -1,10 +1,13 @@
 import { metaSignatureOk, type MetaApp, type PrismaClient } from "@invytra/db";
+import { isOptOut } from "@invytra/shared";
+import { recordInbound } from "./whatsapp-contacts";
 
 /*
  * Meta's WhatsApp webhooks (one URL for every customer: /api/whatsapp/webhook). Signed with
  * the app secret. Handled now: template reviews, template quality and category changes,
- * number quality and limit changes, and account-level notices. Messages and delivery
- * statuses arrive here too and are handled with the inbox and campaigns.
+ * number quality and limit changes, account-level notices, and incoming messages (the sender
+ * becomes a contact, their 24-hour window opens, "STOP" opts them out). Delivery statuses and
+ * the message text itself are handled with campaigns and the inbox.
  */
 
 type Change = { field?: string; value?: Record<string, unknown> };
@@ -94,7 +97,32 @@ async function applyChange(prisma: PrismaClient, wabaId: string, { field, value 
         });
       return;
     }
+    case "messages": {
+      const phoneNumberId = str((value.metadata as Record<string, unknown> | undefined)?.phone_number_id);
+      const n = phoneNumberId ? await prisma.whatsappNumber.findUnique({ where: { phoneNumberId }, select: { workspaceId: true } }) : null;
+      if (!n) return;
+      const names = new Map(((value.contacts as Record<string, unknown>[] | undefined) ?? []).map((c) => [str(c.wa_id), str((c.profile as Record<string, unknown> | undefined)?.name)]));
+      for (const m of (value.messages as Record<string, unknown>[] | undefined) ?? []) {
+        const from = str(m.from);
+        const text = messageText(m);
+        const ts = Number(m.timestamp);
+        await recordInbound(prisma, n.workspaceId, { phone: from, profileName: names.get(from), text, optOut: isOptOut(text), at: Number.isFinite(ts) && ts > 0 ? new Date(ts * 1000) : new Date() });
+      }
+      return; // delivery statuses: handled with campaigns
+    }
     default:
-      return; // messages, statuses: handled with the inbox and campaigns
+      return;
   }
+}
+
+/** The words of an incoming message: text, a tapped template button or a reply button/list choice. */
+function messageText(m: Record<string, unknown>): string {
+  const o = (k: string) => (m[k] as Record<string, unknown> | undefined) ?? {};
+  if (m.type === "text") return str(o("text").body);
+  if (m.type === "button") return str(o("button").text) || str(o("button").payload);
+  if (m.type === "interactive") {
+    const i = o("interactive");
+    return str((i.button_reply as Record<string, unknown> | undefined)?.title) || str((i.list_reply as Record<string, unknown> | undefined)?.title);
+  }
+  return "";
 }

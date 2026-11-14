@@ -41,7 +41,7 @@ export default async function DoNotContactPage({ searchParams }: { searchParams:
 
       <Card className="p-5 sm:p-6">
         <h2 className="text-[17px] font-semibold text-stone-900">Add to the list</h2>
-        <p className="mb-3 mt-0.5 text-[14px] text-stone-500">LinkedIn profile links, email addresses, whole domains (blocks every address at that company) or company names.</p>
+        <p className="mb-3 mt-0.5 text-[14px] text-stone-500">LinkedIn profile links, email addresses, phone numbers with their country code, whole domains (blocks every address at that company) or company names.</p>
         <AddDnc />
       </Card>
 
