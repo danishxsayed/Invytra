@@ -1,9 +1,10 @@
-import { AtSign, Instagram, Linkedin, Mail, MessageCircle, MessageSquareText, Send, Smartphone } from "lucide-react";
+import { AtSign, Instagram, MessageSquareText, Send, Smartphone } from "lucide-react";
+import { CHANNEL_IMG } from "../../channel-images";
 
 const ITEMS = [
-  { name: "LinkedIn", icon: Linkedin, live: true },
-  { name: "Email", icon: Mail, live: true },
-  { name: "WhatsApp", icon: MessageCircle, live: true },
+  { name: "LinkedIn", img: CHANNEL_IMG.linkedin, live: true },
+  { name: "Email", img: CHANNEL_IMG.email, live: true },
+  { name: "WhatsApp", img: CHANNEL_IMG.whatsapp, live: true },
   { name: "Instagram", icon: Instagram, live: false },
   { name: "SMS", icon: Smartphone, live: false },
   { name: "Telegram", icon: Send, live: false },
@@ -21,7 +22,12 @@ export function ChannelMarquee() {
         <ul className="site-marquee flex w-max gap-4">
           {row.map((c, i) => (
             <li key={i} aria-hidden={i >= ITEMS.length} className="flex items-center gap-2.5 rounded-full border border-stone-900/[0.08] bg-white px-5 py-2.5 text-[16px] font-medium text-stone-800 shadow-card">
-              <c.icon className="h-[18px] w-[18px] text-stone-700" aria-hidden />
+              {"img" in c ? (
+                // eslint-disable-next-line @next/next/no-img-element -- small static logo
+                <img src={c.img} alt="" className="h-5 w-5 rounded-[5px] object-contain" draggable={false} />
+              ) : (
+                <c.icon className="h-[18px] w-[18px] text-stone-700" aria-hidden />
+              )}
               {c.name}
               <span className={c.live ? "rounded-full bg-brand-400 px-2 py-0.5 text-[11.5px] font-semibold text-stone-900" : "rounded-full bg-stone-100 px-2 py-0.5 text-[11.5px] font-semibold text-stone-500"}>{c.live ? "Live" : "Soon"}</span>
             </li>

@@ -1,19 +1,13 @@
-import { Linkedin, Mail, MessageCircle, type LucideIcon } from "lucide-react";
 import Link from "next/link";
+import { BARE_LOGO, CHANNEL_IMG } from "../../channel-images";
 import { cx } from "../../ui";
 
-/** The three launch channels, with their colours. */
-export const LAUNCH_CHANNELS: { id: "linkedin" | "email" | "whatsapp"; name: string; icon: LucideIcon; tile: string }[] = [
-  { id: "linkedin", name: "LinkedIn", icon: Linkedin, tile: "bg-[#0A66C2] text-white" },
-  { id: "email", name: "Email", icon: Mail, tile: "bg-amber-400 text-stone-900" },
-  { id: "whatsapp", name: "WhatsApp", icon: MessageCircle, tile: "bg-[#25D366] text-white" },
-];
-
 export function ChannelTile({ id, size = 36, className }: { id: "linkedin" | "email" | "whatsapp"; size?: number; className?: string }) {
-  const c = LAUNCH_CHANNELS.find((x) => x.id === id)!;
+  const bare = BARE_LOGO.has(id);
   return (
-    <span className={cx("inline-flex shrink-0 items-center justify-center rounded-[28%]", c.tile, className)} style={{ width: size, height: size }} aria-hidden>
-      <c.icon style={{ width: size * 0.5, height: size * 0.5 }} strokeWidth={2.2} />
+    <span className={cx("inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[24%]", bare && "bg-white ring-1 ring-stone-200", className)} style={{ width: size, height: size }} aria-hidden>
+      {/* eslint-disable-next-line @next/next/no-img-element -- small static logo */}
+      <img src={CHANNEL_IMG[id]} alt="" style={{ width: bare ? "62%" : "100%", height: bare ? "62%" : "100%" }} className="object-contain" draggable={false} />
     </span>
   );
 }
