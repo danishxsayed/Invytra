@@ -135,7 +135,7 @@ export function ImportContactsButton({
               >
                 <FileUp className="h-8 w-8 text-stone-400" aria-hidden />
                 <span className="text-[16px] font-medium text-stone-800">Choose a CSV file</span>
-                <span className="text-[14px]">Needs an email column. Up to {CONTACT_IMPORT.maxRows.toLocaleString()} rows, 5 MB.</span>
+                <span className="text-[14px]">Needs an email column. Up to {CONTACT_IMPORT.maxRows.toLocaleString("en-US")} rows, 5 MB.</span>
               </button>
               <button type="button" className={btn.ghost} onClick={downloadSampleCsv}>
                 <Download className="h-4 w-4" aria-hidden /> Download a sample CSV

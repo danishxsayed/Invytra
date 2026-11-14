@@ -107,7 +107,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
   const days = list && invitesPerDay ? Math.max(1, Math.ceil(listSize / (usesInvites ? invitesPerDay : 40 * senders.length))) : 0;
   const estimate =
     list && usesInvites && invitesPerDay > 0
-      ? `At up to ${invitesPerDay} invites a day${senders.length > 1 ? ` across ${senders.length} accounts` : ""}, inviting ${list.coming ? "up to " : "all "}${listSize.toLocaleString()} leads takes about ${days} sending ${days === 1 ? "day" : "days"}. New leads added to this list later join the campaign automatically.`
+      ? `At up to ${invitesPerDay} invites a day${senders.length > 1 ? ` across ${senders.length} accounts` : ""}, inviting ${list.coming ? "up to " : "all "}${listSize.toLocaleString("en-US")} leads takes about ${days} sending ${days === 1 ? "day" : "days"}. New leads added to this list later join the campaign automatically.`
       : null;
 
   const go = (i: number) => {
@@ -194,7 +194,7 @@ export function CampaignBuilder({ options, initial, presetListId }: { options: B
               <dl className="grid gap-x-6 gap-y-3 text-[15px] sm:grid-cols-2">
                 <Summary label="Campaign" value={name || "Not set"} onEdit={() => go(0)} />
                 <Summary label="Send from" value={senders.map((a) => a.label).join(", ") || "None chosen"} onEdit={() => go(0)} />
-                <Summary label="Lead list" value={list ? `${list.name} · ${listSize.toLocaleString()} leads` : "None chosen"} onEdit={() => go(1)} />
+                <Summary label="Lead list" value={list ? `${list.name} · ${listSize.toLocaleString("en-US")} leads` : "None chosen"} onEdit={() => go(1)} />
                 <Summary
                   label="Who"
                   value={`${settings.degrees.map((d) => DEGREE_LABEL[d]).join(", ")} connections${settings.premiumOnly ? ", Premium only" : ""}${settings.skipOtherCampaigns ? "" : ", including people in other campaigns"}`}

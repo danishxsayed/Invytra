@@ -124,7 +124,7 @@ export function LeadsStep({
           <option value="">Choose…</option>
           {lists.map((l) => (
             <option key={l.id} value={l.id}>
-              {l.name} · {l.count.toLocaleString()} {l.count === 1 ? "lead" : "leads"}
+              {l.name} · {l.count.toLocaleString("en-US")} {l.count === 1 ? "lead" : "leads"}
               {l.coming ? " (collecting…)" : ""}
             </option>
           ))}
@@ -174,7 +174,7 @@ export function LaunchModal({
       <ul className="space-y-2 text-[15px] text-stone-700">
         <li>
           <b>{senders.length === 1 ? senders[0]!.label : `${senders.length} accounts`}</b> {senders.length === 1 ? "starts" : "start"} working through{" "}
-          <b>{list.coming ? `up to ${listSize.toLocaleString()}` : listSize.toLocaleString()}</b> leads in “{list.name}”{list.coming ? " as they're collected" : ""}.
+          <b>{list.coming ? `up to ${listSize.toLocaleString("en-US")}` : listSize.toLocaleString("en-US")}</b> leads in “{list.name}”{list.coming ? " as they're collected" : ""}.
         </li>
         {senders.length > 1 && <li>Each lead goes to one account and stays with it, so nobody hears from two of your accounts.</li>}
         <li>

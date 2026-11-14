@@ -61,8 +61,8 @@ export function ImportProgress({ listId, imports }: { listId: string; imports: I
                 <span className="font-normal text-stone-500"> · via {i.accountLabel} · {i.when}</span>
               </p>
               <p className="text-[14px] text-stone-500">
-                {i.added.toLocaleString()} added
-                {i.found > i.added ? ` (${(i.found - i.added).toLocaleString()} were already in the list)` : ""} · {i.pages} {i.pages === 1 ? "page" : "pages"} read
+                {i.added.toLocaleString("en-US")} added
+                {i.found > i.added ? ` (${(i.found - i.added).toLocaleString("en-US")} were already in the list)` : ""} · {i.pages} {i.pages === 1 ? "page" : "pages"} read
                 {live && i.waiting && <span className="text-amber-700"> · {i.waiting}</span>}
                 {!live && i.reasonText && <span> · {i.reasonText}</span>}
               </p>

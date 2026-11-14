@@ -140,7 +140,7 @@ export function SearchImport({
           <select className={inputCls} value={maxLeads} onChange={(e) => setMaxLeads(Number(e.target.value))}>
             {(left === null ? SIZES : [...SIZES.filter((n) => n < left), ...(left > 0 ? [left] : [])]).map((n) => (
               <option key={n} value={n}>
-                Up to {n.toLocaleString()}
+                Up to {n.toLocaleString("en-US")}
               </option>
             ))}
           </select>

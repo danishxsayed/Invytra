@@ -18,7 +18,16 @@ export interface BillingDetailsValue {
   gstin: string;
 }
 
-const COUNTRIES = "IN US GB AE CA AU SG DE FR NL ES IT IE SE NO DK FI CH AT BE PT PL NZ ZA SA QA KW BH OM MY ID PH TH VN JP KR HK BR MX IL TR EG NG KE PK BD LK NP".split(" ");
+/** Fixed names (not Intl.DisplayNames: the server and the browser name some places differently, e.g. "Hong Kong SAR China"). */
+const COUNTRY_NAMES: Record<string, string> = {
+  IN: "India", US: "United States", GB: "United Kingdom", AE: "United Arab Emirates", CA: "Canada", AU: "Australia", SG: "Singapore",
+  DE: "Germany", FR: "France", NL: "Netherlands", ES: "Spain", IT: "Italy", IE: "Ireland", SE: "Sweden", NO: "Norway", DK: "Denmark",
+  FI: "Finland", CH: "Switzerland", AT: "Austria", BE: "Belgium", PT: "Portugal", PL: "Poland", NZ: "New Zealand", ZA: "South Africa",
+  SA: "Saudi Arabia", QA: "Qatar", KW: "Kuwait", BH: "Bahrain", OM: "Oman", MY: "Malaysia", ID: "Indonesia", PH: "Philippines",
+  TH: "Thailand", VN: "Vietnam", JP: "Japan", KR: "South Korea", HK: "Hong Kong", BR: "Brazil", MX: "Mexico", IL: "Israel",
+  TR: "Türkiye", EG: "Egypt", NG: "Nigeria", KE: "Kenya", PK: "Pakistan", BD: "Bangladesh", LK: "Sri Lanka", NP: "Nepal",
+};
+const COUNTRIES = Object.keys(COUNTRY_NAMES);
 
 const input = "mt-1 block w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-[15px] focus:border-stone-500 focus:outline-none";
 const label = "block text-[14px] font-medium text-stone-700";
@@ -29,7 +38,6 @@ export function BillingDetails({ value }: { value: BillingDetailsValue }) {
   const [v, setV] = useState(value);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, start] = useTransition();
-  const names = new Intl.DisplayNames(["en"], { type: "region" });
   const f = (k: keyof BillingDetailsValue) => ({ value: v[k], onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setV({ ...v, [k]: e.target.value }) });
   return (
     <form
@@ -56,7 +64,7 @@ export function BillingDetails({ value }: { value: BillingDetailsValue }) {
         <select className={input} required {...f("country")}>
           <option value="">Choose…</option>
           {[...new Set([...(v.country && !COUNTRIES.includes(v.country) ? [v.country] : []), ...COUNTRIES])]
-            .map((c) => ({ c, n: names.of(c) ?? c }))
+            .map((c) => ({ c, n: COUNTRY_NAMES[c] ?? c }))
             .sort((a, b) => a.n.localeCompare(b.n))
             .map(({ c, n }) => (
               <option key={c} value={c}>

@@ -84,25 +84,25 @@ export function ImportPreview({ result }: { result: LeadParseResult }) {
     <div className="mt-4 space-y-2 text-[15px]">
       <p className={cx("flex items-center gap-2 font-medium", n ? "text-emerald-700" : "text-stone-500")}>
         <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
-        {n ? `${n.toLocaleString()} ${n === 1 ? "lead" : "leads"} ready to add` : "No LinkedIn profile links found yet"}
+        {n ? `${n.toLocaleString("en-US")} ${n === 1 ? "lead" : "leads"} ready to add` : "No LinkedIn profile links found yet"}
       </p>
       {result.duplicates > 0 && (
         <p className="flex items-center gap-2 text-stone-600">
           <Copy className="h-4 w-4 shrink-0 text-stone-400" aria-hidden />
-          {result.duplicates.toLocaleString()} duplicate{result.duplicates === 1 ? "" : "s"} in the file, added once
+          {result.duplicates.toLocaleString("en-US")} duplicate{result.duplicates === 1 ? "" : "s"} in the file, added once
         </p>
       )}
       {result.overLimit > 0 && (
         <p className="flex items-center gap-2 text-amber-700">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-          {result.overLimit.toLocaleString()} more leads are over the {LEAD_IMPORT.maxLeads.toLocaleString()}-per-upload limit. Upload them separately.
+          {result.overLimit.toLocaleString("en-US")} more leads are over the {LEAD_IMPORT.maxLeads.toLocaleString("en-US")}-per-upload limit. Upload them separately.
         </p>
       )}
       {result.invalid.length > 0 && (
         <div>
           <button type="button" onClick={() => setShowBad((v) => !v)} className="flex items-center gap-2 text-left text-amber-700 hover:text-amber-800">
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-            {result.invalid.length.toLocaleString()} row{result.invalid.length === 1 ? "" : "s"} skipped · {showBad ? "hide" : "see why"}
+            {result.invalid.length.toLocaleString("en-US")} row{result.invalid.length === 1 ? "" : "s"} skipped · {showBad ? "hide" : "see why"}
           </button>
           {showBad && (
             <ul className="mt-2 max-h-40 overflow-y-auto rounded-lg bg-stone-50 px-3 py-2 text-[14px] text-stone-600">

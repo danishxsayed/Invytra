@@ -81,15 +81,15 @@ export function ImportLeads({
       <Modal title={done.added ? "Leads added" : "Nothing new to add"} onClose={onClose}>
         <ul className="space-y-2 text-[15px] text-stone-700">
           <Line ok>
-            <b>{done.added.toLocaleString()}</b> {done.added === 1 ? "lead" : "leads"} added
+            <b>{done.added.toLocaleString("en-US")}</b> {done.added === 1 ? "lead" : "leads"} added
           </Line>
-          {done.alreadyInList > 0 && <Line>{done.alreadyInList.toLocaleString()} were already in this list</Line>}
+          {done.alreadyInList > 0 && <Line>{done.alreadyInList.toLocaleString("en-US")} were already in this list</Line>}
           {done.inOtherLists > 0 && (
             <Line warn>
-              {done.inOtherLists.toLocaleString()} of them are also in another of your lists. Campaigns won't contact the same person twice.
+              {done.inOtherLists.toLocaleString("en-US")} of them are also in another of your lists. Campaigns won't contact the same person twice.
             </Line>
           )}
-          {done.invalid > 0 && <Line>{done.invalid.toLocaleString()} rows had no usable LinkedIn profile link</Line>}
+          {done.invalid > 0 && <Line>{done.invalid.toLocaleString("en-US")} rows had no usable LinkedIn profile link</Line>}
         </ul>
         <div className="mt-6 flex justify-end">
           <button
@@ -175,7 +175,7 @@ export function ImportLeads({
             <Upload className="h-6 w-6 text-stone-400" aria-hidden />
             <span className="text-[15px] font-medium text-stone-800">{file ? file.name : "Drop a CSV file here, or click to choose"}</span>
             <span className="text-[14px] text-stone-500">
-              {file ? "Click to choose a different file" : `Needs a column with LinkedIn profile links · up to ${LEAD_IMPORT.maxLeads.toLocaleString()} leads`}
+              {file ? "Click to choose a different file" : `Needs a column with LinkedIn profile links · up to ${LEAD_IMPORT.maxLeads.toLocaleString("en-US")} leads`}
             </span>
           </button>
           <input ref={input} type="file" accept=".csv,.txt,.tsv,text/csv" className="hidden" onChange={(e) => readFile(e.target.files?.[0])} />
@@ -216,7 +216,7 @@ export function ImportLeads({
             ? target.kind === "new"
               ? "Create list"
               : "Add leads"
-            : `${target.kind === "new" ? "Create list with" : "Add"} ${count.toLocaleString()} ${count === 1 ? "lead" : "leads"}`}
+            : `${target.kind === "new" ? "Create list with" : "Add"} ${count.toLocaleString("en-US")} ${count === 1 ? "lead" : "leads"}`}
         </button>
       </div>}
     </Modal>

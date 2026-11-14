@@ -80,7 +80,7 @@ export function ListActions({ id, name, total, accounts = [] }: { id: string; na
       {mode === "delete" && (
         <Modal title={`Delete “${name}”?`} onClose={close} busy={pending}>
           <p className="text-[15px] text-stone-600">
-            The list and its {total.toLocaleString()} {total === 1 ? "lead" : "leads"} will be removed. Actions already done on LinkedIn stay in
+            The list and its {total.toLocaleString("en-US")} {total === 1 ? "lead" : "leads"} will be removed. Actions already done on LinkedIn stay in
             your activity log.
           </p>
           {error && <p role="alert" className="mt-3 text-[15px] text-rose-700">{error}</p>}
