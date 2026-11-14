@@ -62,6 +62,8 @@ model Workspace {
   doNotContact       DoNotContact[]
   people             Person[]
   WorkspaceInvite    WorkspaceInvite[]
+  whatsappNumbers    WhatsappNumber[]
+  whatsappTemplates  WhatsappTemplate[]
 
   @@map("workspaces")
 }
@@ -1402,4 +1404,61 @@ model WorkspaceInvite {
 
   @@index([workspaceId, email])
   @@map("workspace_invites")
+}
+
+/// A WhatsApp Business number connected through Meta's Embedded Signup (official Cloud API).
+model WhatsappNumber {
+  id            String    @id @default(cuid())
+  workspaceId   String    @map("workspace_id")
+  /// Meta ids: the WhatsApp Business Account and the phone number in it
+  wabaId        String    @map("waba_id")
+  phoneNumberId String    @unique @map("phone_number_id")
+  displayPhone  String    @default("") @map("display_phone")
+  verifiedName  String    @default("") @map("verified_name")
+  /// Meta's review of the display name (APPROVED, PENDING_REVIEW, DECLINED …)
+  nameStatus    String?   @map("name_status")
+  /// GREEN / YELLOW / RED / UNKNOWN
+  quality       String    @default("UNKNOWN")
+  /// TIER_250, TIER_1K … (new people per 24h)
+  messagingTier String?   @map("messaging_tier")
+  /// CONNECTED, ERROR (see lastError), DISCONNECTED
+  status        String    @default("CONNECTED")
+  lastError     String?   @map("last_error")
+  /// Business token from Embedded Signup, and the number's two-step PIN (both sealed)
+  accessToken   String    @map("access_token")
+  pin           String    @default("")
+  /// Messages are paid from Invytra's Meta credit line
+  creditShared  Boolean   @default(false) @map("credit_shared")
+  syncedAt      DateTime? @map("synced_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("whatsapp_numbers")
+}
+
+/// A message template of a workspace's WhatsApp Business Account (Meta reviews each one).
+model WhatsappTemplate {
+  id             String   @id @default(cuid())
+  workspaceId    String   @map("workspace_id")
+  wabaId         String   @map("waba_id")
+  metaId         String?  @map("meta_id")
+  name           String
+  language       String
+  category       String
+  /// APPROVED, PENDING, REJECTED, PAUSED, DISABLED …
+  status         String
+  rejectedReason String?  @map("rejected_reason")
+  quality        String?
+  /// Meta's components (HEADER, BODY, FOOTER, BUTTONS)
+  components     Json
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([wabaId, name, language])
+  @@index([workspaceId])
+  @@map("whatsapp_templates")
 }

@@ -3,7 +3,7 @@ import { DNC_KINDS, DNC_KIND_LABEL, type DncKind } from "@invytra/shared";
 import { Ban, Download, Search } from "lucide-react";
 import { AddDnc } from "@/components/dnc/AddDnc";
 import { DncTable } from "@/components/dnc/DncTable";
-import { btn } from "@/components/AccountControls";
+import { btn } from "@/components/btn";
 import { Card, cx } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { DNC_PAGE, listDnc } from "@/lib/do-not-contact";

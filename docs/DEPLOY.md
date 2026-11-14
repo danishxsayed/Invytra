@@ -39,6 +39,14 @@ release if the new one doesn't answer. The last 3 releases are kept.
 
 ## Addresses
 
-`invytra.com` website · `app.` workspace · `linkedin.`, `email.` channels · `connect.` live
+`invytra.com` website · `app.` workspace · `linkedin.`, `email.`, `whatsapp.` channels · `connect.` live
 LinkedIn login windows (to the worker on port 3001). The Google Maps browser key must allow
 `https://*.invytra.com/*` and `https://invytra.com/*`.
+
+## WhatsApp (Meta)
+
+Webhook URL for the Meta app (WhatsApp -> Configuration): `https://app.invytra.com/api/whatsapp/webhook`,
+verify token = `META_WEBHOOK_VERIFY_TOKEN`; subscribe to `messages`, `message_template_status_update`,
+`message_template_quality_update`, `template_category_update`, `phone_number_quality_update`,
+`phone_number_name_update` and `account_update`. Add `invytra.com` and `whatsapp.invytra.com` to the
+app's allowed domains (Facebook Login for Business -> Settings) so the signup popup opens.

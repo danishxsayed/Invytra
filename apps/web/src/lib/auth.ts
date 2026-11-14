@@ -3,6 +3,7 @@ import { prisma, type MemberRole } from "@invytra/db";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { canPreview } from "./preview";
 import { canUseChannel, channelById, type ChannelId } from "@invytra/shared";
 import { cookieDomain, hubHref } from "./domains";
 import { authKey, secureCookies } from "./env";
@@ -75,6 +76,6 @@ export async function requireUser(): Promise<CurrentUser> {
  */
 export async function requireChannel(id: ChannelId): Promise<CurrentUser> {
   const me = await requireUser();
-  if (!canUseChannel(channelById(id), me.workspace.channels)) redirect(hubHref(`/?denied=${id}`));
+  if (!canUseChannel(channelById(id), me.workspace.channels) && !canPreview(id, me.user.email)) redirect(hubHref(`/?denied=${id}`));
   return me;
 }

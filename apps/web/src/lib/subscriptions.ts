@@ -42,8 +42,12 @@ export async function sendingProblem(prisma: PrismaClient, workspaceId: string, 
 
 /** Sender accounts in use, per channel. */
 export async function sendersInUse(prisma: PrismaClient, workspaceId: string): Promise<Record<PlanChannel, number>> {
-  const [linkedin, email] = await Promise.all([prisma.linkedinAccount.count({ where: { workspaceId } }), prisma.emailAccount.count({ where: { workspaceId } })]);
-  return { linkedin, email, whatsapp: 0 };
+  const [linkedin, email, whatsapp] = await Promise.all([
+    prisma.linkedinAccount.count({ where: { workspaceId } }),
+    prisma.emailAccount.count({ where: { workspaceId } }),
+    prisma.whatsappNumber.count({ where: { workspaceId } }),
+  ]);
+  return { linkedin, email, whatsapp };
 }
 
 /** null when one more sender may be connected on this channel; otherwise why not. */

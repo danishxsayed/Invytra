@@ -6,6 +6,7 @@ import { NeedsAttention } from "@/components/overview/NeedsAttention";
 import { SetupPlan } from "@/components/overview/SetupPlan";
 import { WeekStrip, type Stat } from "@/components/overview/WeekStrip";
 import { cx } from "@/components/ui";
+import { canPreview } from "@/lib/preview";
 import { requireUser } from "@/lib/auth";
 import { channelSetup, type ChannelSetup } from "@/lib/channel-status";
 import { channelHref, hubHref } from "@/lib/domains";
@@ -30,8 +31,9 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
   const q = await searchParams;
   const cards = await Promise.all(
     CHANNELS.map(async (c) => {
-      const usable = canUseChannel(c, me.workspace.channels);
-      return { c, usable, setup: usable ? await channelSetup(prisma, me.workspace.id, c.id) : null };
+      const preview = c.status !== "live" && canPreview(c.id, me.user.email);
+      const usable = canUseChannel(c, me.workspace.channels) || preview;
+      return { c, usable, preview, setup: usable ? await channelSetup(prisma, me.workspace.id, c.id) : null };
     }),
   );
   const [{ week, before }, attention] = await Promise.all([weekNumbers(prisma, me.workspace.id), needsAttention(prisma, me)]);
@@ -86,8 +88,8 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
 
         <h2 className="mt-10 text-[13px] font-semibold uppercase tracking-wider text-stone-400">Channels</h2>
         <ul className="mt-3 grid gap-4 sm:grid-cols-2">
-          {cards.map(({ c, usable, setup }) => {
-            const soon = c.status !== "live";
+          {cards.map(({ c, usable, preview, setup }) => {
+            const soon = c.status !== "live" && !preview;
             const tone = setup ? SETUP_TONE[setup.state] : null;
             return (
               <li key={c.id}>
@@ -104,6 +106,7 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className={cx("text-[18px] font-semibold", usable ? "text-stone-900" : "text-stone-500")}>{c.name}</h2>
                         {soon && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[12px] font-semibold text-sky-800">Coming soon</span>}
+                        {preview && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[12px] font-semibold text-violet-800">Preview</span>}
                       </div>
                       <p className={cx("mt-1 text-[14px] leading-relaxed", usable ? "text-stone-600" : "text-stone-500")}>{c.description}</p>
                     </div>

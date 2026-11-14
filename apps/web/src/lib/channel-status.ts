@@ -37,6 +37,12 @@ const READERS: Partial<Record<ChannelId, StatusReader>> = {
     if (active === 0) return { state: "setup", text: "Connect a mailbox to start" };
     return { state: "ready", text: `${active} mailbox${active === 1 ? "" : "es"} connected` };
   },
+  whatsapp: async (prisma, workspaceId) => {
+    const n = await prisma.whatsappNumber.findFirst({ where: { workspaceId }, select: { status: true, displayPhone: true } });
+    if (!n) return { state: "setup", text: "Connect a WhatsApp number to start" };
+    if (n.status !== "CONNECTED") return { state: "attention", text: "Your WhatsApp number needs attention" };
+    return { state: "ready", text: `${n.displayPhone || "Number"} connected` };
+  },
 };
 
 export async function channelSetup(prisma: PrismaClient, workspaceId: string, id: ChannelId): Promise<ChannelSetup> {

@@ -37,3 +37,4 @@ export * from "./people.js";
 export * from "./lipsync.js";
 export * from "./video.js";
 export * from "./subscriptions.js";
+export * from "./whatsapp-api.js";

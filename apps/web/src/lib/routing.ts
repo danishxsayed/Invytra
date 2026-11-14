@@ -1,4 +1,5 @@
 import { CHANNELS } from "@invytra/shared";
+import { previewChannel } from "./preview";
 import { HUB_PAGES, hostKind, channelOrigin, domainConfig, hubOrigin, siteOrigin, type DomainConfig } from "./domains";
 
 export type RouteDecision = { type: "next" } | { type: "rewrite"; path: string } | { type: "redirect"; url: string };
@@ -51,7 +52,7 @@ export function routeRequest(
 
     case "channel": {
       const c = where.channel;
-      if (c.status !== "live") return { type: "redirect", url: `${hubOrigin(cfg)}/?soon=${c.id}` };
+      if (c.status !== "live" && !previewChannel(c.id)) return { type: "redirect", url: `${hubOrigin(cfg)}/?soon=${c.id}` };
       const here = `${channelOrigin(c.id, cfg)}${path}${search}`;
       if (!hasSession) return { type: "redirect", url: `${hubOrigin(cfg)}${login(here)}` };
       if (AUTH_PATHS.includes(path) || is(path, "/workspace")) return { type: "redirect", url: `${hubOrigin(cfg)}/` };
