@@ -4,7 +4,8 @@ import { DeleteWorkspace } from "@/components/DeleteWorkspace";
 import { TeamManager } from "@/components/settings/TeamManager";
 import { listInvites } from "@/lib/team";
 import { PasswordForm, ProfileForm, SignOutOthers, WorkspaceForm } from "@/components/SettingsForms";
-import { PageTabs, pickTab } from "@/components/PageTabs";
+import { PageTabs } from "@/components/PageTabs";
+import { pickTab } from "@/lib/page-tabs";
 import { Card } from "@/components/ui";
 import { getAiBalance } from "@/lib/ai-credits";
 import { requireUser } from "@/lib/auth";
@@ -31,9 +32,9 @@ function Section({ icon: Icon, title, hint, children }: { icon: typeof UserRound
 }
 
 const TABS = [
-  { id: "general", label: "General", icon: Building2 },
-  { id: "team", label: "Team", icon: Users },
-  { id: "account", label: "Your account", icon: UserRound },
+  { id: "general", label: "General", icon: <Building2 /> },
+  { id: "team", label: "Team", icon: <Users /> },
+  { id: "account", label: "Your account", icon: <UserRound /> },
 ];
 
 /** Settings for the whole workspace (every channel), and the signed-in person's own account. */

@@ -6,7 +6,8 @@ import { BillingDetails } from "@/components/billing/BillingDetails";
 import { PlanActions } from "@/components/billing/PlanActions";
 import { PlanCards, PlanCompare } from "@/components/billing/PlanCards";
 import { VerifyCredits } from "@/components/email/contacts/VerifyCredits";
-import { PageTabs, pickTab } from "@/components/PageTabs";
+import { PageTabs } from "@/components/PageTabs";
+import { pickTab } from "@/lib/page-tabs";
 import { Card, cx } from "@/components/ui";
 import { aiUsageThisMonth, getAiBalance } from "@/lib/ai-credits";
 import { requireUser } from "@/lib/auth";
@@ -54,11 +55,11 @@ const METHOD: Record<string, string> = {
 };
 
 const TABS = [
-  { id: "plan", label: "Plan", icon: CreditCard },
-  { id: "credits", label: "Credits and usage", icon: Sparkles },
-  { id: "payments", label: "Payments and invoices", icon: ReceiptText },
-  { id: "details", label: "Billing details", icon: FileText },
-  { id: "history", label: "Plan history", icon: History },
+  { id: "plan", label: "Plan", icon: <CreditCard /> },
+  { id: "credits", label: "Credits and usage", icon: <Sparkles /> },
+  { id: "payments", label: "Payments and invoices", icon: <ReceiptText /> },
+  { id: "details", label: "Billing details", icon: <FileText /> },
+  { id: "history", label: "Plan history", icon: <History /> },
 ];
 
 function Heading({ id, icon: Icon, title, hint }: { id?: string; icon: typeof CreditCard; title: string; hint?: string }) {
