@@ -25,7 +25,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <a href={hubHref("/billing#payments")} className="inline-flex items-center gap-1.5 text-[14px] font-medium text-stone-600 hover:text-stone-900">
+        <a href={hubHref("/billing?tab=payments")} className="inline-flex items-center gap-1.5 text-[14px] font-medium text-stone-600 hover:text-stone-900">
           <ArrowLeft className="h-4 w-4" aria-hidden /> Billing
         </a>
         <PrintButton />

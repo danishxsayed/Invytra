@@ -6,5 +6,5 @@ import { canSeeBilling } from "@/lib/workspace-nav";
 /** Credits live on the Billing page now (owner only). */
 export default async function OldCredits() {
   const me = await requireUser();
-  redirect(canSeeBilling(me) ? hubHref("/billing#credits") : hubHref("/"));
+  redirect(canSeeBilling(me) ? hubHref("/billing?tab=credits") : hubHref("/"));
 }

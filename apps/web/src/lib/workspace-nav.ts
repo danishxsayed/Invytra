@@ -5,4 +5,4 @@ import { hubHref } from "./domains";
 export const canSeeBilling = (me: Pick<CurrentUser, "role">) => me.role === "OWNER";
 
 /** Where the AI credits chip leads: Billing for the owner, nowhere for members. */
-export const creditsHref = (me: Pick<CurrentUser, "role">) => (canSeeBilling(me) ? hubHref("/billing#credits") : null);
+export const creditsHref = (me: Pick<CurrentUser, "role">) => (canSeeBilling(me) ? hubHref("/billing?tab=credits") : null);

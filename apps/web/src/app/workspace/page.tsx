@@ -122,7 +122,7 @@ export default async function WorkspaceHub({ searchParams }: { searchParams: Pro
                       </span>
                     )}
                     {!usable && !soon && me.role === "OWNER" ? (
-                      <a href={hubHref("/billing#plans")} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-900 bg-white px-3.5 py-2 text-[14px] font-semibold text-stone-900 hover:bg-stone-50">
+                      <a href={hubHref("/billing")} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-900 bg-white px-3.5 py-2 text-[14px] font-semibold text-stone-900 hover:bg-stone-50">
                         Upgrade to unlock
                       </a>
                     ) : usable ? (

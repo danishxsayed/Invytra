@@ -87,10 +87,10 @@ export async function needsAttention(prisma: PrismaClient, me: CurrentUser, now 
 
   const ai = aiBalance(ws, now);
   if (ai.left < LOW_AI)
-    out.push({ id: "ai", tone: ai.left === 0 ? "urgent" : "warn", title: ai.left === 0 ? "No AI credits left" : `Only ${ai.left} AI credits left`, detail: "AI writing, handwritten and voice notes stop when they run out (messages still go without them).", action: billing("Add credits", "#credits") });
+    out.push({ id: "ai", tone: ai.left === 0 ? "urgent" : "warn", title: ai.left === 0 ? "No AI credits left" : `Only ${ai.left} AI credits left`, detail: "AI writing, handwritten and voice notes stop when they run out (messages still go without them).", action: billing("Add credits", "?tab=credits") });
   if (ws.channels.includes("email")) {
     const v = verifyBalance(ws, now);
-    if (v.left < LOW_VERIFY) out.push({ id: "verify", tone: "warn", title: v.left === 0 ? "No email verification credits left" : `Only ${v.left} verification credits left`, detail: "New contacts can't be checked before sending.", action: billing("Add credits", "#credits") });
+    if (v.left < LOW_VERIFY) out.push({ id: "verify", tone: "warn", title: v.left === 0 ? "No email verification credits left" : `Only ${v.left} verification credits left`, detail: "New contacts can't be checked before sending.", action: billing("Add credits", "?tab=credits") });
   }
 
   if (waitingLi) out.push({ id: "li-replies", tone: "info", title: `${waitingLi} LinkedIn conversation${waitingLi === 1 ? "" : "s"} waiting for your reply`, detail: "They wrote last and it isn't marked done.", action: { label: "Open inbox", href: hubHref("/inbox?f=needs&ch=linkedin") } });

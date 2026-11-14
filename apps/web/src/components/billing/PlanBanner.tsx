@@ -17,7 +17,7 @@ export async function PlanBanner({ workspaceId, owner }: { workspaceId: string; 
   const status = effectiveStatus(s, now);
   const upgrade = (label: string) =>
     owner ? (
-      <a href={hubHref("/billing#plans")} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-stone-900 px-3.5 py-2 text-[14px] font-semibold text-white hover:bg-stone-800">
+      <a href={hubHref("/billing")} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-stone-900 px-3.5 py-2 text-[14px] font-semibold text-white hover:bg-stone-800">
         {label} <ArrowRight className="h-4 w-4" aria-hidden />
       </a>
     ) : (
