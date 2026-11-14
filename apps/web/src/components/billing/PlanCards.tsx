@@ -71,12 +71,13 @@ export function PlanCards(p: Props) {
         <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[13px] font-semibold text-emerald-800">Save 15% yearly</span>
       </div>
 
-      <div className={cx("mt-8 grid gap-4 sm:grid-cols-2", p.mode === "site" ? "xl:grid-cols-4" : "xl:grid-cols-3")}>
-        {p.mode === "site" && <TrialCard site={p.signupHref} />}
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <PaidCard plan="starter" cycle={cycle} props={p} />
         <PaidCard plan="growth" cycle={cycle} props={p} />
         <VipCard contactHref={p.contactHref} current={cur?.plan === "vip"} />
       </div>
+      {/* The free trial, below the paid plans (website only). */}
+      {p.mode === "site" && <TrialStrip href={p.signupHref} />}
     </div>
   );
 }
@@ -98,24 +99,21 @@ function CardShell({ children, highlight, label }: { children: React.ReactNode; 
   );
 }
 
-function TrialCard({ site }: { site: string }) {
+function TrialStrip({ href }: { href: string }) {
   return (
-    <CardShell label="Free trial">
-      <h3 className="font-display text-[22px] font-bold text-stone-900">Free trial</h3>
-      <p className="mt-1 text-[14px] text-stone-500">Try Invytra on one channel.</p>
-      <p className="mt-4 font-display text-[36px] font-bold leading-none text-stone-900">$0</p>
-      <p className="mt-1 text-[14px] text-stone-500">for {TRIAL.days} days, no card</p>
-      <ul className="mt-5 flex-1 space-y-2.5">
-        <Feature>{TRIAL.credits} credits</Feature>
-        <Feature>1 channel of your choice</Feature>
-        <Feature>1 sender account</Feature>
-        <Feature>Every feature of that channel</Feature>
-        <Feature muted>After {TRIAL.days} days, sending stops until you upgrade. Nothing is deleted.</Feature>
-      </ul>
-      <a href={site} className="mt-6 inline-flex justify-center rounded-xl border border-stone-900 px-4 py-2.5 text-[15px] font-semibold text-stone-900 hover:bg-stone-50">
+    <section aria-label="Free trial" className="mt-4 flex flex-col gap-5 rounded-2xl border border-dashed border-stone-900/20 bg-white/60 px-6 py-5 md:flex-row md:items-center md:justify-between">
+      <div className="min-w-0">
+        <p className="font-display text-[20px] font-bold text-stone-900">
+          Not sure yet? Try it free for {TRIAL.days} days.
+        </p>
+        <p className="mt-1 text-[15px] text-stone-600">
+          One channel of your choice, one sender and {TRIAL.credits} credits. No card needed. When it ends, sending stops until you choose a plan; nothing is deleted.
+        </p>
+      </div>
+      <a href={href} className="inline-flex shrink-0 justify-center rounded-xl border border-stone-900 px-5 py-2.5 text-[15px] font-semibold text-stone-900 hover:bg-stone-50">
         Start free trial
       </a>
-    </CardShell>
+    </section>
   );
 }
 
