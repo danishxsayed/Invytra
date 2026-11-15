@@ -156,6 +156,7 @@ export default async function WhatsappContactsPage({ searchParams }: { searchPar
                 pages={data.pages}
                 prevHref={data.page > 1 ? href({ p: String(data.page - 1) }) : null}
                 nextHref={data.page < data.pages ? href({ p: String(data.page + 1) }) : null}
+                knownTags={summary.tags.map((t) => t.tag)}
               />
             )}
           </div>

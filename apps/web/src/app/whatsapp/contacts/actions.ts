@@ -6,6 +6,7 @@ import type { Result } from "@/lib/accounts";
 import { requireChannel } from "@/lib/auth";
 import { addWaContact, deleteWaContacts, deleteWaTags, importWaContacts, optOutWaContacts, renameWaTag, tagWaContacts, type WaImportResult } from "@/lib/whatsapp-contacts";
 import { deleteSegments, previewSegment, renameSegment, saveSegment } from "@/lib/whatsapp-segments";
+import { getWaContactDetail, updateWaContact } from "@/lib/whatsapp-contact-detail";
 
 /* WhatsApp contacts: each action checks the WhatsApp channel and only touches the user's workspace. */
 
@@ -67,4 +68,14 @@ export async function renameSegmentAction(id: string, name: string): Promise<Res
 export async function deleteSegmentsAction(ids: unknown): Promise<Result<number>> {
   const me = await requireChannel("whatsapp");
   return done(await deleteSegments(prisma, me.workspace.id, ids));
+}
+
+export async function getWaContactAction(id: string) {
+  const me = await requireChannel("whatsapp");
+  return getWaContactDetail(prisma, me.workspace.id, String(id));
+}
+
+export async function updateWaContactAction(id: string, input: unknown): Promise<Result> {
+  const me = await requireChannel("whatsapp");
+  return done(await updateWaContact(prisma, me.workspace.id, String(id), me.user.name, input));
 }

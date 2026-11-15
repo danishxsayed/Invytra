@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteWaContactsAction, optOutWaContactsAction, tagWaContactsAction } from "@/app/whatsapp/contacts/actions";
 import { cx } from "../../ui";
+import { ContactPanel } from "./ContactPanel";
 
 export interface WaContactView {
   id: string;
@@ -35,7 +36,7 @@ const initials = (n: string) =>
     .join("") || "?";
 
 /** The contacts table: tick rows, then tag, start a campaign, export, opt out or delete them together. */
-export function WaContactTable({ rows, total, page, pages, prevHref, nextHref }: { rows: WaContactView[]; total: number; page: number; pages: number; prevHref: string | null; nextHref: string | null }) {
+export function WaContactTable({ rows, total, page, pages, prevHref, nextHref, knownTags }: { rows: WaContactView[]; total: number; page: number; pages: number; prevHref: string | null; nextHref: string | null; knownTags: string[] }) {
   const router = useRouter();
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [tagOpen, setTagOpen] = useState(false);
@@ -44,6 +45,7 @@ export function WaContactTable({ rows, total, page, pages, prevHref, nextHref }:
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
   const ids = [...picked];
   const n = ids.length;
   const all = rows.length > 0 && rows.every((r) => picked.has(r.id));
@@ -158,7 +160,11 @@ export function WaContactTable({ rows, total, page, pages, prevHref, nextHref }:
                 const Icon = CONSENT_ICON[r.consent.kind];
                 const hue = tagColor(r.name);
                 return (
-                  <tr key={r.id} className={cx("align-middle", picked.has(r.id) && "bg-emerald-50/40")}>
+                  <tr
+                    key={r.id}
+                    onClick={(e) => !(e.target as HTMLElement).closest("input,button,a") && setOpen(r.id)}
+                    className={cx("cursor-pointer align-middle transition hover:bg-stone-50", picked.has(r.id) && "bg-emerald-50/40")}
+                  >
                     <td className="py-3 pl-4">
                       <input type="checkbox" className="h-4 w-4 accent-emerald-600" checked={picked.has(r.id)} onChange={() => toggle(r.id)} aria-label={`Select ${r.name}`} />
                     </td>
@@ -168,7 +174,9 @@ export function WaContactTable({ rows, total, page, pages, prevHref, nextHref }:
                           {initials(r.name)}
                         </span>
                         <span className="min-w-0">
-                          <span className="block max-w-[150px] truncate font-medium text-stone-900">{r.name}</span>
+                          <button type="button" onClick={() => setOpen(r.id)} className="block max-w-[150px] truncate text-left font-medium text-stone-900 hover:underline">
+                            {r.name}
+                          </button>
                           <span className={cx("block max-w-[150px] truncate text-[13px]", r.email ? "text-stone-500" : "text-stone-400")}>{r.email ?? "No email"}</span>
                         </span>
                       </span>
@@ -263,6 +271,7 @@ export function WaContactTable({ rows, total, page, pages, prevHref, nextHref }:
           </span>
         </div>
       </div>
+      {open && <ContactPanel id={open} tags={knownTags} onClose={() => setOpen(null)} />}
     </div>
   );
 }
