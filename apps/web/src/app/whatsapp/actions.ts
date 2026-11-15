@@ -7,7 +7,7 @@ import type { Result } from "@/lib/accounts";
 import { requireChannel } from "@/lib/auth";
 import { canPreview } from "@/lib/preview";
 import { senderProblem } from "@/lib/subscriptions";
-import { connectNumber, createTemplate, deleteTemplate, disconnectNumber, refreshNumber, saveProfile, syncTemplates, uploadHeaderMedia } from "@/lib/whatsapp";
+import { connectNumber, createTemplate, deleteTemplate, disconnectNumber, refreshNumber, saveProfile, saveProfilePhoto, syncTemplates, uploadHeaderMedia } from "@/lib/whatsapp";
 
 /* WhatsApp actions: each checks the signed-in user may use the WhatsApp channel, and only touches their workspace. */
 
@@ -39,6 +39,12 @@ export async function disconnectNumberAction(): Promise<Result> {
 export async function saveProfileAction(input: unknown): Promise<Result> {
   const me = await requireChannel("whatsapp");
   return done(await saveProfile(prisma, me.workspace.id, input));
+}
+
+export async function saveProfilePhotoAction(form: FormData): Promise<Result> {
+  const me = await requireChannel("whatsapp");
+  const file = form.get("file");
+  return done(await saveProfilePhoto(prisma, me.workspace.id, file instanceof File ? file : null));
 }
 
 export async function syncTemplatesAction(): Promise<Result<{ count: number }>> {

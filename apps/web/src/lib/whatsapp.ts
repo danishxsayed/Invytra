@@ -296,6 +296,26 @@ export async function deleteTemplate(prisma: PrismaClient, workspaceId: string, 
   return { ok: true, value: undefined };
 }
 
+export const PROFILE_PHOTO = { types: ["image/jpeg", "image/png"], maxMb: 5 } as const;
+
+/** Changes the business's WhatsApp profile photo (what people see next to its name). */
+export async function saveProfilePhoto(prisma: PrismaClient, workspaceId: string, file: File | null, d: WaDeps = deps()): Promise<Result> {
+  if (!d.app) return { ok: false, error: NOT_SET_UP };
+  if (!file || !file.size) return { ok: false, error: "Choose a photo." };
+  if (!(PROFILE_PHOTO.types as readonly string[]).includes(file.type)) return { ok: false, error: "Use a JPG or PNG photo." };
+  if (file.size > PROFILE_PHOTO.maxMb * 1024 * 1024) return { ok: false, error: `The photo can be up to ${PROFILE_PHOTO.maxMb} MB.` };
+  const n = await prisma.whatsappNumber.findFirst({ where: { workspaceId } });
+  if (!n) return { ok: false, error: "Connect a WhatsApp number first." };
+  try {
+    const c = clientFor(n, d);
+    const handle = await c.uploadSample({ bytes: new Uint8Array(await file.arrayBuffer()), type: file.type, name: file.name || "profile" });
+    await c.setProfilePhoto(n.phoneNumberId, handle);
+    return { ok: true, value: undefined };
+  } catch (e) {
+    return failed(e, "change the profile photo");
+  }
+}
+
 /** Uploads the sample header file (image, video or PDF) Meta reviews with the template → its handle. */
 export async function uploadHeaderMedia(prisma: PrismaClient, workspaceId: string, kind: string, file: File | null, d: WaDeps = deps()): Promise<Result<{ handle: string }>> {
   if (!d.app) return { ok: false, error: NOT_SET_UP };

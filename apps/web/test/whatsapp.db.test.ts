@@ -5,7 +5,7 @@
 import { createHmac } from "node:crypto";
 import { PrismaClient, openSecret, type MetaApp } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { chatIdentity, connectNumber, createTemplate, deleteTemplate, disconnectNumber, getNumber, refreshNumber, syncTemplates, type WaDeps } from "../src/lib/whatsapp";
+import { chatIdentity, connectNumber, saveProfilePhoto, createTemplate, deleteTemplate, disconnectNumber, getNumber, refreshNumber, syncTemplates, type WaDeps } from "../src/lib/whatsapp";
 import { handleWhatsappWebhook, verifyWebhook } from "../src/lib/whatsapp-webhook";
 
 const url = process.env.TEST_DATABASE_URL;
@@ -25,13 +25,16 @@ d("whatsapp", () => {
     const u = new URL(String(input));
     const path = u.pathname.replace("/v23.0/", "");
     const method = init?.method ?? "GET";
-    calls.push({ method, path, body: init?.body ? JSON.parse(String(init.body)) : undefined, auth: new Headers(init?.headers).get("authorization") ?? undefined });
+    calls.push({ method, path, body: typeof init?.body === "string" ? JSON.parse(init.body) : init?.body, auth: new Headers(init?.headers).get("authorization") ?? undefined });
     const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status });
     if (path === "oauth/access_token") return u.searchParams.get("code") === "good-code" ? json({ access_token: "biz-token" }) : json({ error: { message: "bad code", code: 100 } }, 400);
     if (path === "555/subscribed_apps") return json({ success: true });
     if (path === "777/register") return failRegister ? json({ error: { message: "pin", code: 133005 } }, 400) : json({ success: true });
     if (path === "999/whatsapp_credit_sharing_and_attach") return json({ allocation_config_id: "a1", waba_id: "555" });
     if (path === "777") return json({ id: "777", display_phone_number: "+971 50 123 4567", verified_name: "Acme", quality_rating: "GREEN", messaging_limit_tier: "TIER_1K", status: "CONNECTED", is_official_business_account: true });
+    if (path === "111/uploads") return json({ id: "upload:abc" });
+    if (path === "upload:abc") return json({ h: "photo-handle" });
+    if (path === "777/whatsapp_business_profile" && method === "POST") return json({ success: true });
     if (path === "777/whatsapp_business_profile") return json({ data: [{ about: "Hi", profile_picture_url: "https://pps.whatsapp.net/acme.jpg" }] });
     if (path === "555/message_templates" && method === "GET") return json({ data: templates });
     if (path === "555/message_templates" && method === "POST") return json({ id: "t2", status: "PENDING", category: "MARKETING" });
@@ -96,6 +99,16 @@ d("whatsapp", () => {
   it("chat identity: profile photo and green badge, nothing for a workspace without a number", async () => {
     expect(await chatIdentity(prisma, A, deps)).toEqual({ photo: "https://pps.whatsapp.net/acme.jpg", official: true });
     expect(await chatIdentity(prisma, B, deps)).toEqual({ photo: null, official: false });
+  });
+
+  it("changes the profile photo: checks the file, uploads it, sets it", async () => {
+    const png = (size: number, type = "image/png") => new File([new Uint8Array(size)], "logo.png", { type });
+    expect(await saveProfilePhoto(prisma, A, png(10, "image/gif"), deps)).toMatchObject({ ok: false, error: expect.stringContaining("JPG or PNG") });
+    expect(await saveProfilePhoto(prisma, A, png(6 * 1024 * 1024), deps)).toMatchObject({ ok: false, error: expect.stringContaining("5 MB") });
+    expect(await saveProfilePhoto(prisma, B, png(10), deps)).toMatchObject({ ok: false, error: expect.stringContaining("Connect") });
+    calls.length = 0;
+    expect(await saveProfilePhoto(prisma, A, png(10), deps)).toEqual({ ok: true, value: undefined });
+    expect(calls.at(-1)).toMatchObject({ method: "POST", path: "777/whatsapp_business_profile", body: { messaging_product: "whatsapp", profile_picture_handle: "photo-handle" } });
   });
 
   it("submits templates (checked first), syncs and deletes", async () => {

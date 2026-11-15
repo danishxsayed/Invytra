@@ -1,9 +1,9 @@
 "use client";
 
-import { Check, Copy, Loader2, RefreshCw, Unplug } from "lucide-react";
+import { Camera, Check, Copy, Loader2, RefreshCw, Unplug } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { disconnectNumberAction, refreshNumberAction, saveProfileAction } from "@/app/whatsapp/actions";
+import { useRef, useState, useTransition } from "react";
+import { disconnectNumberAction, refreshNumberAction, saveProfileAction, saveProfilePhotoAction } from "@/app/whatsapp/actions";
 import { btn } from "../AccountControls";
 import { Field, inputCls } from "../fields";
 import { cx } from "../ui";
@@ -153,5 +153,66 @@ export function ProfileForm({ initial }: { initial: Profile }) {
         <Note msg={msg} />
       </div>
     </form>
+  );
+}
+
+/** The WhatsApp profile photo: shown next to the business name in every chat. */
+export function ProfilePhoto({ photo, name }: { photo: string | null; name: string }) {
+  const router = useRouter();
+  const input = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<Msg>(null);
+  const shown = preview ?? (failed ? null : photo);
+  const pick = (file: File | undefined) => {
+    if (!file) return;
+    if (!["image/jpeg", "image/png"].includes(file.type)) return setMsg({ ok: false, text: "Use a JPG or PNG photo." });
+    if (file.size > 5 * 1024 * 1024) return setMsg({ ok: false, text: "The photo can be up to 5 MB." });
+    const form = new FormData();
+    form.set("file", file);
+    start(async () => {
+      setMsg(null);
+      const r = await saveProfilePhotoAction(form);
+      if (!r.ok) return setMsg({ ok: false, text: r.error });
+      setPreview(URL.createObjectURL(file));
+      setMsg({ ok: true, text: "Photo changed. WhatsApp shows it within a few minutes." });
+      router.refresh();
+    });
+  };
+  return (
+    <div className="flex items-center gap-4">
+      <button type="button" onClick={() => input.current?.click()} disabled={pending} className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-full ring-1 ring-stone-200" aria-label="Change profile photo">
+        {shown ? (
+          // eslint-disable-next-line @next/next/no-img-element -- Meta's CDN link or the chosen file
+          <img src={shown} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} className="h-full w-full object-cover" />
+        ) : (
+          <span className="grid h-full w-full place-items-center bg-[#5fcf7e] text-[28px] font-semibold text-white">{(name.trim() || "B").charAt(0).toUpperCase()}</span>
+        )}
+        <span className={cx("absolute inset-0 grid place-items-center bg-black/45 text-white transition", pending ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
+          {pending ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Camera className="h-5 w-5" aria-hidden />}
+        </span>
+      </button>
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <p className="text-[15px] font-semibold text-stone-900">Profile photo</p>
+        <p className="text-[13.5px] text-stone-500">Shown next to your name in every chat. A square JPG or PNG, at least 640 × 640, up to 5 MB.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" onClick={() => input.current?.click()} disabled={pending} className={btn.secondary}>
+            <Camera className="h-4 w-4" aria-hidden /> {shown ? "Change photo" : "Add photo"}
+          </button>
+          <Note msg={msg} />
+        </div>
+      </div>
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png"
+        className="sr-only"
+        onChange={(e) => {
+          pick(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
+    </div>
   );
 }

@@ -434,6 +434,14 @@ export function TemplateBuilder({ initial, business, copied }: { initial: WaTemp
 
         <aside className="space-y-4 lg:sticky lg:top-6">
           <WaPhone t={preview} values={t.bodyExamples} headerValue={t.header.type === "TEXT" ? t.header.example : undefined} business={business} />
+          {!business.photo && (
+            <p className="text-center text-[13px] text-stone-500">
+              No profile photo yet.{" "}
+              <a href="/whatsapp/number" className="font-medium text-emerald-700 hover:underline">
+                Add one
+              </a>
+            </p>
+          )}
           <div className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
             {tried && errors.length > 0 && (
               <ul className="mb-3 space-y-1 text-[13.5px] text-rose-700" role="alert">

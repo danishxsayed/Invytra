@@ -172,6 +172,11 @@ export class MetaClient {
     return this.call<{ success: boolean }>("POST", `${phoneNumberId}/whatsapp_business_profile`, { body: { messaging_product: "whatsapp", ...p } });
   }
 
+  /** Sets the business's WhatsApp profile photo from an uploaded file's handle (see uploadSample). */
+  setProfilePhoto(phoneNumberId: string, handle: string) {
+    return this.call<{ success: boolean }>("POST", `${phoneNumberId}/whatsapp_business_profile`, { body: { messaging_product: "whatsapp", profile_picture_handle: handle } });
+  }
+
   /** Every template of the account (follows Meta's pages). */
   async templates(wabaId: string): Promise<MetaTemplate[]> {
     const out: MetaTemplate[] = [];

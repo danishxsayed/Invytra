@@ -4,7 +4,7 @@ import { AlertTriangle, BadgeCheck, CheckCircle2, Clock, ShieldCheck } from "luc
 import { ChannelLogo } from "@/components/ChannelLogo";
 import { Card, PageHeader, cx } from "@/components/ui";
 import { ConnectWhatsapp } from "@/components/whatsapp/ConnectWhatsapp";
-import { CopyField, DisconnectNumber, ProfileForm, RefreshNumber } from "@/components/whatsapp/NumberControls";
+import { CopyField, DisconnectNumber, ProfileForm, ProfilePhoto, RefreshNumber } from "@/components/whatsapp/NumberControls";
 import { requireChannel } from "@/lib/auth";
 import { getNumber, readProfile, signupConfig } from "@/lib/whatsapp";
 
@@ -119,6 +119,9 @@ export default async function WhatsappNumberPage() {
         <Card className="p-5 sm:p-6">
           <h2 className="text-[17px] font-semibold text-stone-900">Business profile</h2>
           <p className="mb-5 mt-1 text-[14px] text-stone-500">What people see when they tap your name in WhatsApp.</p>
+          <div className="mb-6 border-b border-stone-100 pb-6">
+            <ProfilePhoto photo={profile.photo} name={n.verifiedName} />
+          </div>
           <ProfileForm initial={{ about: profile.about, description: profile.description, email: profile.email, address: profile.address, website: profile.website }} />
         </Card>
         <Card className="space-y-4 p-5 sm:p-6">
