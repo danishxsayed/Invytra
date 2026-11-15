@@ -83,10 +83,20 @@ d("WhatsApp campaign engine", () => {
     expect(r.failed).toBe(1);
     const failed = await prisma.whatsappMessage.findFirstOrThrow({ where: { campaignId: c.id, status: "FAILED" } });
     expect(failed.error).toContain("Not on WhatsApp");
+    expect((await prisma.whatsappContact.findFirstOrThrow({ where: { workspaceId: WS, phone: "971510000003" } })).waStatus).toBe("NOT_FOUND");
     // The failed one never reached anyone, so one more fits; then the limit is full.
     expect(await tick(new Date(t.getTime() + 60_000), 100)).toMatchObject({ sent: 1 });
     expect(await tick(new Date(t.getTime() + 120_000), 100)).toMatchObject({ sent: 0 });
     expect(await prisma.whatsappMessage.count({ where: { campaignId: c.id, status: "QUEUED" } })).toBe(11);
+  });
+
+  it("sends to a segment's opted-in members (its rules when it starts)", async () => {
+    await prisma.whatsappContact.updateMany({ where: { workspaceId: WS, phone: { in: ["971500000001", "919800000005"] } }, data: { location: "Dubai Marina" } });
+    const seg = await prisma.whatsappSegment.create({ data: { workspaceId: WS, name: "Dubai", match: "any", rules: [{ field: "location", op: "contains", value: "dubai" }, { field: "tag", op: "has", value: "india" }] } });
+    const t = new Date("2026-11-15T11:00:00Z");
+    const c = await prisma.whatsappCampaign.create({ data: { workspaceId: WS, name: "Seg", templateName: "hello", language: "en", components: [{ type: "BODY", text: "Hello" }], segmentId: seg.id, status: "SCHEDULED", scheduledAt: t, varMap: {} } });
+    await tick(t);
+    expect((await prisma.whatsappMessage.findMany({ where: { campaignId: c.id } })).map((m) => m.phone).sort()).toEqual(["919800000005", "971500000001"]);
   });
 
   it("pauses when Meta cuts the connection, without losing the queue", async () => {

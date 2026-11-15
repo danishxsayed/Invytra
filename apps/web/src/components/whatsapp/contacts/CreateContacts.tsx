@@ -21,7 +21,7 @@ function downloadSample() {
 }
 
 /** "Create contacts": a side panel with Bulk upload (then full-screen column mapping) and Add individually. */
-export function CreateContacts({ suggestedTags }: { suggestedTags: string[] }) {
+export function CreateContacts({ suggestedTags, mode = "bulk" }: { suggestedTags: string[]; mode?: "bulk" | "one" }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"bulk" | "one">("bulk");
   const [howTo, setHowTo] = useState(true);
@@ -51,9 +51,15 @@ export function CreateContacts({ suggestedTags }: { suggestedTags: string[] }) {
 
   return (
     <>
-      <button type="button" className={btn.primary} onClick={() => (setTab("bulk"), setError(null), setOpen(true))}>
-        <UserPlus className="h-4 w-4" aria-hidden /> Add contacts
-      </button>
+      {mode === "one" ? (
+        <button type="button" className={btn.primary} onClick={() => (setTab("one"), setError(null), setOpen(true))}>
+          <UserPlus className="h-4 w-4" aria-hidden /> Add contact
+        </button>
+      ) : (
+        <button type="button" className={btn.secondary} onClick={() => (setTab("bulk"), setError(null), setOpen(true))}>
+          <FileUp className="h-4 w-4" aria-hidden /> Import CSV
+        </button>
+      )}
       {open && !loaded && (
         <Portal>
           <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Create contacts">

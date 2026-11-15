@@ -1,4 +1,4 @@
-import { MetaClient, MetaError, openSecret, type MetaApp, type PrismaClient } from "@invytra/db";
+import { MetaClient, MetaError, openSecret, segmentWhere, type MetaApp, type PrismaClient } from "@invytra/db";
 import { canSend, previewBody, readMetaComponents, sendComponents, templateNeeds, waDailyLimit, waSendError, type WaSlot, type WaVarSource } from "@invytra/shared";
 
 /*
@@ -34,9 +34,12 @@ const SLOW_DOWN = new Set([4, 80007, 130429, 131056]); // rate limits: try next 
 const TEMPLATE_BROKEN = new Set([132001, 132015, 132016, 132000]);
 
 /** The campaign's recipients: subscribed contacts with its tags, minus the do-not-contact list. */
-export async function addRecipients(prisma: PrismaClient, c: { id: string; workspaceId: string; tags: string[] }) {
+export async function addRecipients(prisma: PrismaClient, c: { id: string; workspaceId: string; tags: string[]; segmentId?: string | null }, now = new Date()) {
+  // A segment's rules as they are now; a deleted segment sends to nobody.
+  const seg = c.segmentId ? await prisma.whatsappSegment.findFirst({ where: { id: c.segmentId, workspaceId: c.workspaceId } }) : null;
+  const target = c.segmentId ? (seg ? segmentWhere(seg, now) : { id: "__none__" }) : c.tags.length ? { tags: { hasSome: c.tags } } : {};
   const contacts = await prisma.whatsappContact.findMany({
-    where: { workspaceId: c.workspaceId, optedOutAt: null, consentSource: { not: null }, ...(c.tags.length && { tags: { hasSome: c.tags } }) },
+    where: { workspaceId: c.workspaceId, optedOutAt: null, consentSource: { not: null }, AND: [target] },
     select: { id: true, phone: true },
   });
   const blocked = new Set(
@@ -56,7 +59,7 @@ export async function whatsappCampaignTick(d: WaTickDeps): Promise<WaTickResult>
   const out: WaTickResult = { started: 0, sent: 0, failed: 0, skipped: 0, completed: 0, paused: 0 };
 
   for (const c of await prisma.whatsappCampaign.findMany({ where: { status: "SCHEDULED", scheduledAt: { lte: now } }, take: 20 })) {
-    await addRecipients(prisma, c);
+    await addRecipients(prisma, c, now);
     await prisma.whatsappCampaign.update({ where: { id: c.id }, data: { status: "SENDING", startedAt: now, note: null } });
     out.started++;
   }
@@ -117,6 +120,7 @@ export async function whatsappCampaignTick(d: WaTickDeps): Promise<WaTickResult>
           break;
         }
         await prisma.whatsappMessage.update({ where: { id: m.id }, data: { status: "FAILED", failedAt: new Date(), error: waSendError(code, e instanceof MetaError ? (e.raw ?? e.message) : "Couldn't send") } });
+        if (code === 131026 && contact.waStatus !== "ON") await prisma.whatsappContact.update({ where: { id: contact.id }, data: { waStatus: "NOT_FOUND" } });
         out.failed++;
       }
     }

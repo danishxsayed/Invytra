@@ -145,7 +145,7 @@ const STATUS_ORDER = ["QUEUED", "SENT", "DELIVERED", "READ"];
 async function applyStatus(prisma: PrismaClient, st: Record<string, unknown>) {
   const wamid = str(st.id);
   if (!wamid) return;
-  const m = await prisma.whatsappMessage.findUnique({ where: { wamid }, select: { id: true, status: true } });
+  const m = await prisma.whatsappMessage.findUnique({ where: { wamid }, select: { id: true, status: true, contactId: true } });
   if (!m) return;
   const ts = Number(st.timestamp);
   const at = Number.isFinite(ts) && ts > 0 ? new Date(ts * 1000) : new Date();
@@ -154,6 +154,8 @@ async function applyStatus(prisma: PrismaClient, st: Record<string, unknown>) {
     const err = ((st.errors as Record<string, unknown>[] | undefined) ?? [])[0] ?? {};
     const details = str((err.error_data as Record<string, unknown> | undefined)?.details) || str(err.message) || str(err.title) || "Meta couldn't deliver it";
     await prisma.whatsappMessage.update({ where: { id: m.id }, data: { status: "FAILED", failedAt: at, error: waSendError(Number(err.code) || undefined, details) } });
+    // 131026: the number isn't on WhatsApp (or can't receive messages).
+    if (Number(err.code) === 131026 && m.contactId) await prisma.whatsappContact.updateMany({ where: { id: m.contactId, waStatus: null }, data: { waStatus: "NOT_FOUND" } });
     return;
   }
   const field = status === "DELIVERED" ? "deliveredAt" : status === "READ" ? "readAt" : status === "SENT" ? "sentAt" : null;
@@ -163,4 +165,5 @@ async function applyStatus(prisma: PrismaClient, st: Record<string, unknown>) {
     where: { id: m.id },
     data: { [field]: at, ...(forward && m.status !== "FAILED" && { status }) },
   });
+  if ((status === "DELIVERED" || status === "READ") && m.contactId) await prisma.whatsappContact.updateMany({ where: { id: m.contactId, OR: [{ waStatus: null }, { waStatus: "NOT_FOUND" }] }, data: { waStatus: "ON" } });
 }

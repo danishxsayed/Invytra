@@ -1,6 +1,6 @@
 "use client";
 
-import { WA_FIELDS, checkSources, readMetaComponents, resolveSource, templateNeeds, waLanguageLabel, type WaContactValues, type WaField, type WaSlot, type WaVarSource } from "@invytra/shared";
+import { SEGMENT_COLORS, WA_FIELDS, checkSources, readMetaComponents, resolveSource, templateNeeds, waLanguageLabel, type SegmentColor, type WaContactValues, type WaField, type WaSlot, type WaVarSource } from "@invytra/shared";
 import { ArrowLeft, CalendarClock, Check, Loader2, Rocket, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -36,11 +36,28 @@ function guess(slot: WaSlot): WaVarSource {
 }
 
 /** Name it, pick an approved template, choose who gets it, fill its variables, send now or later. */
-export function CampaignBuilder({ templates, tags, customKeys, business }: { templates: BuilderTemplate[]; tags: { tag: string; count: number }[]; customKeys: string[]; business: string }) {
+export function CampaignBuilder({
+  templates,
+  tags,
+  segments,
+  customKeys,
+  business,
+  initial,
+}: {
+  templates: BuilderTemplate[];
+  tags: { tag: string; count: number }[];
+  segments: { id: string; name: string; color: string; count: number }[];
+  customKeys: string[];
+  business: string;
+  initial?: { tag?: string; segmentId?: string };
+}) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
-  const [picked, setPicked] = useState<string[]>([]);
+  const [picked, setPicked] = useState<string[]>(initial?.tag ? [initial.tag] : []);
+  const [segmentId, setSegmentId] = useState(initial?.segmentId && segments.some((s) => s.id === initial.segmentId) ? initial.segmentId : "");
+  const [audBy, setAudBy] = useState<"tags" | "segment">(segmentId ? "segment" : "tags");
+  const seg = audBy === "segment" ? segmentId : "";
   const [map, setMap] = useState<Partial<Record<WaSlot, WaVarSource>>>({});
   const [mediaUrl, setMediaUrl] = useState("");
   const [when, setWhen] = useState<"now" | "later">("now");
@@ -55,13 +72,13 @@ export function CampaignBuilder({ templates, tags, customKeys, business }: { tem
   useEffect(() => setMap(Object.fromEntries(needs.slots.map((s) => [s.slot, guess(s.slot)]))), [needs]);
   useEffect(() => {
     let live = true;
-    void audienceAction(picked).then((r) => live && setAud(r));
+    void audienceAction(audBy === "tags" ? picked : [], seg).then((r) => live && setAud(r));
     return () => {
       live = false;
     };
-  }, [picked]);
+  }, [picked, audBy, seg]);
 
-  const errors = [...(!name.trim() ? ["Name the campaign."] : []), ...(!t ? ["Choose a template."] : []), ...checkSources(needs, map, mediaUrl), ...(aud && !aud.count ? ["Nobody to send to: pick other tags."] : []), ...(when === "later" && !sendAt ? ["Choose when to send it."] : [])];
+  const errors = [...(!name.trim() ? ["Name the campaign."] : []), ...(!t ? ["Choose a template."] : []), ...checkSources(needs, map, mediaUrl), ...(audBy === "segment" && !segmentId ? ["Choose a segment."] : []), ...(aud && !aud.count ? [audBy === "segment" ? "Nobody opted in is in this segment." : "Nobody to send to: pick other tags."] : []), ...(when === "later" && !sendAt ? ["Choose when to send it."] : [])];
   const view = t ? readMetaComponents(t.components) : null;
   const sample: WaContactValues = aud?.sample ?? { phone: "971500000000", firstName: "Sara", lastName: null, company: "Acme", email: null, vars: {} };
   const bodyValues = needs.slots.filter((s) => s.slot.startsWith("body:")).reduce<string[]>((a, s) => ((a[Number(s.slot.split(":")[1]) - 1] = resolveSource(map[s.slot], sample)), a), []);
@@ -74,7 +91,7 @@ export function CampaignBuilder({ templates, tags, customKeys, business }: { tem
     if (errors.length) return;
     start(async () => {
       setError(null);
-      const r = await createWaCampaignAction({ name, templateId, tags: picked, varMap: map, mediaUrl, sendAt: when === "later" ? new Date(sendAt).toISOString() : "" });
+      const r = await createWaCampaignAction({ name, templateId, tags: audBy === "tags" ? picked : [], segmentId: seg, varMap: map, mediaUrl, sendAt: when === "later" ? new Date(sendAt).toISOString() : "" });
       if (!r.ok) return setError(r.error);
       router.push(`/whatsapp/campaigns/${r.value.id}`);
       router.refresh();
@@ -117,7 +134,25 @@ export function CampaignBuilder({ templates, tags, customKeys, business }: { tem
             </div>
           </Step>
 
-          <Step n={2} title="Who gets it" hint="Subscribed contacts with any of the tags you pick. Opted-out numbers and your do-not-contact list are always left out.">
+          <Step n={2} title="Who gets it" hint="Opted-in contacts with any of the tags you pick, or in a segment. Opted-out numbers and your do-not-contact list are always left out.">
+            {segments.length > 0 && (
+              <div className="inline-flex rounded-lg bg-stone-100 p-1 text-[14px]" role="tablist">
+                {(["tags", "segment"] as const).map((k) => (
+                  <button key={k} type="button" role="tab" aria-selected={audBy === k} onClick={() => setAudBy(k)} className={cx("rounded-md px-3 py-1.5 font-medium", audBy === k ? "bg-white text-stone-900 shadow-sm" : "text-stone-500")}>
+                    {k === "tags" ? "By tags" : "A segment"}
+                  </button>
+                ))}
+              </div>
+            )}
+            {audBy === "segment" ? (
+              <div className="flex flex-wrap gap-2">
+                {segments.map((s) => (
+                  <button key={s.id} type="button" aria-pressed={segmentId === s.id} onClick={() => setSegmentId(s.id)} className={cx("inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[14px] font-medium ring-1", segmentId === s.id ? "bg-lime-200 text-stone-900 ring-lime-400" : "bg-white text-stone-700 ring-stone-200 hover:ring-stone-300")}>
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: SEGMENT_COLORS[s.color as SegmentColor] ?? SEGMENT_COLORS.green }} /> {s.name} <span className="opacity-50">{s.count}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => setPicked([])} aria-pressed={!picked.length} className={cx("rounded-full px-3 py-1.5 text-[14px] font-medium ring-1", !picked.length ? "bg-stone-900 text-white ring-stone-900" : "bg-white text-stone-700 ring-stone-200")}>
                 Everyone subscribed
@@ -137,6 +172,7 @@ export function CampaignBuilder({ templates, tags, customKeys, business }: { tem
                 );
               })}
             </div>
+            )}
             <p className="flex items-center gap-2 rounded-xl bg-stone-50 px-4 py-3 text-[14.5px] text-stone-700 ring-1 ring-stone-200">
               <Users className="h-4 w-4 text-stone-500" aria-hidden />
               {aud ? (

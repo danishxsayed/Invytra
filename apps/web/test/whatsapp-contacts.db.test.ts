@@ -37,11 +37,11 @@ d("whatsapp contacts", () => {
     expect(await addWaContact(prisma, A, "Olivia", { name: "Omar", phone: "00971501234567", consent: true }, now)).toMatchObject({ ok: false, error: expect.stringContaining("already") });
     expect(await addWaContact(prisma, A, "Olivia", { name: "Other", phone: "+971501234599", userId: "USR-1", consent: true }, now)).toMatchObject({ ok: false, error: expect.stringContaining("User ID") });
     const c = await prisma.whatsappContact.findFirstOrThrow({ where: { workspaceId: A } });
-    expect(c).toMatchObject({ phone: "971501234567", firstName: "Omar", externalId: "USR-1", tags: ["dubai", "warm"], vars: { appointment_time: "2026-12-01 10:30", location: "Dubai" }, consentSource: "MANUAL", consentBy: "Olivia" });
+    expect(c).toMatchObject({ phone: "971501234567", firstName: "Omar", externalId: "USR-1", location: "Dubai", tags: ["dubai", "warm"], vars: { appointment_time: "2026-12-01 10:30", location: "Dubai" }, consentSource: "MANUAL", consentBy: "Olivia" });
     // "No": saved, but not opted in (campaigns skip them).
     expect(await addWaContact(prisma, A, "Olivia", { name: "Nadia", phone: "+971501234500", consent: false }, now)).toMatchObject({ ok: true });
     expect(await prisma.whatsappContact.findFirstOrThrow({ where: { workspaceId: A, phone: "971501234500" } })).toMatchObject({ consentSource: null });
-    expect((await waContactSummary(prisma, A)).counts).toEqual({ all: 2, subscribed: 1, no_consent: 1, opted_out: 0 });
+    expect((await waContactSummary(prisma, A)).counts).toEqual({ all: 2, active: 0, not_on_whatsapp: 0, not_opted_in: 1, opted_out: 0 });
     await prisma.whatsappContact.deleteMany({ where: { workspaceId: A, phone: "971501234500" } });
   });
 
@@ -54,7 +54,7 @@ d("whatsapp contacts", () => {
     const omar = await prisma.whatsappContact.findFirstOrThrow({ where: { workspaceId: A, phone: "971501234567" } });
     expect(omar).toMatchObject({ firstName: "Omar", lastName: "Haddad", tags: ["dubai", "warm", "expo-2026"], vars: { city: "Dubai", appointment_time: "2026-12-01 10:30" } });
     const s = await waContactSummary(prisma, A);
-    expect(s.counts).toEqual({ all: 2, subscribed: 2, no_consent: 0, opted_out: 0 });
+    expect(s.counts).toEqual({ all: 2, active: 0, not_on_whatsapp: 0, not_opted_in: 0, opted_out: 0 });
     expect(s.tags).toContainEqual({ tag: "expo-2026", count: 2 });
     expect((await listWaContacts(prisma, A, { tag: "warm" })).total).toBe(1);
     expect((await listWaContacts(prisma, A, { q: "9876" })).rows[0]).toMatchObject({ firstName: "Priya" });

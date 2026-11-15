@@ -49,7 +49,7 @@ export default async function WaCampaignPage({ params, searchParams }: { params:
             {c.name} <CampaignStatus status={c.status} />
           </h1>
           <p className="mt-1 text-[15px] text-stone-500">
-            <span className="font-mono">{c.templateName}</span> ({waLanguageLabel(c.language)}) · {c.tags.length ? c.tags.map((t) => `#${t}`).join(" ") : "everyone subscribed"} ·{" "}
+            <span className="font-mono">{c.templateName}</span> ({waLanguageLabel(c.language)}) · {c.segmentName ? `segment: ${c.segmentName}` : c.tags.length ? c.tags.map((t) => `#${t}`).join(" ") : "everyone subscribed"} ·{" "}
             {c.status === "SCHEDULED" && c.scheduledAt && c.scheduledAt > now ? (
               <>
                 starts <LocalTime iso={c.scheduledAt.toISOString()} />

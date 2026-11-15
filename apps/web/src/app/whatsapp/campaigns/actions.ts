@@ -8,9 +8,9 @@ import { audienceCount, changeWaCampaign, createWaCampaign } from "@/lib/whatsap
 
 /* WhatsApp campaigns: each action checks the WhatsApp channel and only touches the user's workspace. */
 
-export async function audienceAction(tags: string[]) {
+export async function audienceAction(tags: string[], segmentId?: string) {
   const me = await requireChannel("whatsapp");
-  return audienceCount(prisma, me.workspace.id, Array.isArray(tags) ? tags.map(String).slice(0, 50) : []);
+  return audienceCount(prisma, me.workspace.id, Array.isArray(tags) ? tags.map(String).slice(0, 50) : [], typeof segmentId === "string" ? segmentId.slice(0, 40) : "");
 }
 
 export async function createWaCampaignAction(input: unknown): Promise<Result<{ id: string }>> {

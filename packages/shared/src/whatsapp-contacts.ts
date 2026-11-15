@@ -1,6 +1,7 @@
 import { phoneKey } from "./do-not-contact.js";
 import { parseCsv, splitName } from "./leads.js";
 import { varKey } from "./email-vars.js";
+import { DIAL_CODES } from "./dial-codes.js";
 
 /*
  * WhatsApp contacts: who may be messaged (consent), who said stop (opt-out keywords), and
@@ -183,6 +184,7 @@ export interface WaContactRow {
   email: string | null;
   company: string | null;
   externalId: string | null;
+  location: string | null;
   tags: string[];
   vars: Record<string, string>;
   /** From a consent column: true / false; null when the file has none. */
@@ -253,6 +255,7 @@ export function applyPhoneMapping(t: WaCsvTable, mapping: WaColumnTarget[], defa
       email: email && /@/.test(email) ? email.toLowerCase().slice(0, 200) : null,
       company: cell(r, at("company_name"))?.slice(0, 200) ?? null,
       externalId: cell(r, at("user_id"))?.slice(0, 120) ?? null,
+      location: location?.slice(0, 200) ?? null,
       tags: waTags(cell(r, at("tags")) ?? ""),
       vars,
       consent: consentAt >= 0 ? readYesNo(cell(r, consentAt)) === true : null,
@@ -278,3 +281,12 @@ export const SAMPLE_WA_CSV =
 
 /** How a stored number is shown: "+971501234567". */
 export const formatPhone = (digits: string) => `+${digits}`;
+
+/** A stored number for reading: "+91 98201 44120", "+971 50 123 4567". */
+export function prettyPhone(digits: string): string {
+  const cc = [...new Set(DIAL_CODES.map((d) => d.dial))].sort((a, b) => b.length - a.length).find((d) => digits.startsWith(d) && digits.length - d.length >= 7);
+  if (!cc) return `+${digits}`;
+  const l = digits.slice(cc.length);
+  const parts = l.length === 10 && cc === "91" ? [l.slice(0, 5), l.slice(5)] : l.length === 10 ? [l.slice(0, 3), l.slice(3, 6), l.slice(6)] : l.length === 9 ? [l.slice(0, 2), l.slice(2, 5), l.slice(5)] : [l.slice(0, 3), l.slice(3, 6), l.slice(6)].filter(Boolean);
+  return `+${cc} ${parts.join(" ")}`;
+}

@@ -7,19 +7,22 @@ import { FileText } from "lucide-react";
 import { requireChannel } from "@/lib/auth";
 import { getNumber } from "@/lib/whatsapp";
 import { waContactSummary } from "@/lib/whatsapp-contacts";
+import { listSegments } from "@/lib/whatsapp-segments";
 
 export const metadata = { title: "New WhatsApp campaign" };
 export const dynamic = "force-dynamic";
 
-export default async function NewWaCampaignPage() {
+export default async function NewWaCampaignPage({ searchParams }: { searchParams: Promise<{ tag?: string; segment?: string }> }) {
+  const sp = await searchParams;
   const me = await requireChannel("whatsapp");
   const ws = me.workspace.id;
   const n = await getNumber(prisma, ws);
   if (!n) redirect("/whatsapp/number");
-  const [templates, summary, keys] = await Promise.all([
+  const [templates, summary, keys, segments] = await Promise.all([
     prisma.whatsappTemplate.findMany({ where: { workspaceId: ws, status: "APPROVED", category: { not: "AUTHENTICATION" } }, orderBy: { updatedAt: "desc" }, select: { id: true, name: true, language: true, category: true, components: true } }),
     waContactSummary(prisma, ws),
     prisma.$queryRaw<{ k: string }[]>`SELECT DISTINCT jsonb_object_keys(vars) AS k FROM whatsapp_contacts WHERE workspace_id = ${ws} AND jsonb_typeof(vars) = 'object' LIMIT 50`,
+    listSegments(prisma, ws),
   ]);
   if (!templates.length)
     return (
@@ -36,5 +39,5 @@ export default async function NewWaCampaignPage() {
         />
       </Card>
     );
-  return <CampaignBuilder templates={templates} tags={summary.tags} customKeys={keys.map((x) => x.k).sort()} business={n.verifiedName} />;
+  return <CampaignBuilder templates={templates} tags={summary.tags} segments={segments} customKeys={keys.map((x) => x.k).sort()} business={n.verifiedName} initial={{ tag: sp.tag, segmentId: sp.segment }} />;
 }

@@ -40,3 +40,4 @@ export * from "./subscriptions.js";
 export * from "./whatsapp-api.js";
 export * from "./platform-mail.js";
 export * from "./whatsapp-stats.js";
+export * from "./whatsapp-segments.js";

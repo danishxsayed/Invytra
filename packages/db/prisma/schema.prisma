@@ -66,6 +66,7 @@ model Workspace {
   whatsappTemplates  WhatsappTemplate[]
   whatsappContacts   WhatsappContact[]
   whatsappCampaigns  WhatsappCampaign[]
+  whatsappSegments   WhatsappSegment[]
   whatsappMessages   WhatsappMessage[]
 
   @@map("workspaces")
@@ -1481,6 +1482,10 @@ model WhatsappContact {
   company       String?
   /// The customer's own ID for this person (CRM / app): re-imports match it first
   externalId    String?   @map("external_id")
+  /// "City, State" (also in vars.location for templates)
+  location      String?
+  /// ON (a message reached them or they wrote), NOT_FOUND (Meta: not on WhatsApp), null = not known yet
+  waStatus      String?   @map("wa_status")
   tags          String[]  @default([])
   /// Custom variables: { key: value }
   vars          Json      @default("{}")
@@ -1507,6 +1512,26 @@ model WhatsappContact {
 }
 
 /// A WhatsApp broadcast: one approved template to the contacts with some tags (or all).
+/// Saved rules over WhatsApp contacts (see packages/shared/src/whatsapp-segments.ts)
+model WhatsappSegment {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  name        String
+  /// green, blue, orange, red, purple
+  color       String   @default("green")
+  /// all / any
+  match       String   @default("all")
+  /// [{ field, op, value }]
+  rules       Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("whatsapp_segments")
+}
+
 model WhatsappCampaign {
   id           String    @id @default(cuid())
   workspaceId  String    @map("workspace_id")
@@ -1518,6 +1543,8 @@ model WhatsappCampaign {
   components   Json
   /// Tags whose contacts get it (empty = every subscribed contact)
   tags         String[]  @default([])
+  /// Or a segment's contacts (its rules at send time) instead of tags
+  segmentId    String?   @map("segment_id")
   /// { "body:1": { kind, field | key | value, fallback } … } (see WaVarSource)
   varMap       Json      @map("var_map")
   mediaUrl     String?   @map("media_url")

@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@invytra/db";
+import { segmentWhere, type Prisma, type PrismaClient } from "@invytra/db";
 import { WA_IMPORT, applyPhoneMapping, phoneKey, phoneMappingProblem, readPhoneCsv, splitName, waTag, waTags, type WaColumnTarget } from "@invytra/shared";
 import { z } from "zod";
 import type { Result } from "./accounts";
@@ -10,49 +10,116 @@ import type { Result } from "./accounts";
  * and deleting. Every query is scoped to the workspace (CLAUDE.md rule 0).
  */
 
-export const WA_CONTACT_FILTERS = ["all", "subscribed", "no_consent", "opted_out"] as const;
+export const WA_CONTACT_FILTERS = ["all", "active", "not_on_whatsapp", "not_opted_in", "opted_out"] as const;
 export type WaContactFilter = (typeof WA_CONTACT_FILTERS)[number];
-export const WA_PAGE = 50;
+export const WA_PAGE = 10;
+const DAY = 86_400_000;
 
-const whereFor = (workspaceId: string, o: { filter?: WaContactFilter; tag?: string; q?: string }): Prisma.WhatsappContactWhereInput => {
+export interface WaContactQuery {
+  filter?: WaContactFilter;
+  /** A segment's rules (already checked to belong to the workspace) */
+  segment?: { match: string; rules: unknown } | null;
+  tag?: string;
+  /** A city: the part of the location before the first comma */
+  city?: string;
+  q?: string;
+  page?: number;
+}
+
+const viewWhere = (f: WaContactFilter | undefined, now: Date): Prisma.WhatsappContactWhereInput =>
+  f === "active"
+    ? { lastInboundAt: { gte: new Date(now.getTime() - 30 * DAY) } }
+    : f === "not_on_whatsapp"
+      ? { waStatus: "NOT_FOUND" }
+      : f === "not_opted_in"
+        ? { optedOutAt: null, consentSource: null }
+        : f === "opted_out"
+          ? { optedOutAt: { not: null } }
+          : {};
+
+export const waContactWhere = (workspaceId: string, o: WaContactQuery, now = new Date()): Prisma.WhatsappContactWhereInput => {
   const q = (o.q ?? "").trim().slice(0, 100);
   const digits = q.replace(/\D/g, "");
   return {
     workspaceId,
-    ...(o.filter === "subscribed" && { optedOutAt: null, consentSource: { not: null } }),
-    ...(o.filter === "no_consent" && { optedOutAt: null, consentSource: null }),
-    ...(o.filter === "opted_out" && { optedOutAt: { not: null } }),
-    ...(o.tag && { tags: { has: o.tag } }),
-    ...(q && {
-      OR: [
-        { firstName: { contains: q, mode: "insensitive" } },
-        { lastName: { contains: q, mode: "insensitive" } },
-        { profileName: { contains: q, mode: "insensitive" } },
-        { company: { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } },
-        { externalId: { contains: q, mode: "insensitive" } },
-        ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
-      ],
-    }),
+    AND: [
+      viewWhere(o.filter, now),
+      o.segment ? segmentWhere(o.segment, now) : {},
+      o.tag ? { tags: { has: o.tag } } : {},
+      o.city ? { location: { startsWith: o.city, mode: "insensitive" } } : {},
+      q
+        ? {
+            OR: [
+              { firstName: { contains: q, mode: "insensitive" } },
+              { lastName: { contains: q, mode: "insensitive" } },
+              { profileName: { contains: q, mode: "insensitive" } },
+              { company: { contains: q, mode: "insensitive" } },
+              { email: { contains: q, mode: "insensitive" } },
+              { externalId: { contains: q, mode: "insensitive" } },
+              ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
+            ],
+          }
+        : {},
+    ],
   };
 };
 
-export async function listWaContacts(prisma: PrismaClient, workspaceId: string, o: { filter?: WaContactFilter; tag?: string; q?: string; page?: number } = {}) {
-  const where = whereFor(workspaceId, o);
+export async function listWaContacts(prisma: PrismaClient, workspaceId: string, o: WaContactQuery = {}) {
+  const where = waContactWhere(workspaceId, o);
   const page = Math.max(1, o.page ?? 1);
   const [total, rows] = await Promise.all([prisma.whatsappContact.count({ where }), prisma.whatsappContact.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * WA_PAGE, take: WA_PAGE })]);
   return { total, rows, page, pages: Math.max(1, Math.ceil(total / WA_PAGE)) };
 }
 
-/** How many contacts in each view, and every tag with its count. */
-export async function waContactSummary(prisma: PrismaClient, workspaceId: string) {
-  const [all, optedOut, noConsent, tags] = await Promise.all([
-    prisma.whatsappContact.count({ where: { workspaceId } }),
-    prisma.whatsappContact.count({ where: { workspaceId, optedOutAt: { not: null } } }),
-    prisma.whatsappContact.count({ where: { workspaceId, optedOutAt: null, consentSource: null } }),
-    prisma.$queryRaw<{ tag: string; n: bigint }[]>`SELECT unnest(tags) AS tag, count(*) AS n FROM whatsapp_contacts WHERE workspace_id = ${workspaceId} GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 200`,
+/** How many contacts in each view, every tag and city with its count. */
+export async function waContactSummary(prisma: PrismaClient, workspaceId: string, now = new Date()) {
+  const count = (f: WaContactFilter) => prisma.whatsappContact.count({ where: { workspaceId, ...viewWhere(f, now) } });
+  const [all, active, notOn, noConsent, optedOut, tags, cities] = await Promise.all([
+    count("all"),
+    count("active"),
+    count("not_on_whatsapp"),
+    count("not_opted_in"),
+    count("opted_out"),
+    prisma.$queryRaw<{ tag: string; n: bigint }[]>`SELECT unnest(tags) AS tag, count(*) AS n FROM whatsapp_contacts WHERE workspace_id = ${workspaceId} GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 300`,
+    prisma.$queryRaw<{ city: string; n: bigint }[]>`SELECT trim(split_part(location, ',', 1)) AS city, count(*) AS n FROM whatsapp_contacts WHERE workspace_id = ${workspaceId} AND coalesce(trim(location), '') <> '' GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 200`,
   ]);
-  return { counts: { all, subscribed: all - optedOut - noConsent, no_consent: noConsent, opted_out: optedOut } as Record<WaContactFilter, number>, tags: tags.map((t) => ({ tag: t.tag, count: Number(t.n) })) };
+  return {
+    counts: { all, active, not_on_whatsapp: notOn, not_opted_in: noConsent, opted_out: optedOut } as Record<WaContactFilter, number>,
+    tags: tags.map((t) => ({ tag: t.tag, count: Number(t.n) })),
+    cities: cities.map((c) => ({ city: c.city, count: Number(c.n) })),
+  };
+}
+
+/* ---------- tags in bulk ---------- */
+
+/** Renames a tag on every contact (merging into an existing tag of that name) and in segment rules. */
+export async function renameWaTag(prisma: PrismaClient, workspaceId: string, fromRaw: string, toRaw: string): Promise<Result<number>> {
+  const from = waTag(fromRaw);
+  const to = waTag(toRaw);
+  if (!from || !to) return { ok: false, error: "Type the new tag name." };
+  if (from === to) return { ok: true, value: 0 };
+  const n = await prisma.$executeRaw`UPDATE whatsapp_contacts SET tags = ARRAY(SELECT DISTINCT t FROM unnest(array_replace(tags, ${from}, ${to})) AS t), updated_at = now() WHERE workspace_id = ${workspaceId} AND ${from} = ANY(tags)`;
+  await updateSegmentRules(prisma, workspaceId, (r) => (r.field === "tag" && r.value === from ? { ...r, value: to } : r));
+  return { ok: true, value: n };
+}
+
+/** Removes tags from every contact (the contacts stay) and drops segment rules that used them. */
+export async function deleteWaTags(prisma: PrismaClient, workspaceId: string, raw: unknown): Promise<Result<number>> {
+  const list = z.array(z.string().max(60)).min(1, "Choose a tag.").max(300).safeParse(raw);
+  if (!list.success) return { ok: false, error: list.error.issues[0]!.message };
+  const tags = [...new Set(list.data.map(waTag).filter(Boolean))];
+  const n = await prisma.$executeRaw`UPDATE whatsapp_contacts SET tags = ARRAY(SELECT t FROM unnest(tags) AS t WHERE NOT (t = ANY(${tags}::text[]))), updated_at = now() WHERE workspace_id = ${workspaceId} AND tags && ${tags}::text[]`;
+  await updateSegmentRules(prisma, workspaceId, (r) => (r.field === "tag" && tags.includes(r.value) ? null : r));
+  return { ok: true, value: n };
+}
+
+type Rule = { field: string; op: string; value: string };
+async function updateSegmentRules(prisma: PrismaClient, workspaceId: string, fn: (r: Rule) => Rule | null) {
+  for (const s of await prisma.whatsappSegment.findMany({ where: { workspaceId }, select: { id: true, rules: true } })) {
+    const before = (s.rules as Rule[]) ?? [];
+    const after = before.map(fn).filter((r): r is Rule => !!r);
+    if (JSON.stringify(after) !== JSON.stringify(before)) await prisma.whatsappSegment.update({ where: { id: s.id }, data: { rules: after } });
+  }
 }
 
 /** Numbers on the do-not-contact list (opted out on any channel, or added there). */
@@ -96,6 +163,7 @@ export async function addWaContact(prisma: PrismaClient, workspaceId: string, by
       lastName: lastName?.slice(0, 80) ?? null,
       email: p.data.email?.toLowerCase() || null,
       externalId: p.data.userId || null,
+      location: p.data.location || null,
       tags: [...new Set(p.data.tags.map(waTag).filter(Boolean))],
       vars,
       ...(p.data.consent && { consentSource: "MANUAL", consentAt: now, consentBy: by }),
@@ -160,6 +228,7 @@ export async function importWaContacts(prisma: PrismaClient, workspaceId: string
         email: c.email,
         company: c.company,
         externalId: c.externalId,
+        location: c.location,
         tags: [...new Set([...c.tags, ...extraTags])],
         vars: c.vars,
         ...(agreed(c) && { consentSource: "IMPORT", consentAt: now, consentBy: by }),
@@ -186,6 +255,7 @@ export async function importWaContacts(prisma: PrismaClient, workspaceId: string
         ...(c.email && { email: c.email }),
         ...(c.company && { company: c.company }),
         ...(c.externalId && { externalId: c.externalId }),
+        ...(c.location && { location: c.location }),
         ...(agreed(c) && !old.consentSource && { consentSource: "IMPORT", consentAt: now, consentBy: by }),
         tags: [...new Set([...old.tags, ...c.tags, ...extraTags])],
         vars: { ...((old.vars as Record<string, string>) ?? {}), ...c.vars },
@@ -244,8 +314,8 @@ export async function recordInbound(prisma: PrismaClient, workspaceId: string, m
   if (!phone) return;
   await prisma.whatsappContact.upsert({
     where: { workspaceId_phone: { workspaceId, phone } },
-    create: { workspaceId, phone, profileName: m.profileName?.slice(0, 120) || null, consentSource: "INBOUND", consentAt: m.at, lastInboundAt: m.at },
-    update: { lastInboundAt: m.at, ...(m.profileName && { profileName: m.profileName.slice(0, 120) }) },
+    create: { workspaceId, phone, profileName: m.profileName?.slice(0, 120) || null, consentSource: "INBOUND", consentAt: m.at, lastInboundAt: m.at, waStatus: "ON" },
+    update: { lastInboundAt: m.at, waStatus: "ON", ...(m.profileName && { profileName: m.profileName.slice(0, 120) }) },
   });
   if (m.optOut) await optOutPhones(prisma, workspaceId, [phone], `Replied “${(m.text ?? "STOP").trim().slice(0, 60)}”`, null, m.at);
 }

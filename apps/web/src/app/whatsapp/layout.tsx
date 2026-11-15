@@ -16,7 +16,7 @@ export default async function WhatsappLayout({ children }: { children: React.Rea
   return (
     <div className="min-h-screen">
       <header className="border-b border-stone-200/70 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2.5">
             <ChannelLogo id="whatsapp" size="sm" />
             <span className="text-[17px] font-semibold tracking-tight text-stone-900">WhatsApp</span>
@@ -30,7 +30,7 @@ export default async function WhatsappLayout({ children }: { children: React.Rea
         </div>
       </header>
       <PlanBanner workspaceId={me.workspace.id} owner={me.role === "OWNER"} />
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">{children}</main>
+      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6">{children}</main>
     </div>
   );
 }

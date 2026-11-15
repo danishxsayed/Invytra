@@ -1,4 +1,4 @@
-import { waCampaignStats, type PrismaClient, type WaCampaignStats } from "@invytra/db";
+import { segmentWhere, waCampaignStats, type Prisma, type PrismaClient, type WaCampaignStats } from "@invytra/db";
 import { WA_FIELDS, checkSources, templateNeeds, waTag, type WaSlot, type WaVarSource } from "@invytra/shared";
 import { z } from "zod";
 import type { Result } from "./accounts";
@@ -21,6 +21,8 @@ const createSchema = z.object({
   name: z.string().trim().min(1, "Name the campaign.").max(120),
   templateId: z.string().min(1, "Choose a template."),
   tags: z.array(z.string().max(40)).max(50).default([]),
+  /** Send to a segment's contacts instead of tags */
+  segmentId: z.string().max(40).default(""),
   varMap: z.record(z.string(), sourceSchema).default({}),
   mediaUrl: z.string().trim().max(1000).default(""),
   /** ISO time, or empty for "send now" */
@@ -28,15 +30,21 @@ const createSchema = z.object({
 });
 
 /** Subscribed contacts with any of these tags (all subscribed when no tags), minus the do-not-contact list. */
-export async function audienceCount(prisma: PrismaClient, workspaceId: string, tagsIn: string[]) {
+export async function audienceCount(prisma: PrismaClient, workspaceId: string, tagsIn: string[], segmentId = "", now = new Date()) {
   const tags = tagsIn.map(waTag).filter(Boolean);
-  const where = { workspaceId, optedOutAt: null, consentSource: { not: null }, ...(tags.length && { tags: { hasSome: tags } }) };
-  const [count, sample, blocked] = await Promise.all([
+  let target: Prisma.WhatsappContactWhereInput = tags.length ? { tags: { hasSome: tags } } : {};
+  if (segmentId) {
+    const seg = await prisma.whatsappSegment.findFirst({ where: { id: segmentId, workspaceId } });
+    if (!seg) return { count: 0, sample: null };
+    target = segmentWhere(seg, now);
+  }
+  const blocked = (await prisma.doNotContact.findMany({ where: { workspaceId, kind: "PHONE" }, select: { value: true } })).map((d) => d.value);
+  const where: Prisma.WhatsappContactWhereInput = { workspaceId, optedOutAt: null, consentSource: { not: null }, AND: [target, blocked.length ? { phone: { notIn: blocked } } : {}] };
+  const [count, sample] = await Promise.all([
     prisma.whatsappContact.count({ where }),
     prisma.whatsappContact.findFirst({ where, orderBy: [{ firstName: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }], select: { phone: true, firstName: true, lastName: true, profileName: true, company: true, email: true, vars: true } }),
-    prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM whatsapp_contacts c JOIN do_not_contact d ON d.workspace_id = c.workspace_id AND d.kind = 'PHONE' AND d.value = c.phone WHERE c.workspace_id = ${workspaceId} AND c.opted_out_at IS NULL AND c.consent_source IS NOT NULL AND (cardinality(${tags}::text[]) = 0 OR c.tags && ${tags}::text[])`,
   ]);
-  return { count: count - Number(blocked[0]?.n ?? 0), sample };
+  return { count, sample };
 }
 
 export async function createWaCampaign(prisma: PrismaClient, workspaceId: string, by: string, input: unknown, now = new Date()): Promise<Result<{ id: string }>> {
@@ -54,9 +62,10 @@ export async function createWaCampaign(prisma: PrismaClient, workspaceId: string
   const map = Object.fromEntries(needs.slots.map((s) => [s.slot, p.data.varMap[s.slot]]).filter((e) => e[1])) as Partial<Record<WaSlot, WaVarSource>>;
   const errs = checkSources(needs, map, p.data.mediaUrl);
   if (errs.length) return { ok: false, error: errs[0]! };
-  const tags = [...new Set(p.data.tags.map(waTag).filter(Boolean))];
-  const { count } = await audienceCount(prisma, workspaceId, tags);
-  if (!count) return { ok: false, error: tags.length ? "No subscribed contacts have these tags." : "You have no subscribed contacts yet. Import some first." };
+  const segmentId = p.data.segmentId || null;
+  const tags = segmentId ? [] : [...new Set(p.data.tags.map(waTag).filter(Boolean))];
+  const { count } = await audienceCount(prisma, workspaceId, tags, segmentId ?? "", now);
+  if (!count) return { ok: false, error: segmentId ? "Nobody opted in is in this segment right now." : tags.length ? "No subscribed contacts have these tags." : "You have no subscribed contacts yet. Import some first." };
   let at = now;
   if (p.data.sendAt) {
     const d = new Date(p.data.sendAt);
@@ -73,6 +82,7 @@ export async function createWaCampaign(prisma: PrismaClient, workspaceId: string
       language: t.language,
       components: t.components as object,
       tags,
+      segmentId,
       varMap: map as object,
       mediaUrl: needs.media ? p.data.mediaUrl : null,
       status: "SCHEDULED",
@@ -92,13 +102,15 @@ const EMPTY: WaCampaignStats = { total: 0, queued: 0, sent: 0, delivered: 0, rea
 export async function listWaCampaigns(prisma: PrismaClient, workspaceId: string) {
   const list = await prisma.whatsappCampaign.findMany({ where: { workspaceId }, orderBy: { createdAt: "desc" }, take: 100 });
   const stats = await statsFor(prisma, list.map((c) => c.id));
-  return list.map((c) => ({ ...c, stats: stats.get(c.id) ?? EMPTY }));
+  const segs = new Map((await prisma.whatsappSegment.findMany({ where: { workspaceId }, select: { id: true, name: true } })).map((x) => [x.id, x.name]));
+  return list.map((c) => ({ ...c, segmentName: c.segmentId ? (segs.get(c.segmentId) ?? "a deleted segment") : null, stats: stats.get(c.id) ?? EMPTY }));
 }
 
 export async function getWaCampaign(prisma: PrismaClient, workspaceId: string, id: string) {
   const c = await prisma.whatsappCampaign.findFirst({ where: { id, workspaceId } });
   if (!c) return null;
-  return { ...c, stats: (await statsFor(prisma, [c.id])).get(c.id) ?? EMPTY };
+  const seg = c.segmentId ? await prisma.whatsappSegment.findFirst({ where: { id: c.segmentId, workspaceId }, select: { name: true } }) : null;
+  return { ...c, segmentName: c.segmentId ? (seg?.name ?? "a deleted segment") : null, stats: (await statsFor(prisma, [c.id])).get(c.id) ?? EMPTY };
 }
 
 export const RECIPIENT_FILTERS = { all: "All", replied: "Replied", read: "Read", delivered: "Delivered", sent: "Sent", failed: "Failed", queued: "Waiting" } as const;

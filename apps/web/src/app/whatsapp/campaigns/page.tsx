@@ -53,7 +53,7 @@ export default async function WaCampaignsPage() {
                   <span className="ml-auto text-[13px] text-stone-500">{when(c, now)}</span>
                 </div>
                 <p className="mt-0.5 text-[13.5px] text-stone-500">
-                  <span className="font-mono">{c.templateName}</span> · {c.tags.length ? c.tags.map((t) => `#${t}`).join(" ") : "everyone subscribed"}
+                  <span className="font-mono">{c.templateName}</span> · {c.segmentName ? `segment: ${c.segmentName}` : c.tags.length ? c.tags.map((t) => `#${t}`).join(" ") : "everyone subscribed"}
                   {c.note && <span className="text-amber-700"> · {c.note}</span>}
                 </p>
                 <div className="mt-4">
