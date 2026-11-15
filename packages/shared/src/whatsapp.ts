@@ -6,13 +6,32 @@ import { phoneKey } from "./do-not-contact.js";
  * are mirrored here so a template is checked before Meta sees it.
  */
 
-export const WA_CATEGORIES = ["MARKETING", "UTILITY"] as const;
-export type WaCategory = (typeof WA_CATEGORIES)[number] | "AUTHENTICATION";
+export const WA_CATEGORIES = ["MARKETING", "UTILITY", "AUTHENTICATION"] as const;
+export type WaCategory = (typeof WA_CATEGORIES)[number];
 
-export const WA_CATEGORY_INFO: Record<(typeof WA_CATEGORIES)[number], { label: string; sub: string }> = {
-  MARKETING: { label: "Marketing", sub: "Outreach, offers, invitations, follow-ups" },
-  UTILITY: { label: "Utility", sub: "Updates on something they asked for or bought" },
+export const WA_CATEGORY_INFO: Record<WaCategory, { label: string; sub: string }> = {
+  MARKETING: { label: "Marketing", sub: "Outreach, offers, launches, follow-ups" },
+  UTILITY: { label: "Utility", sub: "Orders, bookings, account updates" },
+  AUTHENTICATION: { label: "Authentication", sub: "One-time passcodes only" },
 };
+
+/** The kinds of template the builder makes (Meta has more; these are the ones Invytra sends). */
+export const WA_TEMPLATE_KINDS = {
+  buttons: { label: "Template with buttons", sub: "Quick replies, a website link, a call button or a copy-code button" },
+  simple: { label: "Simple template", sub: "A header, the message and a footer, no buttons" },
+  otp: { label: "One-time passcode", sub: "A login or verification code with a copy button" },
+  pay: { label: "WhatsApp Pay checkout", sub: "Messages people can pay you through", soon: true },
+  carousel: { label: "Carousel", sub: "Several product cards people swipe through", soon: true },
+} as const;
+export type WaTemplateKind = keyof typeof WA_TEMPLATE_KINDS;
+
+/** Media a header can carry, and what the upload accepts. */
+export const WA_HEADER_MEDIA = {
+  IMAGE: { label: "Image", accept: "image/jpeg,image/png", types: ["image/jpeg", "image/png"], maxMb: 5, hint: "JPG or PNG, up to 5 MB" },
+  VIDEO: { label: "Video", accept: "video/mp4", types: ["video/mp4"], maxMb: 10, hint: "MP4, up to 10 MB" },
+  DOCUMENT: { label: "Document", accept: "application/pdf", types: ["application/pdf"], maxMb: 10, hint: "PDF, up to 10 MB" },
+} as const;
+export type WaHeaderMedia = keyof typeof WA_HEADER_MEDIA;
 
 /** Languages offered in the builder (Meta codes). */
 export const WA_LANGUAGES = [
@@ -48,18 +67,25 @@ export const waStatusInfo = (s: string) => WA_STATUS_INFO[s] ?? { label: s.charA
 
 /* ---------- The builder's template ---------- */
 
-export type WaButton = { type: "QUICK_REPLY"; text: string } | { type: "URL"; text: string; url: string; example?: string } | { type: "PHONE_NUMBER"; text: string; phone: string };
+export type WaButton =
+  | { type: "QUICK_REPLY"; text: string }
+  | { type: "URL"; text: string; url: string; example?: string }
+  | { type: "PHONE_NUMBER"; text: string; phone: string }
+  /** Marketing only: copies an offer code (Meta names the button itself). */
+  | { type: "COPY_CODE"; text: string; code: string };
 
 export interface WaTemplateDraft {
   name: string;
   language: string;
-  category: (typeof WA_CATEGORIES)[number];
-  header: { type: "NONE" } | { type: "TEXT"; text: string; example?: string } | { type: "IMAGE"; handle?: string; previewUrl?: string };
+  category: WaCategory;
+  header: { type: "NONE" } | { type: "TEXT"; text: string; example?: string } | { type: WaHeaderMedia; handle?: string; fileName?: string };
   body: string;
   /** One sample per {{n}} in the body, in order (Meta reviews with them). */
   bodyExamples: string[];
   footer: string;
   buttons: WaButton[];
+  /** Authentication templates: Meta writes the message; these are its options. */
+  otp?: { securityNote: boolean; expiryMinutes: number | null; buttonText: string };
 }
 
 export const WA_LIMITS = { name: 512, headerText: 60, body: 1024, footer: 60, buttonText: 25, buttons: 10, urlButtons: 2, phoneButtons: 1, quickReplies: 10 } as const;
@@ -90,6 +116,12 @@ export function checkTemplate(t: WaTemplateDraft): string[] {
   else if (!/^[a-z0-9_]+$/.test(t.name)) errs.push("The name can only use lowercase letters, numbers and underscores.");
   if (!WA_LANGUAGES.some((l) => l.code === t.language)) errs.push("Choose a language.");
   if (!(WA_CATEGORIES as readonly string[]).includes(t.category)) errs.push("Choose a category.");
+  if (t.category === "AUTHENTICATION") {
+    const o = t.otp ?? { securityNote: true, expiryMinutes: 10, buttonText: "Copy code" };
+    if (o.expiryMinutes !== null && (!Number.isInteger(o.expiryMinutes) || o.expiryMinutes < 1 || o.expiryMinutes > 90)) errs.push("The code can expire after 1 to 90 minutes.");
+    if (!o.buttonText.trim() || o.buttonText.length > WA_LIMITS.buttonText) errs.push(`Write the copy button's text (up to ${WA_LIMITS.buttonText} characters).`);
+    return errs;
+  }
 
   if (t.header.type === "TEXT") {
     const v = waVariables(t.header.text);
@@ -99,7 +131,7 @@ export function checkTemplate(t: WaTemplateDraft): string[] {
     if (v.length === 1 && !t.header.example?.trim()) errs.push("Add a sample value for the header's {{1}}.");
     if (/[\n*_~]|\p{Extended_Pictographic}/u.test(t.header.text)) errs.push("The header can't have new lines, formatting or emojis.");
   }
-  if (t.header.type === "IMAGE" && !t.header.handle) errs.push("Upload the header image.");
+  if (t.header.type in WA_HEADER_MEDIA && !("handle" in t.header && t.header.handle)) errs.push(`Upload the header ${WA_HEADER_MEDIA[t.header.type as WaHeaderMedia].label.toLowerCase()}.`);
 
   const body = t.body.trim();
   if (!body) errs.push("Write the message.");
@@ -122,9 +154,11 @@ export function checkTemplate(t: WaTemplateDraft): string[] {
   if (t.buttons.length > WA_LIMITS.buttons) errs.push(`Up to ${WA_LIMITS.buttons} buttons.`);
   if (count("URL") > WA_LIMITS.urlButtons) errs.push(`Up to ${WA_LIMITS.urlButtons} website buttons.`);
   if (count("PHONE_NUMBER") > WA_LIMITS.phoneButtons) errs.push("Up to one call button.");
+  if (count("COPY_CODE") > 1) errs.push("Up to one copy-code button.");
+  if (count("COPY_CODE") && t.category !== "MARKETING") errs.push("A copy-code button is only for Marketing templates.");
   t.buttons.forEach((b, i) => {
     const n = `Button ${i + 1}`;
-    if (!b.text.trim()) errs.push(`${n}: write its text.`);
+    if (!b.text.trim() && b.type !== "COPY_CODE") errs.push(`${n}: write its text.`);
     if (b.text.length > WA_LIMITS.buttonText) errs.push(`${n}: up to ${WA_LIMITS.buttonText} characters.`);
     if (b.type === "URL") {
       if (!/^https:\/\/[^\s/$.?#].[^\s]*$/i.test(b.url.replace(/\{\{1\}\}$/, "x"))) errs.push(`${n}: use a full https:// link.`);
@@ -133,6 +167,7 @@ export function checkTemplate(t: WaTemplateDraft): string[] {
       if (uv.length === 1 && !b.example?.trim()) errs.push(`${n}: add a sample full link for the variable.`);
     }
     if (b.type === "PHONE_NUMBER" && !/^\+?\d{7,15}$/.test(b.phone.replace(/[\s-]/g, ""))) errs.push(`${n}: use the number with its country code.`);
+    if (b.type === "COPY_CODE" && !/^[A-Za-z0-9_-]{1,15}$/.test(b.code.trim())) errs.push(`${n}: the offer code can be up to 15 letters or numbers.`);
   });
   // Meta: quick replies and the other buttons must be grouped, not mixed.
   const kinds = t.buttons.map((b) => (b.type === "QUICK_REPLY" ? "q" : "c")).join("");
@@ -143,9 +178,16 @@ export function checkTemplate(t: WaTemplateDraft): string[] {
 /** The template in Meta's shape (the body of POST /{waba}/message_templates). */
 export function toMetaTemplate(t: WaTemplateDraft) {
   const components: Record<string, unknown>[] = [];
+  if (t.category === "AUTHENTICATION") {
+    const o = t.otp ?? { securityNote: true, expiryMinutes: 10, buttonText: "Copy code" };
+    components.push({ type: "BODY", add_security_recommendation: o.securityNote });
+    if (o.expiryMinutes) components.push({ type: "FOOTER", code_expiration_minutes: o.expiryMinutes });
+    components.push({ type: "BUTTONS", buttons: [{ type: "OTP", otp_type: "COPY_CODE", text: o.buttonText.trim() }] });
+    return { name: t.name, language: t.language, category: t.category, components };
+  }
   if (t.header.type === "TEXT")
     components.push({ type: "HEADER", format: "TEXT", text: t.header.text, ...(waVariables(t.header.text).length && { example: { header_text: [t.header.example ?? ""] } }) });
-  if (t.header.type === "IMAGE") components.push({ type: "HEADER", format: "IMAGE", example: { header_handle: [t.header.handle ?? ""] } });
+  if (t.header.type in WA_HEADER_MEDIA) components.push({ type: "HEADER", format: t.header.type, example: { header_handle: ["handle" in t.header ? (t.header.handle ?? "") : ""] } });
   const n = new Set(waVariables(t.body)).size;
   components.push({ type: "BODY", text: t.body.trim(), ...(n && { example: { body_text: [t.bodyExamples.slice(0, n)] } }) });
   if (t.footer.trim()) components.push({ type: "FOOTER", text: t.footer.trim() });
@@ -157,7 +199,9 @@ export function toMetaTemplate(t: WaTemplateDraft) {
           ? { type: "QUICK_REPLY", text: b.text.trim() }
           : b.type === "URL"
             ? { type: "URL", text: b.text.trim(), url: b.url.trim(), ...(waVariables(b.url).length && { example: [b.example?.trim() ?? ""] }) }
-            : { type: "PHONE_NUMBER", text: b.text.trim(), phone_number: b.phone.replace(/[\s-]/g, "") },
+            : b.type === "COPY_CODE"
+              ? { type: "COPY_CODE", example: b.code.trim() }
+              : { type: "PHONE_NUMBER", text: b.text.trim(), phone_number: b.phone.replace(/[\s-]/g, "") },
       ),
     });
   return { name: t.name, language: t.language, category: t.category, components };
@@ -177,8 +221,22 @@ export function readMetaComponents(components: unknown): WaTemplateView {
   const h = find("HEADER");
   const format = String(h?.format ?? "").toUpperCase();
   const header: WaTemplateView["header"] = !h ? { type: "NONE" } : format === "TEXT" ? { type: "TEXT", text: String(h.text ?? "") } : { type: (["IMAGE", "VIDEO", "DOCUMENT", "LOCATION"].includes(format) ? format : "IMAGE") as "IMAGE" };
-  const buttons = Array.isArray(find("BUTTONS")?.buttons) ? (find("BUTTONS")!.buttons as Record<string, unknown>[]).map((b) => ({ type: String(b.type ?? ""), text: String(b.text ?? "") })) : [];
-  return { header, body: String(find("BODY")?.text ?? ""), footer: String(find("FOOTER")?.text ?? ""), buttons };
+  const buttons = Array.isArray(find("BUTTONS")?.buttons)
+    ? (find("BUTTONS")!.buttons as Record<string, unknown>[]).map((b) => {
+        const type = String(b.type ?? "").toUpperCase();
+        return { type, text: String(b.text ?? "") || (type === "COPY_CODE" ? "Copy offer code" : type === "OTP" ? "Copy code" : "") };
+      })
+    : [];
+  const body = find("BODY");
+  const footer = find("FOOTER");
+  // Authentication templates: Meta writes the words; show what people will read.
+  const authBody = body && body.text === undefined && "add_security_recommendation" in body;
+  return {
+    header,
+    body: authBody ? `{{1}} is your verification code.${body.add_security_recommendation ? " For your security, do not share this code." : ""}` : String(body?.text ?? ""),
+    footer: footer && footer.text === undefined && footer.code_expiration_minutes ? `This code expires in ${footer.code_expiration_minutes} minutes.` : String(footer?.text ?? ""),
+    buttons,
+  };
 }
 
 /** Fills {{n}} with values (missing ones stay as {{n}}). */

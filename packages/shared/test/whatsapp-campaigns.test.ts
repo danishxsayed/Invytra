@@ -33,6 +33,11 @@ describe("whatsapp campaigns", () => {
     expect(previewBody("Hi {{1}} at {{2}}", full, c)).toBe("Hi Omar at Gulf Traders");
     expect(sendComponents(templateNeeds([{ type: "HEADER", format: "IMAGE" }, { type: "BODY", text: "Hi" }]), {}, c, "https://x.com/a.jpg")).toEqual([{ type: "header", parameters: [{ type: "image", image: { link: "https://x.com/a.jpg" } }] }]);
   });
+  it("sends the offer code of a copy-code button", () => {
+    const needs = templateNeeds([{ type: "BODY", text: "Hi, 30% off today." }, { type: "BUTTONS", buttons: [{ type: "QUICK_REPLY", text: "Shop" }, { type: "COPY_CODE", example: ["NAV30"] }] }]);
+    expect(needs.coupons).toEqual([{ index: 1, code: "NAV30" }]);
+    expect(sendComponents(needs, {}, c, "")).toEqual([{ type: "button", sub_type: "copy_code", index: "1", parameters: [{ type: "coupon_code", coupon_code: "NAV30" }] }]);
+  });
   it("explains send errors", () => {
     expect(waSendError(131026, "x")).toContain("Not on WhatsApp");
     expect(waSendError(999, "Something")).toBe("Something");

@@ -1,6 +1,6 @@
 import { randomInt } from "node:crypto";
 import { MetaClient, MetaError, metaApp, openSecret, sealSecret, type MetaApp, type MetaTemplate, type PrismaClient } from "@invytra/db";
-import { checkTemplate, toMetaTemplate, type WaTemplateDraft } from "@invytra/shared";
+import { WA_HEADER_MEDIA, checkTemplate, toMetaTemplate, type WaHeaderMedia, type WaTemplateDraft } from "@invytra/shared";
 import { z } from "zod";
 import type { Result } from "./accounts";
 
@@ -279,19 +279,20 @@ export async function deleteTemplate(prisma: PrismaClient, workspaceId: string, 
   return { ok: true, value: undefined };
 }
 
-const IMAGE_TYPES = ["image/jpeg", "image/png"];
-/** Uploads the sample header image Meta reviews with the template → its handle. */
-export async function uploadHeaderImage(prisma: PrismaClient, workspaceId: string, file: File | null, d: WaDeps = deps()): Promise<Result<{ handle: string }>> {
+/** Uploads the sample header file (image, video or PDF) Meta reviews with the template → its handle. */
+export async function uploadHeaderMedia(prisma: PrismaClient, workspaceId: string, kind: string, file: File | null, d: WaDeps = deps()): Promise<Result<{ handle: string }>> {
   if (!d.app) return { ok: false, error: NOT_SET_UP };
-  if (!file || !file.size) return { ok: false, error: "Choose an image." };
-  if (!IMAGE_TYPES.includes(file.type)) return { ok: false, error: "Use a JPG or PNG image." };
-  if (file.size > 5 * 1024 * 1024) return { ok: false, error: "The image can be up to 5 MB." };
+  const spec = WA_HEADER_MEDIA[kind as WaHeaderMedia];
+  if (!spec) return { ok: false, error: "Choose an image, video or document header." };
+  if (!file || !file.size) return { ok: false, error: "Choose a file." };
+  if (!(spec.types as readonly string[]).includes(file.type)) return { ok: false, error: `Use ${spec.hint.split(",")[0]}.` };
+  if (file.size > spec.maxMb * 1024 * 1024) return { ok: false, error: `The file can be up to ${spec.maxMb} MB.` };
   const n = await prisma.whatsappNumber.findFirst({ where: { workspaceId } });
   if (!n) return { ok: false, error: "Connect a WhatsApp number first." };
   try {
     const handle = await clientFor(n, d).uploadSample({ bytes: new Uint8Array(await file.arrayBuffer()), type: file.type, name: file.name || "header" });
     return { ok: true, value: { handle } };
   } catch (e) {
-    return failed(e, "upload the image");
+    return failed(e, "upload the file");
   }
 }

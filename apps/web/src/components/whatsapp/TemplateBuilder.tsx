@@ -3,53 +3,68 @@
 import {
   WA_CATEGORIES,
   WA_CATEGORY_INFO,
+  WA_HEADER_MEDIA,
   WA_LANGUAGES,
   WA_LIMITS,
+  WA_TEMPLATE_KINDS,
   checkTemplate,
   nextVariable,
   waTemplateName,
   waVariables,
   type WaButton,
+  type WaCategory,
+  type WaHeaderMedia,
   type WaTemplateDraft,
+  type WaTemplateKind,
 } from "@invytra/shared";
-import { ArrowLeft, Bold, ExternalLink, ImagePlus, Italic, Loader2, Phone, Plus, Reply, Send, Trash2, Variable } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bold, Check, ChevronDown, Copy, CreditCard, ExternalLink, FileText, Italic, LayoutGrid, Loader2, Lock, Megaphone, MessageSquareText, Phone, Receipt, Reply, Send, Strikethrough, Trash2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
-import { createTemplateAction, uploadHeaderImageAction } from "@/app/whatsapp/actions";
-import { btn } from "../AccountControls";
+import { createTemplateAction, uploadHeaderMediaAction } from "@/app/whatsapp/actions";
+import { btn } from "../btn";
 import { Field, inputCls } from "../fields";
 import { cx } from "../ui";
-import { WaBubble, WaChatBackground } from "./WaBubble";
+import { WaPhone } from "./WaPhone";
 
-const Section = ({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) => (
-  <section className="rounded-2xl bg-white p-5 ring-1 ring-stone-200">
-    <h2 className="text-[16px] font-semibold text-stone-900">{title}</h2>
-    {hint && <p className="mt-0.5 text-[14px] text-stone-500">{hint}</p>}
-    <div className="mt-4 space-y-4">{children}</div>
-  </section>
-);
+const CAT_ICON = { MARKETING: Megaphone, UTILITY: Receipt, AUTHENTICATION: Lock } as const;
+const KIND_ICON = { buttons: MessageSquareText, simple: FileText, otp: Lock, pay: CreditCard, carousel: LayoutGrid } as const;
+const kindsFor = (c: WaCategory): WaTemplateKind[] => (c === "AUTHENTICATION" ? ["otp"] : ["buttons", "simple", "pay", "carousel"]);
+const DEFAULT_OTP = { securityNote: true, expiryMinutes: 10, buttonText: "Copy code" };
 
-/** Build a template, see it as WhatsApp shows it, and submit it to Meta for review. */
-export function TemplateBuilder({ initial, business }: { initial: WaTemplateDraft; business: string }) {
+/** Step 1, then step 2: choose the category and kind, then write it, with a live phone preview. */
+export function TemplateBuilder({ initial, business, copied }: { initial: WaTemplateDraft; business: string; copied?: boolean }) {
   const router = useRouter();
   const [t, setT] = useState<WaTemplateDraft>(initial);
+  const [kind, setKind] = useState<WaTemplateKind>(initial.category === "AUTHENTICATION" ? "otp" : initial.buttons.length || !copied ? "buttons" : "simple");
+  const [step, setStep] = useState<1 | 2>(copied ? 2 : 1);
   const [rawName, setRawName] = useState(initial.name);
-  const [imgPreview, setImgPreview] = useState<string | undefined>();
+  const [media, setMedia] = useState<{ src?: string; fileName?: string }>({});
   const [uploading, setUploading] = useState(false);
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
   const body = useRef<HTMLTextAreaElement>(null);
+  const set = (p: Partial<WaTemplateDraft>) => setT((x) => ({ ...x, ...p }));
+  const otp = t.otp ?? DEFAULT_OTP;
   const errors = useMemo(() => checkTemplate(t), [t]);
   const bodyVars = [...new Set(waVariables(t.body))].sort((a, b) => a - b);
-  const set = (p: Partial<WaTemplateDraft>) => setT((x) => ({ ...x, ...p }));
 
-  /** Wraps the selection in *…* or _…_, or inserts the next {{n}}. */
-  const edit = (kind: "bold" | "italic" | "var") => {
+  const chooseCategory = (c: WaCategory) => {
+    set({ category: c, ...(c === "AUTHENTICATION" ? { otp: otp, header: { type: "NONE" }, buttons: [] } : { buttons: t.buttons.filter((b) => b.type !== "COPY_CODE" || c === "MARKETING") }) });
+    setKind(c === "AUTHENTICATION" ? "otp" : kind === "otp" ? "buttons" : kind);
+  };
+  const chooseKind = (k: WaTemplateKind) => {
+    if (WA_TEMPLATE_KINDS[k] && "soon" in WA_TEMPLATE_KINDS[k]) return;
+    setKind(k);
+    if (k === "simple") set({ buttons: [] });
+  };
+
+  const edit = (k: "bold" | "italic" | "strike" | "var") => {
     const el = body.current;
     const [a, b] = el ? [el.selectionStart, el.selectionEnd] : [t.body.length, t.body.length];
     const sel = t.body.slice(a, b);
-    const ins = kind === "var" ? `{{${nextVariable(t.body)}}}` : kind === "bold" ? `*${sel || "bold"}*` : `_${sel || "italic"}_`;
+    const wrap = { bold: "*", italic: "_", strike: "~" } as const;
+    const ins = k === "var" ? `{{${nextVariable(t.body)}}}` : `${wrap[k]}${sel || (k === "bold" ? "bold" : k === "italic" ? "italic" : "text")}${wrap[k]}`;
     const next = t.body.slice(0, a) + ins + t.body.slice(b);
     if (next.length <= WA_LIMITS.body) set({ body: next });
     requestAnimationFrame(() => {
@@ -60,26 +75,34 @@ export function TemplateBuilder({ initial, business }: { initial: WaTemplateDraf
 
   const setButton = (i: number, b: WaButton) => set({ buttons: t.buttons.map((x, j) => (j === i ? b : x)) });
   const addButton = (type: WaButton["type"]) =>
-    set({ buttons: [...t.buttons, type === "QUICK_REPLY" ? { type, text: "" } : type === "URL" ? { type, text: "", url: "https://" } : { type, text: "Call us", phone: "" }] });
+    set({
+      buttons: [
+        ...t.buttons,
+        type === "QUICK_REPLY" ? { type, text: "" } : type === "URL" ? { type, text: "", url: "https://" } : type === "COPY_CODE" ? { type, text: "", code: "" } : { type, text: "Call us", phone: "" },
+      ],
+    });
   const count = (type: WaButton["type"]) => t.buttons.filter((b) => b.type === type).length;
+  const full = t.buttons.length >= WA_LIMITS.buttons;
 
-  const upload = async (file: File | undefined) => {
+  const upload = async (kindOf: WaHeaderMedia, file: File | undefined) => {
     if (!file) return;
     setUploading(true);
     setErr(null);
     const form = new FormData();
     form.set("file", file);
-    const r = await uploadHeaderImageAction(form);
+    form.set("kind", kindOf);
+    const r = await uploadHeaderMediaAction(form);
     setUploading(false);
     if (!r.ok) return setErr(r.error);
-    setImgPreview(URL.createObjectURL(file));
-    set({ header: { type: "IMAGE", handle: r.value.handle } });
+    setMedia({ src: URL.createObjectURL(file), fileName: file.name });
+    set({ header: { type: kindOf, handle: r.value.handle, fileName: file.name } });
   };
 
   const submit = () => {
     setTried(true);
     if (errors.length) return;
     start(async () => {
+      setErr(null);
       const r = await createTemplateAction(t);
       if (!r.ok) return setErr(r.error);
       router.push("/whatsapp/templates");
@@ -87,212 +110,330 @@ export function TemplateBuilder({ initial, business }: { initial: WaTemplateDraf
     });
   };
 
-  const preview = {
-    header: t.header.type === "TEXT" ? { type: "TEXT" as const, text: t.header.text } : t.header.type === "IMAGE" ? { type: "IMAGE" as const, src: imgPreview } : { type: "NONE" as const },
-    body: t.body,
-    footer: t.footer,
-    buttons: t.buttons.map((b) => ({ type: b.type, text: b.text })),
-  };
+  const preview =
+    t.category === "AUTHENTICATION"
+      ? {
+          header: { type: "NONE" as const },
+          body: `*123456* is your verification code.${otp.securityNote ? " For your security, do not share this code." : ""}`,
+          footer: otp.expiryMinutes ? `This code expires in ${otp.expiryMinutes} minutes.` : "",
+          buttons: [{ type: "OTP", text: otp.buttonText || "Copy code" }],
+        }
+      : {
+          header: t.header.type === "TEXT" ? { type: "TEXT" as const, text: t.header.text } : t.header.type === "NONE" ? { type: "NONE" as const } : { type: t.header.type, src: media.src, fileName: media.fileName },
+          body: t.body,
+          footer: t.footer,
+          buttons: t.buttons.map((b) => ({ type: b.type, text: b.type === "COPY_CODE" ? "Copy offer code" : b.text })),
+        };
+  const CatIcon = CAT_ICON[t.category];
 
   return (
     <div className="space-y-5">
       <a href="/whatsapp/templates" className="inline-flex items-center gap-1.5 text-[14px] font-medium text-stone-600 hover:text-stone-900">
         <ArrowLeft className="h-4 w-4" aria-hidden /> Templates
       </a>
-      <div className="grid items-start gap-6 lg:grid-cols-[1fr_360px]">
-        <div className="space-y-5">
-          <Section title="Basics" hint="Meta reviews every template, usually within minutes.">
-            <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
-              <Field label="Template name" hint={rawName && rawName !== t.name ? <>Saved as <code className="font-mono">{t.name || "…"}</code></> : "Lowercase letters, numbers and underscores."}>
-                <input
-                  className={cx(inputCls, "font-mono")}
-                  value={rawName}
-                  maxLength={WA_LIMITS.name}
-                  onChange={(e) => {
-                    setRawName(e.target.value);
-                    set({ name: waTemplateName(e.target.value) });
-                  }}
-                  placeholder="intro_offer"
-                />
-              </Field>
-              <Field label="Language">
-                <select className={inputCls} value={t.language} onChange={(e) => set({ language: e.target.value })}>
-                  {WA_LANGUAGES.map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <div>
-              <p className="text-[15px] font-medium text-stone-700">Category</p>
-              <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
-                {WA_CATEGORIES.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => set({ category: c })}
-                    aria-pressed={t.category === c}
-                    className={cx("rounded-xl px-4 py-3 text-left ring-1 transition", t.category === c ? "bg-brand-50 ring-2 ring-brand-500" : "bg-white ring-stone-200 hover:ring-stone-300")}
-                  >
-                    <span className="block text-[15px] font-semibold text-stone-900">{WA_CATEGORY_INFO[c].label}</span>
-                    <span className="block text-[13.5px] text-stone-500">{WA_CATEGORY_INFO[c].sub}</span>
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2 text-[13.5px] text-stone-500">Outreach is Marketing. Meta moves a template to Marketing if it promotes anything.</p>
-            </div>
-          </Section>
-
-          <Section title="Header" hint="Optional: a bold title line or an image above the message.">
-            <div className="flex gap-1 rounded-xl bg-stone-100/80 p-1">
-              {(["NONE", "TEXT", "IMAGE"] as const).map((h) => (
-                <button
-                  key={h}
-                  type="button"
-                  aria-pressed={t.header.type === h}
-                  onClick={() => set({ header: h === "NONE" ? { type: "NONE" } : h === "TEXT" ? { type: "TEXT", text: "" } : { type: "IMAGE" } })}
-                  className={cx("flex-1 rounded-lg px-3 py-1.5 text-[14px] font-medium", t.header.type === h ? "bg-white text-stone-900 shadow-sm" : "text-stone-600")}
-                >
-                  {h === "NONE" ? "None" : h === "TEXT" ? "Text" : "Image"}
-                </button>
-              ))}
-            </div>
-            {t.header.type === "TEXT" && (
-              <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
-                <Field label="Header text" hint={`${t.header.text.length} / ${WA_LIMITS.headerText}. One variable allowed: {{1}}.`}>
-                  <input className={inputCls} value={t.header.text} maxLength={WA_LIMITS.headerText} onChange={(e) => set({ header: { ...t.header, type: "TEXT", text: e.target.value } })} placeholder="A quick idea for {{1}}" />
-                </Field>
-                {waVariables(t.header.text).length > 0 && (
-                  <Field label="Sample for {{1}}">
-                    <input className={inputCls} value={t.header.type === "TEXT" ? (t.header.example ?? "") : ""} onChange={(e) => t.header.type === "TEXT" && set({ header: { ...t.header, example: e.target.value } })} placeholder="Acme" />
-                  </Field>
+      <div className="grid items-start gap-6 lg:grid-cols-[1fr_350px]">
+        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200">
+          {/* Step 1 */}
+          <section className="border-b border-stone-100">
+            <button type="button" onClick={() => setStep(1)} className="flex w-full items-center gap-3 px-5 py-4 text-left" aria-expanded={step === 1}>
+              <StepDot n={1} done={step === 2} />
+              <span className="flex-1">
+                <span className="block text-[16px] font-semibold text-stone-900">Choose template category &amp; type</span>
+                {step === 2 && (
+                  <span className="mt-0.5 flex items-center gap-1.5 text-[13.5px] text-stone-500">
+                    <CatIcon className="h-3.5 w-3.5" aria-hidden /> {WA_CATEGORY_INFO[t.category].label} · {WA_TEMPLATE_KINDS[kind].label}
+                  </span>
                 )}
-              </div>
-            )}
-            {t.header.type === "IMAGE" && (
-              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-stone-300 bg-stone-50/60 px-4 py-4 text-[14px] text-stone-600 hover:border-stone-400">
-                {uploading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <ImagePlus className="h-5 w-5" aria-hidden />}
-                <span>
-                  <span className="block font-medium text-stone-800">{t.header.handle ? "Image uploaded. Choose another?" : "Upload a sample image (JPG or PNG, up to 5 MB)"}</span>
-                  <span className="block text-[13px] text-stone-500">Meta reviews with it. Each campaign can send its own image later.</span>
-                </span>
-                <input type="file" accept="image/jpeg,image/png" className="sr-only" onChange={(e) => void upload(e.target.files?.[0])} />
-              </label>
-            )}
-          </Section>
-
-          <Section title="Message" hint="Use {{1}}, {{2}} … for what changes per person, like their name or company.">
-            <div>
-              <div className="flex items-center gap-1 rounded-t-lg border border-b-0 border-stone-200 bg-stone-50 px-2 py-1">
-                <button type="button" onClick={() => edit("bold")} className="rounded p-1.5 text-stone-600 hover:bg-white" aria-label="Bold">
-                  <Bold className="h-4 w-4" aria-hidden />
-                </button>
-                <button type="button" onClick={() => edit("italic")} className="rounded p-1.5 text-stone-600 hover:bg-white" aria-label="Italic">
-                  <Italic className="h-4 w-4" aria-hidden />
-                </button>
-                <button type="button" onClick={() => edit("var")} className="ml-1 inline-flex items-center gap-1 rounded px-2 py-1 text-[13px] font-medium text-emerald-700 hover:bg-white">
-                  <Variable className="h-4 w-4" aria-hidden /> Add variable
-                </button>
-                <span className="ml-auto text-[12.5px] text-stone-400">
-                  {t.body.length} / {WA_LIMITS.body}
-                </span>
-              </div>
-              <textarea
-                ref={body}
-                aria-label="Message"
-                className="block min-h-[160px] w-full rounded-b-lg border border-stone-200 bg-white px-3 py-2.5 text-[15.5px] leading-relaxed text-stone-900 focus:border-brand-600 focus:outline-none focus:ring-4 focus:ring-brand-200"
-                value={t.body}
-                maxLength={WA_LIMITS.body}
-                onChange={(e) => set({ body: e.target.value })}
-                placeholder={"Hi {{1}}, I noticed {{2}} is growing its sales team. We help teams like yours book more meetings on WhatsApp. Open to a quick chat this week?"}
-              />
-            </div>
-            {bodyVars.length > 0 && (
-              <div>
-                <p className="text-[14px] font-medium text-stone-700">Sample values</p>
-                <p className="text-[13px] text-stone-500">Meta reviews the message with these. Campaigns fill real values for each person.</p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {bodyVars.map((n) => (
-                    <label key={n} className="flex items-center gap-2">
-                      <span className="w-12 shrink-0 rounded bg-emerald-50 px-1.5 py-1 text-center font-mono text-[12.5px] text-emerald-800">{`{{${n}}}`}</span>
-                      <input
-                        className="w-full rounded-lg border border-stone-200 px-3 py-2 text-[14.5px]"
-                        value={t.bodyExamples[n - 1] ?? ""}
-                        onChange={(e) => {
-                          const ex = [...t.bodyExamples];
-                          ex[n - 1] = e.target.value;
-                          set({ bodyExamples: ex });
-                        }}
-                        placeholder={n === 1 ? "Sara" : n === 2 ? "Acme" : "Sample"}
-                      />
-                    </label>
-                  ))}
+              </span>
+              <ChevronDown className={cx("h-5 w-5 text-stone-400 transition", step === 1 && "rotate-180")} aria-hidden />
+            </button>
+            {step === 1 && (
+              <div className="space-y-5 px-5 pb-5">
+                <div>
+                  <p className="text-[12.5px] font-semibold uppercase tracking-wider text-stone-500">Template category</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                    {WA_CATEGORIES.map((c) => {
+                      const Icon = CAT_ICON[c];
+                      const on = t.category === c;
+                      return (
+                        <button key={c} type="button" onClick={() => chooseCategory(c)} aria-pressed={on} className={cx("rounded-xl px-4 py-3 text-left ring-1 transition", on ? "bg-emerald-50/70 ring-2 ring-emerald-500" : "bg-stone-50 ring-stone-200 hover:ring-stone-300")}>
+                          <span className={cx("flex items-center gap-2 text-[15px] font-semibold", on ? "text-emerald-800" : "text-stone-900")}>
+                            <Icon className="h-4 w-4" aria-hidden /> {WA_CATEGORY_INFO[c].label}
+                          </span>
+                          <span className="mt-0.5 block text-[13px] text-stone-500">{WA_CATEGORY_INFO[c].sub}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 flex items-center gap-1.5 text-[13px] text-amber-800">
+                    <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> Meta may move a template to another category after review. Outreach and offers are Marketing.
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[12.5px] font-semibold uppercase tracking-wider text-stone-500">Template type</p>
+                  <div className="mt-2 space-y-2">
+                    {kindsFor(t.category).map((k) => {
+                      const def = WA_TEMPLATE_KINDS[k];
+                      const soon = "soon" in def;
+                      const on = kind === k;
+                      const Icon = KIND_ICON[k];
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          disabled={soon}
+                          onClick={() => chooseKind(k)}
+                          aria-pressed={on}
+                          className={cx("flex w-full items-center gap-3.5 rounded-xl px-4 py-3.5 text-left ring-1 transition", on ? "bg-emerald-50/70 ring-2 ring-emerald-500" : "bg-white ring-stone-200", soon ? "cursor-not-allowed opacity-55" : !on && "hover:ring-stone-300")}
+                        >
+                          <span className={cx("grid h-5 w-5 shrink-0 place-items-center rounded-full ring-2", on ? "bg-emerald-600 ring-emerald-600" : "ring-stone-300")}>{on && <span className="h-2 w-2 rounded-full bg-white" />}</span>
+                          <Icon className={cx("h-5 w-5 shrink-0", on ? "text-emerald-700" : "text-stone-500")} aria-hidden />
+                          <span className="min-w-0 flex-1">
+                            <span className={cx("block text-[15px] font-semibold", on ? "text-emerald-800" : "text-stone-900")}>{def.label}</span>
+                            <span className="block text-[13.5px] text-stone-500">{def.sub}</span>
+                          </span>
+                          {soon && <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[12px] font-medium text-stone-500 ring-1 ring-stone-200">Coming soon</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button type="button" className={btn.primary} onClick={() => setStep(2)}>
+                    Save &amp; continue
+                  </button>
                 </div>
               </div>
             )}
-            <Field label="Footer (optional)" hint={`${t.footer.length} / ${WA_LIMITS.footer}`}>
-              <input className={inputCls} value={t.footer} maxLength={WA_LIMITS.footer} onChange={(e) => set({ footer: e.target.value })} placeholder="Reply STOP to opt out" />
-            </Field>
-            {!/stop/i.test(t.footer) && t.category === "MARKETING" && (
-              <button type="button" onClick={() => set({ footer: "Reply STOP to opt out" })} className="-mt-2 text-[13.5px] font-medium text-emerald-700 hover:underline">
-                Add &ldquo;Reply STOP to opt out&rdquo; (fewer blocks, better quality)
-              </button>
-            )}
-          </Section>
+          </section>
 
-          <Section title="Buttons" hint="Optional: quick replies people tap, a link to your site, or a call button.">
-            {t.buttons.map((b, i) => (
-              <div key={i} className="flex flex-wrap items-start gap-2 rounded-xl bg-stone-50 p-3 ring-1 ring-stone-200">
-                <span className="mt-2 inline-flex items-center gap-1 text-[13px] font-medium text-stone-500">
-                  {b.type === "QUICK_REPLY" ? <Reply className="h-4 w-4" aria-hidden /> : b.type === "URL" ? <ExternalLink className="h-4 w-4" aria-hidden /> : <Phone className="h-4 w-4" aria-hidden />}
-                </span>
-                <input className="min-w-[140px] flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-[14.5px]" value={b.text} maxLength={WA_LIMITS.buttonText} onChange={(e) => setButton(i, { ...b, text: e.target.value })} placeholder={b.type === "QUICK_REPLY" ? "Yes, interested" : b.type === "URL" ? "Book a call" : "Call us"} aria-label={`Button ${i + 1} text`} />
-                {b.type === "URL" && (
+          {/* Step 2 */}
+          <section>
+            <button type="button" onClick={() => setStep(2)} className="flex w-full items-center gap-3 px-5 py-4 text-left" aria-expanded={step === 2}>
+              <StepDot n={2} />
+              <span className="flex-1 text-[16px] font-semibold text-stone-900">Draft your template</span>
+              <ChevronDown className={cx("h-5 w-5 text-stone-400 transition", step === 2 && "rotate-180")} aria-hidden />
+            </button>
+            {step === 2 && (
+              <div className="space-y-6 px-5 pb-6">
+                <div className="grid gap-4 sm:grid-cols-[1fr_220px]">
+                  <Field label="Template name" hint={rawName && rawName !== t.name ? <>Saved as <code className="font-mono">{t.name || "…"}</code></> : "Lowercase letters, numbers and underscores."}>
+                    <input
+                      className={cx(inputCls, "font-mono")}
+                      value={rawName}
+                      maxLength={WA_LIMITS.name}
+                      onChange={(e) => {
+                        setRawName(e.target.value);
+                        set({ name: waTemplateName(e.target.value) });
+                      }}
+                      placeholder={t.category === "AUTHENTICATION" ? "login_code" : "navratri_flash_sale"}
+                    />
+                  </Field>
+                  <Field label="Language">
+                    <select className={inputCls} value={t.language} onChange={(e) => set({ language: e.target.value })}>
+                      {WA_LANGUAGES.map((l) => (
+                        <option key={l.code} value={l.code}>
+                          {l.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+
+                {kind === "otp" ? (
+                  <div className="space-y-4 rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200">
+                    <p className="text-[14px] text-stone-600">Meta writes the message of a passcode template (in the language you chose). You choose these options; Invytra fills the code when it&apos;s sent.</p>
+                    <label className="flex items-start gap-2 text-[14.5px] text-stone-800">
+                      <input type="checkbox" className="mt-1 accent-emerald-600" checked={otp.securityNote} onChange={(e) => set({ otp: { ...otp, securityNote: e.target.checked } })} />
+                      Add &ldquo;For your security, do not share this code.&rdquo;
+                    </label>
+                    <div className="flex flex-wrap items-center gap-2 text-[14.5px] text-stone-800">
+                      <label className="flex items-center gap-2">
+                        <input type="checkbox" className="accent-emerald-600" checked={otp.expiryMinutes !== null} onChange={(e) => set({ otp: { ...otp, expiryMinutes: e.target.checked ? 10 : null } })} />
+                        Say when the code expires:
+                      </label>
+                      {otp.expiryMinutes !== null && (
+                        <>
+                          <input type="number" min={1} max={90} className="w-20 rounded-lg border border-stone-200 px-2 py-1.5" value={otp.expiryMinutes} onChange={(e) => set({ otp: { ...otp, expiryMinutes: Math.round(Number(e.target.value)) || 1 } })} aria-label="Minutes" /> minutes
+                        </>
+                      )}
+                    </div>
+                    <Field label="Copy button text">
+                      <input className={cx(inputCls, "max-w-xs")} value={otp.buttonText} maxLength={WA_LIMITS.buttonText} onChange={(e) => set({ otp: { ...otp, buttonText: e.target.value } })} />
+                    </Field>
+                  </div>
+                ) : (
                   <>
-                    <input className="min-w-[200px] flex-[2] rounded-lg border border-stone-200 bg-white px-3 py-2 text-[14.5px]" value={b.url} onChange={(e) => setButton(i, { ...b, url: e.target.value })} placeholder="https://company.com/book" aria-label={`Button ${i + 1} link`} />
-                    {waVariables(b.url).length > 0 && (
-                      <input className="min-w-[200px] flex-[2] rounded-lg border border-stone-200 bg-white px-3 py-2 text-[14.5px]" value={b.example ?? ""} onChange={(e) => setButton(i, { ...b, example: e.target.value })} placeholder="Sample full link" aria-label={`Button ${i + 1} sample link`} />
+                    <div>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-[15px] font-semibold text-stone-900">
+                          Header <span className="font-normal text-stone-400">optional</span>
+                        </p>
+                        <div className="flex overflow-hidden rounded-lg ring-1 ring-stone-200">
+                          {(["NONE", "TEXT", "IMAGE", "VIDEO", "DOCUMENT"] as const).map((h) => (
+                            <button
+                              key={h}
+                              type="button"
+                              aria-pressed={t.header.type === h}
+                              onClick={() => {
+                                setMedia({});
+                                set({ header: h === "NONE" ? { type: "NONE" } : h === "TEXT" ? { type: "TEXT", text: "" } : { type: h } });
+                              }}
+                              className={cx("border-l border-stone-200 px-3 py-1.5 text-[13.5px] font-medium first:border-l-0", t.header.type === h ? "bg-emerald-50 text-emerald-800" : "bg-white text-stone-600 hover:bg-stone-50")}
+                            >
+                              {h === "NONE" ? "None" : h === "TEXT" ? "Text" : WA_HEADER_MEDIA[h].label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {t.header.type === "TEXT" && (
+                        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_200px]">
+                          <div>
+                            <input className={inputCls} value={t.header.text} maxLength={WA_LIMITS.headerText} onChange={(e) => set({ header: { ...t.header, type: "TEXT", text: e.target.value } })} placeholder="Navratri Flash Sale" aria-label="Header text" />
+                            <p className="mt-1 flex justify-between text-[12.5px] text-stone-400">
+                              <span>No emojis or formatting in the header. One variable allowed.</span>
+                              <span>
+                                {t.header.text.length} / {WA_LIMITS.headerText}
+                              </span>
+                            </p>
+                          </div>
+                          {waVariables(t.header.text).length > 0 && (
+                            <Field label="Sample for {{1}}">
+                              <input className={inputCls} value={t.header.type === "TEXT" ? (t.header.example ?? "") : ""} onChange={(e) => t.header.type === "TEXT" && set({ header: { ...t.header, example: e.target.value } })} placeholder="Acme" />
+                            </Field>
+                          )}
+                        </div>
+                      )}
+                      {(t.header.type === "IMAGE" || t.header.type === "VIDEO" || t.header.type === "DOCUMENT") && (
+                        <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-stone-300 bg-stone-50/60 px-4 py-4 text-[14px] text-stone-600 hover:border-stone-400">
+                          {uploading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Upload className="h-5 w-5" aria-hidden />}
+                          <span>
+                            <span className="block font-medium text-stone-800">{"handle" in t.header && t.header.handle ? `${media.fileName ?? "File"} uploaded. Choose another?` : `Upload a sample ${WA_HEADER_MEDIA[t.header.type].label.toLowerCase()} (${WA_HEADER_MEDIA[t.header.type].hint})`}</span>
+                            <span className="block text-[13px] text-stone-500">Meta reviews with it. Each campaign sends its own file.</span>
+                          </span>
+                          <input type="file" accept={WA_HEADER_MEDIA[t.header.type].accept} className="sr-only" onChange={(e) => void upload(t.header.type as WaHeaderMedia, e.target.files?.[0])} />
+                        </label>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[15px] font-semibold text-stone-900">Body</p>
+                        <button type="button" onClick={() => edit("var")} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[14px] font-semibold text-emerald-700 hover:bg-emerald-50">
+                          <span className="font-mono text-[13px]">{"{ }"}</span> Add variable
+                        </button>
+                      </div>
+                      <div className="mt-2 rounded-xl ring-1 ring-stone-200 focus-within:ring-2 focus-within:ring-emerald-400">
+                        <div className="flex items-center gap-0.5 border-b border-stone-100 px-2 py-1">
+                          {(
+                            [
+                              ["bold", Bold, "Bold"],
+                              ["italic", Italic, "Italic"],
+                              ["strike", Strikethrough, "Strikethrough"],
+                            ] as const
+                          ).map(([k, Icon, l]) => (
+                            <button key={k} type="button" onClick={() => edit(k)} className="rounded p-1.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900" aria-label={l}>
+                              <Icon className="h-4 w-4" aria-hidden />
+                            </button>
+                          ))}
+                        </div>
+                        <textarea
+                          ref={body}
+                          aria-label="Body"
+                          className="block min-h-[150px] w-full resize-y rounded-b-xl bg-white px-3.5 py-3 text-[15.5px] leading-relaxed text-stone-900 focus:outline-none"
+                          value={t.body}
+                          maxLength={WA_LIMITS.body}
+                          onChange={(e) => set({ body: e.target.value })}
+                          placeholder="Hi {{1}}, celebrate Navratri with flat 30% off on all chaniya cholis. Use code NAV30 before {{2}}."
+                        />
+                      </div>
+                      <p className="mt-1.5 flex justify-between text-[13px] text-stone-500">
+                        <span>
+                          {bodyVars.length} variable{bodyVars.length === 1 ? "" : "s"}
+                        </span>
+                        <span>
+                          {t.body.length} / {WA_LIMITS.body}
+                        </span>
+                      </p>
+                      {bodyVars.length > 0 && (
+                        <div className="mt-3 rounded-xl bg-stone-50 p-3 ring-1 ring-stone-200">
+                          <p className="text-[13.5px] font-medium text-stone-700">Sample values for Meta&apos;s review</p>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                            {bodyVars.map((n) => (
+                              <label key={n} className="flex items-center gap-2">
+                                <span className="w-12 shrink-0 rounded bg-emerald-100 px-1.5 py-1 text-center font-mono text-[12.5px] text-emerald-800">{`{{${n}}}`}</span>
+                                <input
+                                  className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-[14.5px]"
+                                  value={t.bodyExamples[n - 1] ?? ""}
+                                  onChange={(e) => {
+                                    const ex = [...t.bodyExamples];
+                                    ex[n - 1] = e.target.value;
+                                    set({ bodyExamples: ex });
+                                  }}
+                                  placeholder={n === 1 ? "Sara" : n === 2 ? "Sunday" : "Sample"}
+                                />
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-[15px] font-semibold text-stone-900">
+                        Footer <span className="font-normal text-stone-400">optional</span>
+                      </p>
+                      <input className={cx(inputCls, "mt-2")} value={t.footer} maxLength={WA_LIMITS.footer} onChange={(e) => set({ footer: e.target.value })} placeholder="Reply STOP to opt out" aria-label="Footer" />
+                      <p className="mt-1 flex justify-between text-[12.5px] text-stone-400">
+                        {!/stop/i.test(t.footer) && t.category === "MARKETING" ? (
+                          <button type="button" onClick={() => set({ footer: "Reply STOP to opt out" })} className="font-medium text-emerald-700 hover:underline">
+                            Add &ldquo;Reply STOP to opt out&rdquo; (fewer blocks, better quality)
+                          </button>
+                        ) : (
+                          <span />
+                        )}
+                        <span>
+                          {t.footer.length} / {WA_LIMITS.footer}
+                        </span>
+                      </p>
+                    </div>
+
+                    {kind === "buttons" && (
+                      <div>
+                        <p className="text-[15px] font-semibold text-stone-900">Buttons</p>
+                        <p className="text-[13.5px] text-stone-500">Up to 10. Quick replies stay together, before or after the other buttons.</p>
+                        <div className="mt-3 space-y-2">
+                          {t.buttons.map((b, i) => (
+                            <ButtonRow key={i} b={b} i={i} onChange={(nb) => setButton(i, nb)} onRemove={() => set({ buttons: t.buttons.filter((_, j) => j !== i) })} />
+                          ))}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button type="button" disabled={full || count("QUICK_REPLY") >= WA_LIMITS.quickReplies} onClick={() => addButton("QUICK_REPLY")} className={btn.secondary}>
+                            <Reply className="h-4 w-4" aria-hidden /> Quick reply
+                          </button>
+                          <button type="button" disabled={full || count("URL") >= WA_LIMITS.urlButtons} onClick={() => addButton("URL")} className={btn.secondary}>
+                            <ExternalLink className="h-4 w-4" aria-hidden /> Website link
+                          </button>
+                          <button type="button" disabled={full || count("PHONE_NUMBER") >= WA_LIMITS.phoneButtons} onClick={() => addButton("PHONE_NUMBER")} className={btn.secondary}>
+                            <Phone className="h-4 w-4" aria-hidden /> Call button
+                          </button>
+                          {t.category === "MARKETING" && (
+                            <button type="button" disabled={full || count("COPY_CODE") >= 1} onClick={() => addButton("COPY_CODE")} className={btn.secondary}>
+                              <Copy className="h-4 w-4" aria-hidden /> Copy code
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </>
                 )}
-                {b.type === "PHONE_NUMBER" && (
-                  <input className="min-w-[180px] flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-[14.5px]" value={b.phone} onChange={(e) => setButton(i, { ...b, phone: e.target.value })} placeholder="+971 50 123 4567" aria-label={`Button ${i + 1} phone`} />
-                )}
-                <button type="button" onClick={() => set({ buttons: t.buttons.filter((_, j) => j !== i) })} className="mt-1 rounded-lg p-1.5 text-stone-400 hover:bg-white hover:text-rose-600" aria-label={`Remove button ${i + 1}`}>
-                  <Trash2 className="h-4 w-4" aria-hidden />
-                </button>
               </div>
-            ))}
-            <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={count("QUICK_REPLY") >= WA_LIMITS.quickReplies || t.buttons.length >= WA_LIMITS.buttons} onClick={() => addButton("QUICK_REPLY")} className={btn.secondary}>
-                <Plus className="h-4 w-4" aria-hidden /> Quick reply
-              </button>
-              <button type="button" disabled={count("URL") >= WA_LIMITS.urlButtons || t.buttons.length >= WA_LIMITS.buttons} onClick={() => addButton("URL")} className={btn.secondary}>
-                <Plus className="h-4 w-4" aria-hidden /> Website link
-              </button>
-              <button type="button" disabled={count("PHONE_NUMBER") >= WA_LIMITS.phoneButtons || t.buttons.length >= WA_LIMITS.buttons} onClick={() => addButton("PHONE_NUMBER")} className={btn.secondary}>
-                <Plus className="h-4 w-4" aria-hidden /> Call button
-              </button>
-            </div>
-          </Section>
+            )}
+          </section>
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-6">
-          <div className="mx-auto w-full max-w-[340px] overflow-hidden rounded-[2rem] border-[6px] border-stone-900 bg-stone-900 shadow-xl">
-            <div className="flex items-center gap-2.5 bg-[#075e54] px-4 py-3 text-white">
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-white/20 text-[13px] font-semibold">{(business || "B").charAt(0).toUpperCase()}</span>
-              <span className="min-w-0">
-                <span className="block truncate text-[14px] font-semibold">{business || "Your business"}</span>
-                <span className="block text-[11.5px] text-white/70">Business account</span>
-              </span>
-            </div>
-            <WaChatBackground className="min-h-[420px] px-3 py-4">
-              <p className="mx-auto mb-3 w-fit rounded-md bg-white/80 px-2 py-0.5 text-[11px] text-stone-500">Today</p>
-              <WaBubble t={preview} values={t.bodyExamples} headerValue={t.header.type === "TEXT" ? t.header.example : undefined} />
-            </WaChatBackground>
-          </div>
+          <WaPhone t={preview} values={t.bodyExamples} headerValue={t.header.type === "TEXT" ? t.header.example : undefined} business={business} />
           <div className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
             {tried && errors.length > 0 && (
               <ul className="mb-3 space-y-1 text-[13.5px] text-rose-700" role="alert">
@@ -306,13 +447,51 @@ export function TemplateBuilder({ initial, business }: { initial: WaTemplateDraf
                 {err}
               </p>
             )}
-            <button type="button" onClick={submit} disabled={pending || uploading} className={cx(btn.primary, "w-full")}>
-              {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />} Submit to Meta
+            <button type="button" onClick={step === 1 ? () => setStep(2) : submit} disabled={pending || uploading} className={cx(btn.primary, "w-full")}>
+              {pending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : step === 1 ? <Check className="h-4 w-4" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />}
+              {step === 1 ? "Continue to draft" : "Submit to Meta"}
             </button>
-            <p className="mt-2 text-center text-[12.5px] text-stone-500">You&apos;ll see it under &ldquo;In review&rdquo; until Meta decides.</p>
+            <p className="mt-2 text-center text-[12.5px] text-stone-500">Meta usually reviews within minutes, at most 24 hours.</p>
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function StepDot({ n, done }: { n: number; done?: boolean }) {
+  return <span className={cx("grid h-7 w-7 shrink-0 place-items-center rounded-full text-[13px] font-semibold ring-2", done ? "bg-emerald-600 text-white ring-emerald-600" : "bg-white text-emerald-700 ring-emerald-500")}>{done ? <Check className="h-4 w-4" aria-hidden /> : n}</span>;
+}
+
+const ROW_ICON = { QUICK_REPLY: Reply, URL: ExternalLink, PHONE_NUMBER: Phone, COPY_CODE: Copy } as const;
+const ROW_LABEL = { QUICK_REPLY: "Quick reply", URL: "Website", PHONE_NUMBER: "Call", COPY_CODE: "Copy code" } as const;
+
+function ButtonRow({ b, i, onChange, onRemove }: { b: WaButton; i: number; onChange: (b: WaButton) => void; onRemove: () => void }) {
+  const Icon = ROW_ICON[b.type];
+  const input = "min-w-[150px] flex-1 rounded-lg border border-stone-200 bg-white px-3 py-2 text-[14.5px]";
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl bg-stone-50 p-3 ring-1 ring-stone-200">
+      <span className="inline-flex w-[104px] items-center gap-1.5 text-[13px] font-medium text-stone-600">
+        <Icon className="h-4 w-4" aria-hidden /> {ROW_LABEL[b.type]}
+      </span>
+      {b.type === "COPY_CODE" ? (
+        <>
+          <span className="text-[13.5px] text-stone-500">&ldquo;Copy offer code&rdquo; with code</span>
+          <input className={cx(input, "max-w-[180px] font-mono uppercase")} value={b.code} maxLength={15} onChange={(e) => onChange({ ...b, code: e.target.value.replace(/\s/g, "") })} placeholder="NAV30" aria-label={`Button ${i + 1} code`} />
+        </>
+      ) : (
+        <input className={input} value={b.text} maxLength={WA_LIMITS.buttonText} onChange={(e) => onChange({ ...b, text: e.target.value })} placeholder={b.type === "QUICK_REPLY" ? "Shop now" : b.type === "URL" ? "Visit website" : "Call us"} aria-label={`Button ${i + 1} text`} />
+      )}
+      {b.type === "URL" && (
+        <>
+          <input className={cx(input, "flex-[2]")} value={b.url} onChange={(e) => onChange({ ...b, url: e.target.value })} placeholder="https://company.com/sale" aria-label={`Button ${i + 1} link`} />
+          {waVariables(b.url).length > 0 && <input className={cx(input, "flex-[2]")} value={b.example ?? ""} onChange={(e) => onChange({ ...b, example: e.target.value })} placeholder="Sample full link" aria-label={`Button ${i + 1} sample link`} />}
+        </>
+      )}
+      {b.type === "PHONE_NUMBER" && <input className={input} value={b.phone} onChange={(e) => onChange({ ...b, phone: e.target.value })} placeholder="+971 50 123 4567" aria-label={`Button ${i + 1} phone`} />}
+      <button type="button" onClick={onRemove} className="rounded-lg p-1.5 text-stone-400 hover:bg-white hover:text-rose-600" aria-label={`Remove button ${i + 1}`}>
+        <Trash2 className="h-4 w-4" aria-hidden />
+      </button>
     </div>
   );
 }

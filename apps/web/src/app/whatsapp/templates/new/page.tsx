@@ -26,13 +26,20 @@ function toDraft(t: { name: string; language: string; category: string; componen
     if (type === "QUICK_REPLY") return [{ type, text: s(b.text) }];
     if (type === "URL") return [{ type, text: s(b.text), url: s(b.url), example: s(arr(b.example)[0]) }];
     if (type === "PHONE_NUMBER") return [{ type, text: s(b.text), phone: s(b.phone_number) }];
+    if (type === "COPY_CODE") return [{ type, text: "", code: s(arr(b.example)[0] ?? b.example) }];
     return [];
   });
+  const format = s(h?.format).toUpperCase();
+  const footer = find("FOOTER");
+  const category = t.category === "UTILITY" ? "UTILITY" : t.category === "AUTHENTICATION" ? "AUTHENTICATION" : "MARKETING";
   return {
     name: `${t.name}_v2`.slice(0, 512),
     language: t.language,
-    category: t.category === "UTILITY" ? "UTILITY" : "MARKETING",
-    header: !h ? { type: "NONE" } : s(h.format).toUpperCase() === "TEXT" ? { type: "TEXT", text: s(h.text), example: s(ex(h, "header_text")[0]) } : { type: "IMAGE" },
+    category,
+    ...(category === "AUTHENTICATION" && {
+      otp: { securityNote: !!body?.add_security_recommendation, expiryMinutes: Number(footer?.code_expiration_minutes) || null, buttonText: s((arr(find("BUTTONS")?.buttons)[0] as C | undefined)?.text) || "Copy code" },
+    }),
+    header: !h ? { type: "NONE" } : format === "TEXT" ? { type: "TEXT", text: s(h.text), example: s(ex(h, "header_text")[0]) } : { type: format === "VIDEO" || format === "DOCUMENT" ? format : "IMAGE" },
     body: s(body?.text),
     bodyExamples: arr(ex(body, "body_text")[0]).map(s),
     footer: s(find("FOOTER")?.text),
@@ -46,5 +53,5 @@ export default async function NewTemplatePage({ searchParams }: { searchParams: 
   if (!n) redirect("/whatsapp/number");
   const copy = (await searchParams).copy;
   const from = copy ? await prisma.whatsappTemplate.findFirst({ where: { id: copy, workspaceId: me.workspace.id } }) : null;
-  return <TemplateBuilder initial={from ? toDraft(from) : EMPTY_DRAFT} business={n.verifiedName} />;
+  return <TemplateBuilder initial={from ? toDraft(from) : EMPTY_DRAFT} business={n.verifiedName} copied={!!from} />;
 }

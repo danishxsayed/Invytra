@@ -26,6 +26,8 @@ export interface WaTemplateNeeds {
   slots: { slot: WaSlot; label: string }[];
   /** The header is an image/video/document: each send needs its link. */
   media: "IMAGE" | "VIDEO" | "DOCUMENT" | null;
+  /** Copy-code buttons: their index and the offer code sent with every message. */
+  coupons?: { index: number; code: string }[];
 }
 
 const vars = (t: string) => [...new Set([...t.matchAll(/\{\{\s*(\d+)\s*\}\}/g)].map((m) => Number(m[1])))].sort((a, b) => a - b);
@@ -42,7 +44,8 @@ export function templateNeeds(components: unknown): WaTemplateNeeds {
     if (String(b.type).toUpperCase() === "URL" && vars(String(b.url ?? "")).length) slots.push({ slot: `button:${i}`, label: `Link of “${String(b.text ?? "button")}”` });
   });
   const media = v.header.type === "IMAGE" || v.header.type === "VIDEO" || v.header.type === "DOCUMENT" ? v.header.type : null;
-  return { slots, media };
+  const coupons = buttons.flatMap((b, i) => (String(b.type).toUpperCase() === "COPY_CODE" ? [{ index: i, code: String((Array.isArray(b.example) ? b.example[0] : b.example) ?? "") }] : []));
+  return { slots, media, ...(coupons.length && { coupons }) };
 }
 
 export interface WaContactValues {
@@ -98,6 +101,7 @@ export function sendComponents(needs: WaTemplateNeeds, map: Partial<Record<WaSlo
   else if (needs.slots.some((s) => s.slot === "header")) out.push({ type: "header", parameters: [text("header")] });
   const body = needs.slots.filter((s) => s.slot.startsWith("body:")).map((s) => text(s.slot));
   if (body.length) out.push({ type: "body", parameters: body });
+  for (const cp of needs.coupons ?? []) out.push({ type: "button", sub_type: "copy_code", index: String(cp.index), parameters: [{ type: "coupon_code", coupon_code: cp.code }] });
   for (const s of needs.slots.filter((x) => x.slot.startsWith("button:")))
     out.push({ type: "button", sub_type: "url", index: String(Number(s.slot.split(":")[1])), parameters: [text(s.slot)] });
   return out;

@@ -52,6 +52,26 @@ describe("whatsapp templates", () => {
   });
 });
 
+describe("whatsapp template kinds", () => {
+  it("authentication: Meta writes the words, we set the options", () => {
+    const t: WaTemplateDraft = { ...base, name: "login_code", category: "AUTHENTICATION", body: "", bodyExamples: [], footer: "", buttons: [], otp: { securityNote: true, expiryMinutes: 10, buttonText: "Copy code" } };
+    expect(checkTemplate(t)).toEqual([]);
+    expect(checkTemplate({ ...t, otp: { securityNote: false, expiryMinutes: 120, buttonText: "Copy code" } })[0]).toContain("1 to 90");
+    const meta = toMetaTemplate(t);
+    expect(meta.components).toEqual([{ type: "BODY", add_security_recommendation: true }, { type: "FOOTER", code_expiration_minutes: 10 }, { type: "BUTTONS", buttons: [{ type: "OTP", otp_type: "COPY_CODE", text: "Copy code" }] }]);
+    expect(readMetaComponents(meta.components)).toMatchObject({ body: "{{1}} is your verification code. For your security, do not share this code.", footer: "This code expires in 10 minutes.", buttons: [{ type: "OTP", text: "Copy code" }] });
+  });
+  it("video and document headers, and a copy-code button (marketing only)", () => {
+    expect(checkTemplate({ ...base, header: { type: "VIDEO" } })).toContain("Upload the header video.");
+    expect(toMetaTemplate({ ...base, header: { type: "DOCUMENT", handle: "h1" } }).components[0]).toEqual({ type: "HEADER", format: "DOCUMENT", example: { header_handle: ["h1"] } });
+    const withCode = { ...base, buttons: [{ type: "COPY_CODE" as const, text: "", code: "NAV30" }] };
+    expect(checkTemplate(withCode)).toEqual([]);
+    expect(checkTemplate({ ...withCode, category: "UTILITY" })).toContain("A copy-code button is only for Marketing templates.");
+    expect(checkTemplate({ ...base, buttons: [{ type: "COPY_CODE", text: "", code: "WAY TOO LONG CODE" }] }).join()).toContain("offer code");
+    expect(toMetaTemplate(withCode).components.at(-1)).toEqual({ type: "BUTTONS", buttons: [{ type: "COPY_CODE", example: "NAV30" }] });
+  });
+});
+
 describe("whatsapp numbers", () => {
   it("reads limits", () => {
     expect(waDailyLimit("TIER_1K")).toBe(1000);

@@ -7,7 +7,7 @@ import type { Result } from "@/lib/accounts";
 import { requireChannel } from "@/lib/auth";
 import { canPreview } from "@/lib/preview";
 import { senderProblem } from "@/lib/subscriptions";
-import { connectNumber, createTemplate, deleteTemplate, disconnectNumber, refreshNumber, saveProfile, syncTemplates, uploadHeaderImage } from "@/lib/whatsapp";
+import { connectNumber, createTemplate, deleteTemplate, disconnectNumber, refreshNumber, saveProfile, syncTemplates, uploadHeaderMedia } from "@/lib/whatsapp";
 
 /* WhatsApp actions: each checks the signed-in user may use the WhatsApp channel, and only touches their workspace. */
 
@@ -56,8 +56,8 @@ export async function deleteTemplateAction(id: string): Promise<Result> {
   return done(await deleteTemplate(prisma, me.workspace.id, String(id)));
 }
 
-export async function uploadHeaderImageAction(form: FormData): Promise<Result<{ handle: string }>> {
+export async function uploadHeaderMediaAction(form: FormData): Promise<Result<{ handle: string }>> {
   const me = await requireChannel("whatsapp");
   const file = form.get("file");
-  return uploadHeaderImage(prisma, me.workspace.id, file instanceof File ? file : null);
+  return uploadHeaderMedia(prisma, me.workspace.id, String(form.get("kind") ?? ""), file instanceof File ? file : null);
 }
