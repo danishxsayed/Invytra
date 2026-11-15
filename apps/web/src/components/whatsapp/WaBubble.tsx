@@ -111,13 +111,15 @@ export function WaBubble({ t, values, headerValue, dark, className }: { t: Bubbl
   );
 }
 
-/** WhatsApp's chat wallpaper behind a bubble. */
+/** WhatsApp's doodle chat wallpaper behind a bubble: as is on Android (dark), inverted onto beige on iPhone (light). */
 export function WaChatBackground({ children, className, dark }: { children: React.ReactNode; className?: string; dark?: boolean }) {
   return (
-    <div
-      className={cx(dark ? "bg-[#0b141a]" : "bg-[#efe7dd]", className)}
-      style={{ backgroundImage: `radial-gradient(${dark ? "rgba(255,255,255,0.06)" : "rgba(120,100,70,0.13)"} 1px, transparent 1px)`, backgroundSize: "14px 14px" }}
-    >
+    <div className={cx("relative isolate", dark ? "bg-[#0b141a]" : "bg-[#efe7dd]", className)}>
+      <span
+        aria-hidden
+        className={cx("pointer-events-none absolute inset-0 -z-10 bg-repeat", dark ? "opacity-90" : "opacity-[0.16] invert")}
+        style={{ backgroundImage: "url(/wa/wallpaper.webp)", backgroundSize: "420px 420px" }}
+      />
       {children}
     </div>
   );

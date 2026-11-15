@@ -50,7 +50,7 @@ export function WaPhone({ t, values, headerValue, business, caption }: { t: Bubb
           <Video className={cx("h-4 w-4", dark ? "" : "text-sky-600")} aria-hidden />
           <Phone className={cx("ml-2 h-4 w-4", dark ? "" : "text-sky-600")} aria-hidden />
         </div>
-        <WaChatBackground dark={dark} className="min-h-[400px] px-3 py-4">
+        <WaChatBackground dark={dark} className="h-[540px] overflow-y-auto px-3 py-4">
           <p className={cx("mx-auto mb-3 w-fit rounded-md px-2 py-0.5 text-[11px] font-medium uppercase", dark ? "bg-[#1f2c34] text-[#8696a0]" : "bg-white/90 text-stone-500")}>{caption ?? "Today"}</p>
           <WaBubble t={t} values={values} headerValue={headerValue} dark={dark} />
         </WaChatBackground>
