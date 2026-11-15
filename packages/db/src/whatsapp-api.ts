@@ -40,6 +40,8 @@ export class MetaError extends Error {
     message: string,
     readonly code?: number,
     readonly status?: number,
+    /** Meta's own words (for send errors shown per message) */
+    readonly raw?: string,
   ) {
     super(message);
   }
@@ -114,7 +116,7 @@ export class MetaClient {
     const data = (await res.json().catch(() => ({}))) as { error?: { message?: string; code?: number; error_user_msg?: string } };
     if (!res.ok || data.error) {
       const e = data.error ?? {};
-      throw new MetaError(metaErrorText(e.code, e.error_user_msg || e.message || `HTTP ${res.status}`), e.code, res.status);
+      throw new MetaError(metaErrorText(e.code, e.error_user_msg || e.message || `HTTP ${res.status}`), e.code, res.status, e.error_user_msg || e.message);
     }
     return data as T;
   }
@@ -189,6 +191,16 @@ export class MetaClient {
 
   deleteTemplate(wabaId: string, name: string, metaId?: string) {
     return this.call<{ success: boolean }>("DELETE", `${wabaId}/message_templates`, { query: { name, ...(metaId && { hsm_id: metaId }) } });
+  }
+
+  /** Sends an approved template to one person → Meta's message id (wamid). */
+  async sendTemplate(phoneNumberId: string, to: string, t: { name: string; language: string; components: unknown[] }): Promise<string> {
+    const r = await this.call<{ messages?: { id: string }[] }>("POST", `${phoneNumberId}/messages`, {
+      body: { messaging_product: "whatsapp", recipient_type: "individual", to, type: "template", template: { name: t.name, language: { code: t.language }, ...(t.components.length && { components: t.components }) } },
+    });
+    const id = r.messages?.[0]?.id;
+    if (!id) throw new MetaError("Meta didn't return a message id.");
+    return id;
   }
 
   /** Uploads a sample file for a template header (Resumable Upload) → its handle. */

@@ -15,10 +15,11 @@ import { campaignTick } from "./campaigns/engine.js";
 import { importTick } from "./imports/importer.js";
 import { warmupTick } from "./email/warmup.js";
 import { emailCampaignTick } from "./email/campaigns.js";
+import { whatsappCampaignTick } from "./whatsapp/campaigns.js";
 import { emailReplyTick } from "./email/replies.js";
 import { verifyTick } from "./email/verify.js";
 import { createRuntime } from "./runtime.js";
-import { expireDueSubscriptions, syncPeople, unipileFromEnv } from "@invytra/db";
+import { expireDueSubscriptions, metaApp, syncPeople, unipileFromEnv } from "@invytra/db";
 import { invyBrainFromEnv } from "./invy/brain.js";
 import { placesFromEnv } from "./invy/places.js";
 import { requeueStuckInvySearches, runNextInvySearch } from "./invy/run.js";
@@ -164,6 +165,24 @@ async function main() {
   await runWarmup();
   const warmupTimer = setInterval(runWarmup, 60_000);
 
+  // WhatsApp campaigns, every minute: start what's due, send a batch per campaign.
+  let whatsapping = false;
+  const runWhatsapp = async () => {
+    if (whatsapping) return;
+    whatsapping = true;
+    try {
+      const w = await whatsappCampaignTick({ prisma: rt.prisma, key: rt.env.SESSION_ENCRYPTION_KEY, app: metaApp() });
+      if (w.started || w.sent || w.failed || w.skipped || w.completed || w.paused)
+        log(`WhatsApp campaigns: ${w.started ? `${w.started} started, ` : ""}${w.sent} sent${w.failed ? `, ${w.failed} failed` : ""}${w.skipped ? `, ${w.skipped} skipped` : ""}${w.completed ? `, ${w.completed} finished` : ""}${w.paused ? `, ${w.paused} paused` : ""}`);
+    } catch (e) {
+      log(`WhatsApp engine error: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      whatsapping = false;
+    }
+  };
+  await runWhatsapp();
+  const whatsappTimer = setInterval(runWhatsapp, 60_000);
+
   // Contacts: link new LinkedIn leads and email contacts to one contact per person, every minute.
   let syncing = false;
   const runPeople = async () => {
@@ -266,6 +285,7 @@ async function main() {
     clearInterval(campaignTimer);
     clearInterval(replyTimer);
     clearInterval(warmupTimer);
+    clearInterval(whatsappTimer);
     clearInterval(peopleTimer);
     clearInterval(verifyTimer);
     clearInterval(invyTimer);

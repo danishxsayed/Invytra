@@ -1,5 +1,5 @@
 import { metaSignatureOk, type MetaApp, type PrismaClient } from "@invytra/db";
-import { isOptOut } from "@invytra/shared";
+import { isOptOut, waSendError } from "@invytra/shared";
 import { recordInbound } from "./whatsapp-contacts";
 
 /*
@@ -106,9 +106,18 @@ async function applyChange(prisma: PrismaClient, wabaId: string, { field, value 
         const from = str(m.from);
         const text = messageText(m);
         const ts = Number(m.timestamp);
-        await recordInbound(prisma, n.workspaceId, { phone: from, profileName: names.get(from), text, optOut: isOptOut(text), at: Number.isFinite(ts) && ts > 0 ? new Date(ts * 1000) : new Date() });
+        const at = Number.isFinite(ts) && ts > 0 ? new Date(ts * 1000) : new Date();
+        await recordInbound(prisma, n.workspaceId, { phone: from, profileName: names.get(from), text, optOut: isOptOut(text), at });
+        // A reply counts for the latest campaign message they got (within two weeks).
+        const last = await prisma.whatsappMessage.findFirst({
+          where: { workspaceId: n.workspaceId, phone: from, direction: "OUT", campaignId: { not: null }, sentAt: { gt: new Date(at.getTime() - 14 * 86_400_000), lte: at } },
+          orderBy: { sentAt: "desc" },
+          select: { id: true, repliedAt: true },
+        });
+        if (last && !last.repliedAt) await prisma.whatsappMessage.update({ where: { id: last.id }, data: { repliedAt: at } });
       }
-      return; // delivery statuses: handled with campaigns
+      for (const st of (value.statuses as Record<string, unknown>[] | undefined) ?? []) await applyStatus(prisma, st);
+      return;
     }
     default:
       return;
@@ -125,4 +134,30 @@ function messageText(m: Record<string, unknown>): string {
     return str((i.button_reply as Record<string, unknown> | undefined)?.title) || str((i.list_reply as Record<string, unknown> | undefined)?.title);
   }
   return "";
+}
+
+const STATUS_ORDER = ["QUEUED", "SENT", "DELIVERED", "READ"];
+
+/** Meta's delivery report for a message we sent: sent → delivered → read, or failed (never moves backwards). */
+async function applyStatus(prisma: PrismaClient, st: Record<string, unknown>) {
+  const wamid = str(st.id);
+  if (!wamid) return;
+  const m = await prisma.whatsappMessage.findUnique({ where: { wamid }, select: { id: true, status: true } });
+  if (!m) return;
+  const ts = Number(st.timestamp);
+  const at = Number.isFinite(ts) && ts > 0 ? new Date(ts * 1000) : new Date();
+  const status = str(st.status).toUpperCase();
+  if (status === "FAILED") {
+    const err = ((st.errors as Record<string, unknown>[] | undefined) ?? [])[0] ?? {};
+    const details = str((err.error_data as Record<string, unknown> | undefined)?.details) || str(err.message) || str(err.title) || "Meta couldn't deliver it";
+    await prisma.whatsappMessage.update({ where: { id: m.id }, data: { status: "FAILED", failedAt: at, error: waSendError(Number(err.code) || undefined, details) } });
+    return;
+  }
+  const field = status === "DELIVERED" ? "deliveredAt" : status === "READ" ? "readAt" : status === "SENT" ? "sentAt" : null;
+  if (!field) return;
+  const forward = STATUS_ORDER.indexOf(status) > STATUS_ORDER.indexOf(m.status);
+  await prisma.whatsappMessage.update({
+    where: { id: m.id },
+    data: { [field]: at, ...(forward && m.status !== "FAILED" && { status }) },
+  });
 }

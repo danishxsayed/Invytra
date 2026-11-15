@@ -1,15 +1,16 @@
 "use client";
 
-import { FileText, Smartphone, Users } from "lucide-react";
+import { FileText, Megaphone, Smartphone, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cx } from "../ui";
 
 const LIVE = [
+  { href: "/whatsapp/campaigns", end: "/campaigns", label: "Campaigns", Icon: Megaphone },
   { href: "/whatsapp/contacts", end: "/contacts", label: "Contacts", Icon: Users },
   { href: "/whatsapp/templates", end: "/templates", label: "Templates", Icon: FileText },
   { href: "/whatsapp/number", end: "/number", label: "Number", Icon: Smartphone },
 ];
-const SOON = ["Campaigns", "Inbox"];
+const SOON = ["Inbox"];
 
 /** The WhatsApp tabs; works on its own subdomain and on one host (/whatsapp/…). */
 export function WhatsappNav() {

@@ -65,6 +65,8 @@ model Workspace {
   whatsappNumbers    WhatsappNumber[]
   whatsappTemplates  WhatsappTemplate[]
   whatsappContacts   WhatsappContact[]
+  whatsappCampaigns  WhatsappCampaign[]
+  whatsappMessages   WhatsappMessage[]
 
   @@map("workspaces")
 }
@@ -1493,9 +1495,79 @@ model WhatsappContact {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messages  WhatsappMessage[]
 
   @@unique([workspaceId, phone])
   @@index([workspaceId, createdAt])
   @@map("whatsapp_contacts")
+}
+
+/// A WhatsApp broadcast: one approved template to the contacts with some tags (or all).
+model WhatsappCampaign {
+  id           String    @id @default(cuid())
+  workspaceId  String    @map("workspace_id")
+  name         String
+  templateId   String?   @map("template_id")
+  /// Copied at creation, so the campaign keeps working if the template list changes
+  templateName String    @map("template_name")
+  language     String
+  components   Json
+  /// Tags whose contacts get it (empty = every subscribed contact)
+  tags         String[]  @default([])
+  /// { "body:1": { kind, field | key | value, fallback } … } (see WaVarSource)
+  varMap       Json      @map("var_map")
+  mediaUrl     String?   @map("media_url")
+  /// SCHEDULED, SENDING, PAUSED, DONE, CANCELLED
+  status       String
+  scheduledAt  DateTime? @map("scheduled_at")
+  startedAt    DateTime? @map("started_at")
+  finishedAt   DateTime? @map("finished_at")
+  /// Why it stopped (a paused campaign's reason)
+  note         String?
+  createdBy    String?   @map("created_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messages  WhatsappMessage[]
+
+  @@index([status, scheduledAt])
+  @@index([workspaceId, createdAt])
+  @@map("whatsapp_campaigns")
+}
+
+/// One WhatsApp message, sent or received (campaigns now, the inbox later).
+model WhatsappMessage {
+  id          String    @id @default(cuid())
+  workspaceId String    @map("workspace_id")
+  campaignId  String?   @map("campaign_id")
+  contactId   String?   @map("contact_id")
+  phone       String
+  /// OUT or IN
+  direction   String    @default("OUT")
+  /// TEMPLATE, TEXT, IMAGE, … (what Meta calls the message type)
+  kind        String    @default("TEMPLATE")
+  /// What was sent or received, readable (template body filled in, or their text)
+  body        String    @default("")
+  /// Meta's message id (wamid…)
+  wamid       String?   @unique
+  /// QUEUED, SENT, DELIVERED, READ, FAILED, SKIPPED (OUT); RECEIVED (IN)
+  status      String    @default("QUEUED")
+  error       String?
+  sentAt      DateTime? @map("sent_at")
+  deliveredAt DateTime? @map("delivered_at")
+  readAt      DateTime? @map("read_at")
+  failedAt    DateTime? @map("failed_at")
+  /// They replied after this message (campaign results)
+  repliedAt   DateTime? @map("replied_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaign  WhatsappCampaign? @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  contact   WhatsappContact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@unique([campaignId, phone])
+  @@index([campaignId, status])
+  @@index([workspaceId, phone, createdAt])
+  @@map("whatsapp_messages")
 }
