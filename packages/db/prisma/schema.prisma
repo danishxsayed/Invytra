@@ -1479,6 +1479,8 @@ model WhatsappContact {
   profileName   String?   @map("profile_name")
   email         String?
   company       String?
+  /// The customer's own ID for this person (CRM / app): re-imports match it first
+  externalId    String?   @map("external_id")
   tags          String[]  @default([])
   /// Custom variables: { key: value }
   vars          Json      @default("{}")
@@ -1500,6 +1502,7 @@ model WhatsappContact {
 
   @@unique([workspaceId, phone])
   @@index([workspaceId, createdAt])
+  @@index([workspaceId, externalId])
   @@map("whatsapp_contacts")
 }
 

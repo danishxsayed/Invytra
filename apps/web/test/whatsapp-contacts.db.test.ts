@@ -30,13 +30,19 @@ d("whatsapp contacts", () => {
     await prisma.$disconnect();
   });
 
-  it("adds by hand only with consent and a full number", async () => {
-    expect(await addWaContact(prisma, A, "Olivia", { phone: "+971 50 123 4567" }, now)).toMatchObject({ ok: false, error: expect.stringContaining("agreed") });
-    expect(await addWaContact(prisma, A, "Olivia", { phone: "12", consent: true }, now)).toMatchObject({ ok: false, error: expect.stringContaining("country code") });
-    expect(await addWaContact(prisma, A, "Olivia", { phone: "+971 50 123 4567", firstName: "Omar", tags: "Dubai, warm", consent: true }, now)).toMatchObject({ ok: true });
-    expect(await addWaContact(prisma, A, "Olivia", { phone: "00971501234567", consent: true }, now)).toMatchObject({ ok: false, error: expect.stringContaining("already") });
+  it("adds by hand: a name, a full number, consent yes or no", async () => {
+    expect(await addWaContact(prisma, A, "Olivia", { name: "Omar", phone: "+971 50 123 4567" }, now)).toMatchObject({ ok: false });
+    expect(await addWaContact(prisma, A, "Olivia", { name: "Omar", phone: "12", consent: true }, now)).toMatchObject({ ok: false, error: expect.stringContaining("country code") });
+    expect(await addWaContact(prisma, A, "Olivia", { name: "Omar", phone: "+971 50 123 4567", tags: ["Dubai", "warm"], userId: "USR-1", appointment: "2026-12-01T10:30", location: "Dubai", consent: true }, now)).toMatchObject({ ok: true });
+    expect(await addWaContact(prisma, A, "Olivia", { name: "Omar", phone: "00971501234567", consent: true }, now)).toMatchObject({ ok: false, error: expect.stringContaining("already") });
+    expect(await addWaContact(prisma, A, "Olivia", { name: "Other", phone: "+971501234599", userId: "USR-1", consent: true }, now)).toMatchObject({ ok: false, error: expect.stringContaining("User ID") });
     const c = await prisma.whatsappContact.findFirstOrThrow({ where: { workspaceId: A } });
-    expect(c).toMatchObject({ phone: "971501234567", tags: ["dubai", "warm"], consentSource: "MANUAL", consentBy: "Olivia" });
+    expect(c).toMatchObject({ phone: "971501234567", firstName: "Omar", externalId: "USR-1", tags: ["dubai", "warm"], vars: { appointment_time: "2026-12-01 10:30", location: "Dubai" }, consentSource: "MANUAL", consentBy: "Olivia" });
+    // "No": saved, but not opted in (campaigns skip them).
+    expect(await addWaContact(prisma, A, "Olivia", { name: "Nadia", phone: "+971501234500", consent: false }, now)).toMatchObject({ ok: true });
+    expect(await prisma.whatsappContact.findFirstOrThrow({ where: { workspaceId: A, phone: "971501234500" } })).toMatchObject({ consentSource: null });
+    expect((await waContactSummary(prisma, A)).counts).toEqual({ all: 2, subscribed: 1, no_consent: 1, opted_out: 0 });
+    await prisma.whatsappContact.deleteMany({ where: { workspaceId: A, phone: "971501234500" } });
   });
 
   it("imports a CSV: new and updated contacts, default country code, extra tags", async () => {
@@ -44,15 +50,29 @@ d("whatsapp contacts", () => {
     const mapping = ["phone", "full_name", "custom:city"];
     expect(await importWaContacts(prisma, A, "Olivia", { text, mapping, defaultCountry: "971" }, now)).toMatchObject({ ok: false, error: expect.stringContaining("agreed") });
     const r = await importWaContacts(prisma, A, "Olivia", { text, mapping, defaultCountry: "971", tags: "Expo 2026", consent: true }, now);
-    expect(r).toEqual({ ok: true, value: { added: 1, updated: 1, invalid: 1, duplicates: 0, blocked: 0, overLimit: 0 } });
+    expect(r).toEqual({ ok: true, value: { added: 1, updated: 1, invalid: 1, duplicates: 0, blocked: 0, overLimit: 0, noConsent: 0 } });
     const omar = await prisma.whatsappContact.findFirstOrThrow({ where: { workspaceId: A, phone: "971501234567" } });
-    expect(omar).toMatchObject({ firstName: "Omar", lastName: "Haddad", tags: ["dubai", "warm", "expo-2026"], vars: { city: "Dubai" } });
+    expect(omar).toMatchObject({ firstName: "Omar", lastName: "Haddad", tags: ["dubai", "warm", "expo-2026"], vars: { city: "Dubai", appointment_time: "2026-12-01 10:30" } });
     const s = await waContactSummary(prisma, A);
-    expect(s.counts).toEqual({ all: 2, subscribed: 2, opted_out: 0 });
+    expect(s.counts).toEqual({ all: 2, subscribed: 2, no_consent: 0, opted_out: 0 });
     expect(s.tags).toContainEqual({ tag: "expo-2026", count: 2 });
     expect((await listWaContacts(prisma, A, { tag: "warm" })).total).toBe(1);
     expect((await listWaContacts(prisma, A, { q: "9876" })).rows[0]).toMatchObject({ firstName: "Priya" });
     expect((await listWaContacts(prisma, B)).total).toBe(0);
+  });
+
+  it("re-imports match by User ID first; a consent column decides who is opted in", async () => {
+    const text = "User ID,Phone,Name,WhatsApp Opted\nUSR-1,+971 50 999 0000,Omar H,yes\nUSR-9,+447700900555,Lena,no\n";
+    const mapping = ["user_id", "phone", "full_name", "consent"];
+    // Only "no" rows: nothing to confirm.
+    expect(await importWaContacts(prisma, A, "Olivia", { text: "Phone,WhatsApp Opted\n+447700900556,no\n", mapping: ["phone", "consent"] }, now)).toMatchObject({ ok: true, value: { added: 1, noConsent: 1 } });
+    expect(await importWaContacts(prisma, A, "Olivia", { text, mapping }, now)).toMatchObject({ ok: false, error: expect.stringContaining("opted in") });
+    expect(await importWaContacts(prisma, A, "Olivia", { text, mapping, consent: true }, now)).toMatchObject({ ok: true, value: { added: 1, updated: 1, noConsent: 1 } });
+    // USR-1 was +971501234567: the same contact now has the new number.
+    expect(await prisma.whatsappContact.findFirstOrThrow({ where: { workspaceId: A, externalId: "USR-1" } })).toMatchObject({ phone: "971509990000", firstName: "Omar", lastName: "H" });
+    expect(await prisma.whatsappContact.findFirstOrThrow({ where: { workspaceId: A, externalId: "USR-9" } })).toMatchObject({ consentSource: null });
+    await prisma.whatsappContact.deleteMany({ where: { workspaceId: A, phone: { in: ["447700900555", "447700900556"] } } });
+    await prisma.whatsappContact.updateMany({ where: { workspaceId: A, externalId: "USR-1" }, data: { phone: "971501234567" } });
   });
 
   it("tags in bulk, only inside the workspace", async () => {
@@ -79,7 +99,7 @@ d("whatsapp contacts", () => {
     await prisma.whatsappContact.delete({ where: { id: priya.id } });
     const r = await importWaContacts(prisma, A, "Olivia", { text: "+919876543210\n+919876543211\n+919876543212\n", mapping: ["phone"], consent: true }, now);
     expect(r).toMatchObject({ ok: true, value: { added: 2, blocked: 1 } });
-    expect(await addWaContact(prisma, A, "Olivia", { phone: "+919876543210", consent: true })).toMatchObject({ ok: false, error: expect.stringContaining("do-not-contact") });
+    expect(await addWaContact(prisma, A, "Olivia", { name: "Priya", phone: "+919876543210", consent: true })).toMatchObject({ ok: false, error: expect.stringContaining("do-not-contact") });
   });
 
   it("opting out by hand and from the do-not-contact page", async () => {

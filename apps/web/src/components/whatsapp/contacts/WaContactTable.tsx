@@ -15,6 +15,8 @@ export interface WaContactView {
   consent: string;
   consentTitle: string;
   optedOut: string | null;
+  /** Saved without WhatsApp consent: campaigns skip them. */
+  noConsent?: boolean;
   added: string;
 }
 
@@ -142,7 +144,11 @@ export function WaContactTable({ rows }: { rows: WaContactView[] }) {
                       Opted out
                     </span>
                   ) : (
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[12px] font-medium text-emerald-700">Subscribed</span>
+                    r.noConsent ? (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[12px] font-medium text-amber-800">Not opted in</span>
+                    ) : (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[12px] font-medium text-emerald-700">Opted in</span>
+                    )
                   )}
                   <span className="mt-1 block text-[12px] text-stone-400">Added {r.added}</span>
                 </td>

@@ -36,7 +36,7 @@ const TEMPLATE_BROKEN = new Set([132001, 132015, 132016, 132000]);
 /** The campaign's recipients: subscribed contacts with its tags, minus the do-not-contact list. */
 export async function addRecipients(prisma: PrismaClient, c: { id: string; workspaceId: string; tags: string[] }) {
   const contacts = await prisma.whatsappContact.findMany({
-    where: { workspaceId: c.workspaceId, optedOutAt: null, ...(c.tags.length && { tags: { hasSome: c.tags } }) },
+    where: { workspaceId: c.workspaceId, optedOutAt: null, consentSource: { not: null }, ...(c.tags.length && { tags: { hasSome: c.tags } }) },
     select: { id: true, phone: true },
   });
   const blocked = new Set(

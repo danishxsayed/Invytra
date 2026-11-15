@@ -30,4 +30,5 @@ export * from "./onboarding.js";
 export * from "./invy.js";
 export * from "./whatsapp.js";
 export * from "./whatsapp-contacts.js";
+export * from "./dial-codes.js";
 export * from "./whatsapp-campaigns.js";

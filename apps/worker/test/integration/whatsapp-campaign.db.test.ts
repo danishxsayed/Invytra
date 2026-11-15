@@ -32,13 +32,14 @@ d("WhatsApp campaign engine", () => {
     await prisma.workspace.create({ data: { id: WS, name: "Acme" } });
     await prisma.whatsappNumber.create({ data: { workspaceId: WS, wabaId: "w", phoneNumberId: "pn-camp", accessToken: sealSecret("tok", KEY), messagingTier: "TIER_250" } });
     await prisma.whatsappContact.createMany({
-      data: [
+      data: ([
         { workspaceId: WS, phone: "971500000001", firstName: "Omar", company: "Gulf", tags: ["dubai"] },
+        { workspaceId: WS, phone: "971500000006", firstName: "NoConsent", tags: ["dubai"], consentSource: null },
         { workspaceId: WS, phone: "971500000002", firstName: null, tags: ["dubai"] },
         { workspaceId: WS, phone: "971500000003", firstName: "Out", tags: ["dubai"], optedOutAt: new Date() },
         { workspaceId: WS, phone: "971500000004", firstName: "Blocked", tags: ["dubai"] },
         { workspaceId: WS, phone: "919800000005", firstName: "Priya", tags: ["india"] },
-      ],
+      ] as { consentSource?: string | null }[]).map((c) => ({ consentSource: "IMPORT", ...c })) as never,
     });
     await prisma.doNotContact.create({ data: { workspaceId: WS, kind: "PHONE", value: "971500000004", label: "+971500000004" } });
   });
@@ -73,7 +74,7 @@ d("WhatsApp campaign engine", () => {
   it("stays inside the number's daily limit and marks failures", async () => {
     await prisma.whatsappNumber.updateMany({ where: { workspaceId: WS }, data: { messagingTier: "TIER_50" } });
     // 2 people already messaged in the last 24h; limit 50 → 48 left, batch caps first.
-    await prisma.whatsappContact.createMany({ data: Array.from({ length: 60 }, (_, i) => ({ workspaceId: WS, phone: `9715100${String(i).padStart(5, "0")}`, tags: ["bulk"] })) });
+    await prisma.whatsappContact.createMany({ data: Array.from({ length: 60 }, (_, i) => ({ workspaceId: WS, phone: `9715100${String(i).padStart(5, "0")}`, tags: ["bulk"], consentSource: "IMPORT" })) });
     failFor = { "971510000003": 131026 };
     const t = new Date("2026-11-15T12:00:00Z");
     const c = await prisma.whatsappCampaign.create({ data: { workspaceId: WS, name: "Bulk", templateName: "hello", language: "en", components: [{ type: "BODY", text: "Hello" }], tags: ["bulk"], status: "SCHEDULED", scheduledAt: t, varMap: {} } });

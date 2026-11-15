@@ -30,11 +30,11 @@ const createSchema = z.object({
 /** Subscribed contacts with any of these tags (all subscribed when no tags), minus the do-not-contact list. */
 export async function audienceCount(prisma: PrismaClient, workspaceId: string, tagsIn: string[]) {
   const tags = tagsIn.map(waTag).filter(Boolean);
-  const where = { workspaceId, optedOutAt: null, ...(tags.length && { tags: { hasSome: tags } }) };
+  const where = { workspaceId, optedOutAt: null, consentSource: { not: null }, ...(tags.length && { tags: { hasSome: tags } }) };
   const [count, sample, blocked] = await Promise.all([
     prisma.whatsappContact.count({ where }),
     prisma.whatsappContact.findFirst({ where, orderBy: [{ firstName: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }], select: { phone: true, firstName: true, lastName: true, profileName: true, company: true, email: true, vars: true } }),
-    prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM whatsapp_contacts c JOIN do_not_contact d ON d.workspace_id = c.workspace_id AND d.kind = 'PHONE' AND d.value = c.phone WHERE c.workspace_id = ${workspaceId} AND c.opted_out_at IS NULL AND (cardinality(${tags}::text[]) = 0 OR c.tags && ${tags}::text[])`,
+    prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM whatsapp_contacts c JOIN do_not_contact d ON d.workspace_id = c.workspace_id AND d.kind = 'PHONE' AND d.value = c.phone WHERE c.workspace_id = ${workspaceId} AND c.opted_out_at IS NULL AND c.consent_source IS NOT NULL AND (cardinality(${tags}::text[]) = 0 OR c.tags && ${tags}::text[])`,
   ]);
   return { count: count - Number(blocked[0]?.n ?? 0), sample };
 }

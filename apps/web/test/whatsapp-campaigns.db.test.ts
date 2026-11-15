@@ -29,7 +29,7 @@ d("whatsapp campaigns (web)", () => {
     const comps = [{ type: "BODY", text: "Hi {{1}}, quick idea. Interested?" }];
     approved = (await prisma.whatsappTemplate.create({ data: { workspaceId: WS, wabaId: "w", name: "intro", language: "en", category: "MARKETING", status: "APPROVED", components: comps } })).id;
     pending = (await prisma.whatsappTemplate.create({ data: { workspaceId: WS, wabaId: "w", name: "later", language: "en", category: "MARKETING", status: "PENDING", components: comps } })).id;
-    await prisma.whatsappContact.createMany({ data: [{ workspaceId: WS, phone: "971500000001", firstName: "Omar", tags: ["dubai"] }, { workspaceId: WS, phone: "971500000002", tags: ["dubai"] }, { workspaceId: WS, phone: "971500000003", tags: ["dubai"] }] });
+    await prisma.whatsappContact.createMany({ data: [{ workspaceId: WS, phone: "971500000001", firstName: "Omar", tags: ["dubai"], consentSource: "IMPORT" }, { workspaceId: WS, phone: "971500000002", tags: ["dubai"], consentSource: "IMPORT" }, { workspaceId: WS, phone: "971500000003", tags: ["dubai"], consentSource: "IMPORT" }, { workspaceId: WS, phone: "971500000009", tags: ["dubai"] }] });
     await prisma.doNotContact.create({ data: { workspaceId: WS, kind: "PHONE", value: "971500000003", label: "x" } });
   });
   afterAll(async () => {

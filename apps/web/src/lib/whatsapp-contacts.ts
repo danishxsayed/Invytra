@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@invytra/db";
-import { WA_IMPORT, applyPhoneMapping, phoneKey, phoneMappingProblem, readPhoneCsv, waTag, waTags, type WaColumnTarget } from "@invytra/shared";
+import { WA_IMPORT, applyPhoneMapping, phoneKey, phoneMappingProblem, readPhoneCsv, splitName, waTag, waTags, type WaColumnTarget } from "@invytra/shared";
 import { z } from "zod";
 import type { Result } from "./accounts";
 
@@ -10,7 +10,7 @@ import type { Result } from "./accounts";
  * and deleting. Every query is scoped to the workspace (CLAUDE.md rule 0).
  */
 
-export const WA_CONTACT_FILTERS = ["all", "subscribed", "opted_out"] as const;
+export const WA_CONTACT_FILTERS = ["all", "subscribed", "no_consent", "opted_out"] as const;
 export type WaContactFilter = (typeof WA_CONTACT_FILTERS)[number];
 export const WA_PAGE = 50;
 
@@ -19,7 +19,8 @@ const whereFor = (workspaceId: string, o: { filter?: WaContactFilter; tag?: stri
   const digits = q.replace(/\D/g, "");
   return {
     workspaceId,
-    ...(o.filter === "subscribed" && { optedOutAt: null }),
+    ...(o.filter === "subscribed" && { optedOutAt: null, consentSource: { not: null } }),
+    ...(o.filter === "no_consent" && { optedOutAt: null, consentSource: null }),
     ...(o.filter === "opted_out" && { optedOutAt: { not: null } }),
     ...(o.tag && { tags: { has: o.tag } }),
     ...(q && {
@@ -29,6 +30,7 @@ const whereFor = (workspaceId: string, o: { filter?: WaContactFilter; tag?: stri
         { profileName: { contains: q, mode: "insensitive" } },
         { company: { contains: q, mode: "insensitive" } },
         { email: { contains: q, mode: "insensitive" } },
+        { externalId: { contains: q, mode: "insensitive" } },
         ...(digits.length >= 3 ? [{ phone: { contains: digits } }] : []),
       ],
     }),
@@ -44,12 +46,13 @@ export async function listWaContacts(prisma: PrismaClient, workspaceId: string, 
 
 /** How many contacts in each view, and every tag with its count. */
 export async function waContactSummary(prisma: PrismaClient, workspaceId: string) {
-  const [all, optedOut, tags] = await Promise.all([
+  const [all, optedOut, noConsent, tags] = await Promise.all([
     prisma.whatsappContact.count({ where: { workspaceId } }),
     prisma.whatsappContact.count({ where: { workspaceId, optedOutAt: { not: null } } }),
+    prisma.whatsappContact.count({ where: { workspaceId, optedOutAt: null, consentSource: null } }),
     prisma.$queryRaw<{ tag: string; n: bigint }[]>`SELECT unnest(tags) AS tag, count(*) AS n FROM whatsapp_contacts WHERE workspace_id = ${workspaceId} GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 200`,
   ]);
-  return { counts: { all, subscribed: all - optedOut, opted_out: optedOut } as Record<WaContactFilter, number>, tags: tags.map((t) => ({ tag: t.tag, count: Number(t.n) })) };
+  return { counts: { all, subscribed: all - optedOut - noConsent, no_consent: noConsent, opted_out: optedOut } as Record<WaContactFilter, number>, tags: tags.map((t) => ({ tag: t.tag, count: Number(t.n) })) };
 }
 
 /** Numbers on the do-not-contact list (opted out on any channel, or added there). */
@@ -60,35 +63,42 @@ async function blockedPhones(prisma: PrismaClient, workspaceId: string, phones: 
 }
 
 const addSchema = z.object({
+  name: z.string().trim().min(1, "Enter the name.").max(160),
   phone: z.string().trim().min(1, "Enter the WhatsApp number."),
-  firstName: z.string().trim().max(80).optional().default(""),
-  lastName: z.string().trim().max(80).optional().default(""),
+  userId: z.string().trim().max(120).optional().default(""),
   email: z.union([z.literal(""), z.string().trim().email("Enter a valid email or leave it empty.")]).optional().default(""),
-  company: z.string().trim().max(200).optional().default(""),
-  tags: z.string().max(500).optional().default(""),
-  consent: z.literal(true, { errorMap: () => ({ message: "Confirm that this person agreed to get WhatsApp messages from you." }) }),
+  tags: z.array(z.string().max(60)).max(20).optional().default([]),
+  /** They agreed to get WhatsApp messages (only then can campaigns message them). */
+  consent: z.boolean(),
+  appointment: z.string().trim().max(60).optional().default(""),
+  location: z.string().trim().max(200).optional().default(""),
 });
 
 export async function addWaContact(prisma: PrismaClient, workspaceId: string, by: string, input: unknown, now = new Date()): Promise<Result<{ id: string }>> {
   const p = addSchema.safeParse(input);
   if (!p.success) return { ok: false, error: p.error.issues[0]!.message };
   const phone = phoneKey(p.data.phone);
-  if (!phone) return { ok: false, error: "Enter the full number with its country code, like +971 50 123 4567." };
+  if (!phone) return { ok: false, error: "Enter the full number with its country code, like +91 98765 43210." };
   if ((await blockedPhones(prisma, workspaceId, [phone])).size) return { ok: false, error: "This number is on your do-not-contact list (it opted out). Remove it there first if they asked to hear from you again." };
   const exists = await prisma.whatsappContact.findUnique({ where: { workspaceId_phone: { workspaceId, phone } }, select: { id: true } });
   if (exists) return { ok: false, error: "This number is already in your contacts." };
+  if (p.data.userId && (await prisma.whatsappContact.findFirst({ where: { workspaceId, externalId: p.data.userId }, select: { id: true } })))
+    return { ok: false, error: "Another contact already has this User ID." };
+  const [firstName, lastName] = splitName(p.data.name);
+  const vars: Record<string, string> = {};
+  if (p.data.appointment) vars.appointment_time = p.data.appointment.replace("T", " ");
+  if (p.data.location) vars.location = p.data.location;
   const c = await prisma.whatsappContact.create({
     data: {
       workspaceId,
       phone,
-      firstName: p.data.firstName || null,
-      lastName: p.data.lastName || null,
+      firstName: firstName?.slice(0, 80) ?? null,
+      lastName: lastName?.slice(0, 80) ?? null,
       email: p.data.email?.toLowerCase() || null,
-      company: p.data.company || null,
-      tags: waTags(p.data.tags),
-      consentSource: "MANUAL",
-      consentAt: now,
-      consentBy: by,
+      externalId: p.data.userId || null,
+      tags: [...new Set(p.data.tags.map(waTag).filter(Boolean))],
+      vars,
+      ...(p.data.consent && { consentSource: "MANUAL", consentAt: now, consentBy: by }),
     },
   });
   return { ok: true, value: { id: c.id } };
@@ -101,6 +111,8 @@ export interface WaImportResult {
   duplicates: number;
   blocked: number;
   overLimit: number;
+  /** Saved without consent (their row said no): campaigns skip them. */
+  noConsent: number;
 }
 
 const importSchema = z.object({
@@ -108,7 +120,8 @@ const importSchema = z.object({
   mapping: z.array(z.string()).max(200),
   defaultCountry: z.string().regex(/^\d{0,4}$/).optional().default(""),
   tags: z.string().max(500).optional().default(""),
-  consent: z.literal(true, { errorMap: () => ({ message: "Confirm that everyone in this file agreed to get WhatsApp messages from you." }) }),
+  /** The user confirms that the people imported as opted in agreed to get WhatsApp messages. */
+  consent: z.boolean().optional().default(false),
 });
 
 /** Imports a CSV. Existing numbers get the new details and tags added; opted-out numbers are skipped. */
@@ -123,13 +136,20 @@ export async function importWaContacts(prisma: PrismaClient, workspaceId: string
   const extraTags = waTags(p.data.tags);
   const blocked = await blockedPhones(prisma, workspaceId, parsed.contacts.map((c) => c.phone));
   const rows = parsed.contacts.filter((c) => !blocked.has(c.phone));
-  const existing = new Map(
-    (await prisma.whatsappContact.findMany({ where: { workspaceId, phone: { in: rows.map((c) => c.phone) } }, select: { id: true, phone: true, tags: true, vars: true, optedOutAt: true } })).map((c) => [c.phone, c]),
-  );
+  // Rows count as opted in unless the file's consent column says no.
+  const agreed = (c: (typeof rows)[number]) => c.consent !== false;
+  if (rows.some(agreed) && !p.data.consent) return { ok: false, error: "Confirm that the people imported as opted in agreed to get WhatsApp messages from you." };
+  const select = { id: true, phone: true, externalId: true, tags: true, vars: true, optedOutAt: true, consentSource: true } as const;
+  const ids = rows.map((c) => c.externalId).filter((x): x is string => !!x);
+  const found = await prisma.whatsappContact.findMany({ where: { workspaceId, OR: [{ phone: { in: rows.map((c) => c.phone) } }, ...(ids.length ? [{ externalId: { in: ids } }] : [])] }, select });
+  const byId = new Map(found.filter((c) => c.externalId).map((c) => [c.externalId!, c]));
+  const byPhone = new Map(found.map((c) => [c.phone, c]));
+  // Existing contacts are matched by User ID first, then by number.
+  const match = (c: (typeof rows)[number]) => (c.externalId && byId.get(c.externalId)) || byPhone.get(c.phone);
   let added = 0;
   let updated = 0;
   let skippedOptedOut = 0;
-  const fresh = rows.filter((c) => !existing.has(c.phone));
+  const fresh = rows.filter((c) => !match(c));
   for (let i = 0; i < fresh.length; i += 1000) {
     const r = await prisma.whatsappContact.createMany({
       data: fresh.slice(i, i + 1000).map((c) => ({
@@ -139,36 +159,42 @@ export async function importWaContacts(prisma: PrismaClient, workspaceId: string
         lastName: c.lastName,
         email: c.email,
         company: c.company,
+        externalId: c.externalId,
         tags: [...new Set([...c.tags, ...extraTags])],
         vars: c.vars,
-        consentSource: "IMPORT",
-        consentAt: now,
-        consentBy: by,
+        ...(agreed(c) && { consentSource: "IMPORT", consentAt: now, consentBy: by }),
       })),
       skipDuplicates: true,
     });
     added += r.count;
   }
-  for (const c of rows.filter((x) => existing.has(x.phone))) {
-    const old = existing.get(c.phone)!;
+  for (const c of rows) {
+    const old = match(c);
+    if (!old) continue;
     if (old.optedOutAt) {
       skippedOptedOut++;
       continue;
     }
+    // A new number for a known User ID moves over, unless another contact has that number.
+    const movePhone = old.phone !== c.phone && !byPhone.has(c.phone);
     await prisma.whatsappContact.update({
       where: { id: old.id },
       data: {
+        ...(movePhone && { phone: c.phone }),
         ...(c.firstName && { firstName: c.firstName }),
         ...(c.lastName && { lastName: c.lastName }),
         ...(c.email && { email: c.email }),
         ...(c.company && { company: c.company }),
+        ...(c.externalId && { externalId: c.externalId }),
+        ...(agreed(c) && !old.consentSource && { consentSource: "IMPORT", consentAt: now, consentBy: by }),
         tags: [...new Set([...old.tags, ...c.tags, ...extraTags])],
         vars: { ...((old.vars as Record<string, string>) ?? {}), ...c.vars },
       },
     });
     updated++;
   }
-  return { ok: true, value: { added, updated, invalid: parsed.invalid.length, duplicates: parsed.duplicates, blocked: blocked.size + skippedOptedOut, overLimit: parsed.overLimit } };
+  const noConsent = rows.filter((c) => !agreed(c)).length;
+  return { ok: true, value: { added, updated, invalid: parsed.invalid.length, duplicates: parsed.duplicates, blocked: blocked.size + skippedOptedOut, overLimit: parsed.overLimit, noConsent } };
 }
 
 const idsSchema = z.array(z.string().min(1).max(40)).min(1, "Choose at least one contact.").max(5000);

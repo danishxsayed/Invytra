@@ -4,8 +4,7 @@ import { Search, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
 import { inputCls } from "@/components/fields";
 import { Card, EmptyState, PageHeader, cx } from "@/components/ui";
-import { AddWaContact } from "@/components/whatsapp/contacts/AddWaContact";
-import { ImportWaContacts } from "@/components/whatsapp/contacts/ImportWaContacts";
+import { CreateContacts } from "@/components/whatsapp/contacts/CreateContacts";
 import { WaContactTable } from "@/components/whatsapp/contacts/WaContactTable";
 import { requireChannel } from "@/lib/auth";
 import { timeAgo } from "@/lib/format";
@@ -14,7 +13,7 @@ import { WA_CONTACT_FILTERS, listWaContacts, waContactSummary, type WaContactFil
 export const metadata = { title: "WhatsApp contacts" };
 export const dynamic = "force-dynamic";
 
-const LABEL: Record<WaContactFilter, string> = { all: "All", subscribed: "Subscribed", opted_out: "Opted out" };
+const LABEL: Record<WaContactFilter, string> = { all: "All", subscribed: "Opted in", no_consent: "Not opted in", opted_out: "Opted out" };
 type Q = { f?: string; tag?: string; q?: string; p?: string };
 
 export default async function WhatsappContactsPage({ searchParams }: { searchParams: Promise<Q> }) {
@@ -38,10 +37,7 @@ export default async function WhatsappContactsPage({ searchParams }: { searchPar
         title="Contacts"
         description="People your campaigns can message on WhatsApp, with where their consent came from. Tags decide who a campaign goes to."
         action={
-          <div className="flex flex-wrap items-center gap-2">
-            <AddWaContact />
-            <ImportWaContacts />
-          </div>
+<CreateContacts suggestedTags={summary.tags.slice(0, 6).map((t) => t.tag)} />
         }
       />
 
@@ -50,7 +46,7 @@ export default async function WhatsappContactsPage({ searchParams }: { searchPar
           <EmptyState
             icon={Users}
             title="No contacts yet"
-            body="Import a CSV with a phone number column, or add someone by hand. People who message your number are added by themselves."
+            body="Import a CSV or Excel file with a phone number column, or add someone by hand. People who message your number are added by themselves."
           />
         </Card>
       ) : (
@@ -90,7 +86,7 @@ export default async function WhatsappContactsPage({ searchParams }: { searchPar
               {filter !== "all" && <input type="hidden" name="f" value={filter} />}
               {tag && <input type="hidden" name="tag" value={tag} />}
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" aria-hidden />
-              <input name="q" defaultValue={q} placeholder="Search name, number, company" className={cx(inputCls, "mt-0 py-2 pl-9 text-[14px]")} />
+              <input name="q" defaultValue={q} placeholder="Search name, number, email or user ID" className={cx(inputCls, "mt-0 py-2 pl-9 text-[14px]")} />
             </form>
             {data.rows.length === 0 ? (
               <p className="py-10 text-center text-[14px] text-stone-500">No contacts match.</p>
@@ -104,9 +100,10 @@ export default async function WhatsappContactsPage({ searchParams }: { searchPar
                     id: c.id,
                     phone: formatPhone(c.phone),
                     name,
-                    sub: [c.company, c.email].filter(Boolean).join(" · "),
+                    sub: [c.externalId, c.company, c.email].filter(Boolean).join(" · "),
                     tags: c.tags,
-                    consent: src ? WA_CONSENT[src] ?? src : "Not recorded",
+                    consent: src ? WA_CONSENT[src] ?? src : "No consent recorded",
+                    noConsent: !src,
                     consentTitle: c.consentAt ? `${c.consentAt.toISOString().slice(0, 10)}${c.consentBy ? ` · ${c.consentBy}` : ""}` : "",
                     optedOut: c.optedOutAt ? `${c.optOutReason ?? "Opted out"} · ${timeAgo(c.optedOutAt, now)}` : null,
                     added: timeAgo(c.createdAt, now),
