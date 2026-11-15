@@ -56,6 +56,8 @@ export interface MetaPhone {
   name_status?: string;
   code_verification_status?: string;
   status?: string;
+  /** Meta's green verified badge */
+  is_official_business_account?: boolean;
 }
 
 export interface MetaTemplate {
@@ -79,7 +81,7 @@ export interface MetaProfile {
   profile_picture_url?: string;
 }
 
-const PHONE_FIELDS = "display_phone_number,verified_name,quality_rating,messaging_limit_tier,name_status,code_verification_status,status";
+const PHONE_FIELDS = "display_phone_number,verified_name,quality_rating,messaging_limit_tier,name_status,code_verification_status,status,is_official_business_account";
 const TEMPLATE_FIELDS = "id,name,language,status,category,components,rejected_reason,quality_score";
 
 /** Meta's error, in words a customer can act on. */

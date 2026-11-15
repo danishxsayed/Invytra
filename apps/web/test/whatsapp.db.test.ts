@@ -5,7 +5,7 @@
 import { createHmac } from "node:crypto";
 import { PrismaClient, openSecret, type MetaApp } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { connectNumber, createTemplate, deleteTemplate, disconnectNumber, getNumber, refreshNumber, syncTemplates, type WaDeps } from "../src/lib/whatsapp";
+import { chatIdentity, connectNumber, createTemplate, deleteTemplate, disconnectNumber, getNumber, refreshNumber, syncTemplates, type WaDeps } from "../src/lib/whatsapp";
 import { handleWhatsappWebhook, verifyWebhook } from "../src/lib/whatsapp-webhook";
 
 const url = process.env.TEST_DATABASE_URL;
@@ -31,7 +31,8 @@ d("whatsapp", () => {
     if (path === "555/subscribed_apps") return json({ success: true });
     if (path === "777/register") return failRegister ? json({ error: { message: "pin", code: 133005 } }, 400) : json({ success: true });
     if (path === "999/whatsapp_credit_sharing_and_attach") return json({ allocation_config_id: "a1", waba_id: "555" });
-    if (path === "777") return json({ id: "777", display_phone_number: "+971 50 123 4567", verified_name: "Acme", quality_rating: "GREEN", messaging_limit_tier: "TIER_1K", status: "CONNECTED" });
+    if (path === "777") return json({ id: "777", display_phone_number: "+971 50 123 4567", verified_name: "Acme", quality_rating: "GREEN", messaging_limit_tier: "TIER_1K", status: "CONNECTED", is_official_business_account: true });
+    if (path === "777/whatsapp_business_profile") return json({ data: [{ about: "Hi", profile_picture_url: "https://pps.whatsapp.net/acme.jpg" }] });
     if (path === "555/message_templates" && method === "GET") return json({ data: templates });
     if (path === "555/message_templates" && method === "POST") return json({ id: "t2", status: "PENDING", category: "MARKETING" });
     if (path === "555/message_templates" && method === "DELETE") return json({ success: true });
@@ -90,6 +91,11 @@ d("whatsapp", () => {
     expect(await getNumber(prisma, A)).toMatchObject({ status: "ERROR" });
     expect(await refreshNumber(prisma, A, deps)).toEqual({ ok: true, value: undefined });
     expect(await getNumber(prisma, A)).toMatchObject({ status: "CONNECTED", lastError: null });
+  });
+
+  it("chat identity: profile photo and green badge, nothing for a workspace without a number", async () => {
+    expect(await chatIdentity(prisma, A, deps)).toEqual({ photo: "https://pps.whatsapp.net/acme.jpg", official: true });
+    expect(await chatIdentity(prisma, B, deps)).toEqual({ photo: null, official: false });
   });
 
   it("submits templates (checked first), syncs and deletes", async () => {

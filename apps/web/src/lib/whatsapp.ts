@@ -183,6 +183,23 @@ export async function readProfile(prisma: PrismaClient, workspaceId: string, d: 
   }
 }
 
+/** How the business appears at the top of a chat: its WhatsApp profile photo (a short-lived Meta link) and green badge. */
+export async function chatIdentity(prisma: PrismaClient, workspaceId: string, d: WaDeps = deps()): Promise<{ photo: string | null; official: boolean }> {
+  const n = await prisma.whatsappNumber.findFirst({ where: { workspaceId } });
+  if (!n || !d.app) return { photo: null, official: false };
+  let c: MetaClient;
+  try {
+    c = clientFor(n, d);
+  } catch {
+    return { photo: null, official: false };
+  }
+  const [p, ph] = await Promise.allSettled([c.profile(n.phoneNumberId), c.phone(n.phoneNumberId)]);
+  return {
+    photo: p.status === "fulfilled" ? (p.value.profile_picture_url ?? null) : null,
+    official: ph.status === "fulfilled" && ph.value.is_official_business_account === true,
+  };
+}
+
 export async function saveProfile(prisma: PrismaClient, workspaceId: string, input: unknown, d: WaDeps = deps()): Promise<Result> {
   if (!d.app) return { ok: false, error: NOT_SET_UP };
   const p = profileSchema.safeParse(input);

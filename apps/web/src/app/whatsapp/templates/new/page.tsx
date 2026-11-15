@@ -3,7 +3,7 @@ import type { WaButton, WaTemplateDraft } from "@invytra/shared";
 import { redirect } from "next/navigation";
 import { TemplateBuilder } from "@/components/whatsapp/TemplateBuilder";
 import { requireChannel } from "@/lib/auth";
-import { getNumber } from "@/lib/whatsapp";
+import { chatIdentity, getNumber } from "@/lib/whatsapp";
 
 export const metadata = { title: "New WhatsApp template" };
 export const dynamic = "force-dynamic";
@@ -53,5 +53,6 @@ export default async function NewTemplatePage({ searchParams }: { searchParams: 
   if (!n) redirect("/whatsapp/number");
   const copy = (await searchParams).copy;
   const from = copy ? await prisma.whatsappTemplate.findFirst({ where: { id: copy, workspaceId: me.workspace.id } }) : null;
-  return <TemplateBuilder initial={from ? toDraft(from) : EMPTY_DRAFT} business={n.verifiedName} copied={!!from} />;
+  const who = await chatIdentity(prisma, me.workspace.id);
+  return <TemplateBuilder initial={from ? toDraft(from) : EMPTY_DRAFT} business={{ name: n.verifiedName, photo: who.photo, official: who.official }} copied={!!from} />;
 }

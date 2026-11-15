@@ -24,7 +24,7 @@ import { createTemplateAction, uploadHeaderMediaAction } from "@/app/whatsapp/ac
 import { btn } from "../btn";
 import { Field, inputCls } from "../fields";
 import { cx } from "../ui";
-import { WaPhone } from "./WaPhone";
+import { WaPhone, type ChatBusiness } from "./WaPhone";
 
 const CAT_ICON = { MARKETING: Megaphone, UTILITY: Receipt, AUTHENTICATION: Lock } as const;
 const KIND_ICON = { buttons: MessageSquareText, simple: FileText, otp: Lock, pay: CreditCard, carousel: LayoutGrid } as const;
@@ -32,7 +32,7 @@ const kindsFor = (c: WaCategory): WaTemplateKind[] => (c === "AUTHENTICATION" ? 
 const DEFAULT_OTP = { securityNote: true, expiryMinutes: 10, buttonText: "Copy code" };
 
 /** Step 1, then step 2: choose the category and kind, then write it, with a live phone preview. */
-export function TemplateBuilder({ initial, business, copied }: { initial: WaTemplateDraft; business: string; copied?: boolean }) {
+export function TemplateBuilder({ initial, business, copied }: { initial: WaTemplateDraft; business: ChatBusiness; copied?: boolean }) {
   const router = useRouter();
   const [t, setT] = useState<WaTemplateDraft>(initial);
   const [kind, setKind] = useState<WaTemplateKind>(initial.category === "AUTHENTICATION" ? "otp" : initial.buttons.length || !copied ? "buttons" : "simple");
