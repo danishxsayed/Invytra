@@ -24,6 +24,7 @@ import { createTemplateAction, uploadHeaderMediaAction } from "@/app/whatsapp/ac
 import { btn } from "../btn";
 import { Field, inputCls } from "../fields";
 import { cx } from "../ui";
+import { SampleDialog, sampleSlots } from "./SampleDialog";
 import { WaPhone, type ChatBusiness } from "./WaPhone";
 
 const CAT_ICON = { MARKETING: Megaphone, UTILITY: Receipt, AUTHENTICATION: Lock } as const;
@@ -43,11 +44,14 @@ export function TemplateBuilder({ initial, business, copied }: { initial: WaTemp
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
+  const [ask, setAsk] = useState(false);
   const body = useRef<HTMLTextAreaElement>(null);
   const set = (p: Partial<WaTemplateDraft>) => setT((x) => ({ ...x, ...p }));
   const otp = t.otp ?? DEFAULT_OTP;
   const errors = useMemo(() => checkTemplate(t), [t]);
   const bodyVars = [...new Set(waVariables(t.body))].sort((a, b) => a - b);
+  // Meta's rules about where variables go, shown while typing.
+  const bodyWarnings = t.body.trim() ? errors.filter((e) => /variable/i.test(e) && !/sample|header|footer|button|link/i.test(e)) : [];
 
   const chooseCategory = (c: WaCategory) => {
     set({ category: c, ...(c === "AUTHENTICATION" ? { otp: otp, header: { type: "NONE" }, buttons: [] } : { buttons: t.buttons.filter((b) => b.type !== "COPY_CODE" || c === "MARKETING") }) });
@@ -98,16 +102,22 @@ export function TemplateBuilder({ initial, business, copied }: { initial: WaTemp
     set({ header: { type: kindOf, handle: r.value.handle, fileName: file.name } });
   };
 
-  const submit = () => {
-    setTried(true);
-    if (errors.length) return;
+  const send = (draft: WaTemplateDraft) =>
     start(async () => {
       setErr(null);
-      const r = await createTemplateAction(t);
+      const r = await createTemplateAction(draft);
       if (!r.ok) return setErr(r.error);
       router.push("/whatsapp/templates");
       router.refresh();
     });
+  // Sample values are asked in a popup on submit; everything else must be right first.
+  const blocking = errors.filter((e) => !/sample/i.test(e));
+  const submit = () => {
+    setTried(true);
+    setErr(null);
+    if (blocking.length) return;
+    if (t.category !== "AUTHENTICATION" && sampleSlots(t).length) return setAsk(true);
+    send(t);
   };
 
   const preview =
@@ -287,7 +297,7 @@ export function TemplateBuilder({ initial, business, copied }: { initial: WaTemp
                         </div>
                       </div>
                       {t.header.type === "TEXT" && (
-                        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_200px]">
+                        <div className="mt-3">
                           <div>
                             <input className={inputCls} value={t.header.text} maxLength={WA_LIMITS.headerText} onChange={(e) => set({ header: { ...t.header, type: "TEXT", text: e.target.value } })} placeholder="Navratri Flash Sale" aria-label="Header text" />
                             <p className="mt-1 flex justify-between text-[12.5px] text-stone-400">
@@ -297,11 +307,6 @@ export function TemplateBuilder({ initial, business, copied }: { initial: WaTemp
                               </span>
                             </p>
                           </div>
-                          {waVariables(t.header.text).length > 0 && (
-                            <Field label="Sample for {{1}}">
-                              <input className={inputCls} value={t.header.type === "TEXT" ? (t.header.example ?? "") : ""} onChange={(e) => t.header.type === "TEXT" && set({ header: { ...t.header, example: e.target.value } })} placeholder="Acme" />
-                            </Field>
-                          )}
                         </div>
                       )}
                       {(t.header.type === "IMAGE" || t.header.type === "VIDEO" || t.header.type === "DOCUMENT") && (
@@ -350,31 +355,19 @@ export function TemplateBuilder({ initial, business, copied }: { initial: WaTemp
                       <p className="mt-1.5 flex justify-between text-[13px] text-stone-500">
                         <span>
                           {bodyVars.length} variable{bodyVars.length === 1 ? "" : "s"}
+                          {bodyVars.length > 0 && " · you'll add sample values when you submit"}
                         </span>
                         <span>
                           {t.body.length} / {WA_LIMITS.body}
                         </span>
                       </p>
-                      {bodyVars.length > 0 && (
-                        <div className="mt-3 rounded-xl bg-stone-50 p-3 ring-1 ring-stone-200">
-                          <p className="text-[13.5px] font-medium text-stone-700">Sample values for Meta&apos;s review</p>
-                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                            {bodyVars.map((n) => (
-                              <label key={n} className="flex items-center gap-2">
-                                <span className="w-12 shrink-0 rounded bg-emerald-100 px-1.5 py-1 text-center font-mono text-[12.5px] text-emerald-800">{`{{${n}}}`}</span>
-                                <input
-                                  className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-[14.5px]"
-                                  value={t.bodyExamples[n - 1] ?? ""}
-                                  onChange={(e) => {
-                                    const ex = [...t.bodyExamples];
-                                    ex[n - 1] = e.target.value;
-                                    set({ bodyExamples: ex });
-                                  }}
-                                  placeholder={n === 1 ? "Sara" : n === 2 ? "Sunday" : "Sample"}
-                                />
-                              </label>
-                            ))}
-                          </div>
+                      {bodyWarnings.length > 0 && (
+                        <div className="mt-3 space-y-1 rounded-xl bg-amber-50 px-3.5 py-2.5 text-[13.5px] text-amber-800 ring-1 ring-amber-200" role="status">
+                          {bodyWarnings.map((w) => (
+                            <p key={w} className="flex items-start gap-2">
+                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {w}
+                            </p>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -443,14 +436,14 @@ export function TemplateBuilder({ initial, business, copied }: { initial: WaTemp
             </p>
           )}
           <div className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
-            {tried && errors.length > 0 && (
+            {tried && blocking.length > 0 && (
               <ul className="mb-3 space-y-1 text-[13.5px] text-rose-700" role="alert">
-                {errors.slice(0, 5).map((e) => (
+                {blocking.slice(0, 5).map((e) => (
                   <li key={e}>• {e}</li>
                 ))}
               </ul>
             )}
-            {err && (
+            {err && !ask && (
               <p className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-[13.5px] text-rose-800" role="alert">
                 {err}
               </p>
@@ -463,6 +456,18 @@ export function TemplateBuilder({ initial, business, copied }: { initial: WaTemp
           </div>
         </aside>
       </div>
+      {ask && (
+        <SampleDialog
+          t={t}
+          pending={pending}
+          error={err}
+          onCancel={() => setAsk(false)}
+          onConfirm={(draft) => {
+            setT(draft);
+            send(draft);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -493,7 +498,6 @@ function ButtonRow({ b, i, onChange, onRemove }: { b: WaButton; i: number; onCha
       {b.type === "URL" && (
         <>
           <input className={cx(input, "flex-[2]")} value={b.url} onChange={(e) => onChange({ ...b, url: e.target.value })} placeholder="https://company.com/sale" aria-label={`Button ${i + 1} link`} />
-          {waVariables(b.url).length > 0 && <input className={cx(input, "flex-[2]")} value={b.example ?? ""} onChange={(e) => onChange({ ...b, example: e.target.value })} placeholder="Sample full link" aria-label={`Button ${i + 1} sample link`} />}
         </>
       )}
       {b.type === "PHONE_NUMBER" && <input className={input} value={b.phone} onChange={(e) => onChange({ ...b, phone: e.target.value })} placeholder="+971 50 123 4567" aria-label={`Button ${i + 1} phone`} />}

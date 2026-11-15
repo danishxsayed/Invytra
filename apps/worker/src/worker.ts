@@ -16,10 +16,11 @@ import { importTick } from "./imports/importer.js";
 import { warmupTick } from "./email/warmup.js";
 import { emailCampaignTick } from "./email/campaigns.js";
 import { whatsappCampaignTick } from "./whatsapp/campaigns.js";
+import { whatsappCampaignReports } from "./whatsapp/reports.js";
 import { emailReplyTick } from "./email/replies.js";
 import { verifyTick } from "./email/verify.js";
 import { createRuntime } from "./runtime.js";
-import { expireDueSubscriptions, metaApp, syncPeople, unipileFromEnv } from "@invytra/db";
+import { expireDueSubscriptions, metaApp, platformMailer, syncPeople, unipileFromEnv } from "@invytra/db";
 import { invyBrainFromEnv } from "./invy/brain.js";
 import { placesFromEnv } from "./invy/places.js";
 import { requeueStuckInvySearches, runNextInvySearch } from "./invy/run.js";
@@ -172,6 +173,8 @@ async function main() {
     whatsapping = true;
     try {
       const w = await whatsappCampaignTick({ prisma: rt.prisma, key: rt.env.SESSION_ENCRYPTION_KEY, app: metaApp() });
+      const reports = await whatsappCampaignReports({ prisma: rt.prisma, send: platformMailer() });
+      if (reports) log(`WhatsApp campaigns: ${reports} report email(s) sent`);
       if (w.started || w.sent || w.failed || w.skipped || w.completed || w.paused)
         log(`WhatsApp campaigns: ${w.started ? `${w.started} started, ` : ""}${w.sent} sent${w.failed ? `, ${w.failed} failed` : ""}${w.skipped ? `, ${w.skipped} skipped` : ""}${w.completed ? `, ${w.completed} finished` : ""}${w.paused ? `, ${w.paused} paused` : ""}`);
     } catch (e) {

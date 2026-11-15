@@ -1,4 +1,5 @@
 import { hubOrigin } from "./domains";
+import { emailBrandHeader } from "@invytra/db";
 import type { PlatformEmail, PlatformMailer } from "./platform-mail";
 
 /*
@@ -6,12 +7,8 @@ import type { PlatformEmail, PlatformMailer } from "./platform-mail";
  * the three first steps. Sending is best effort: a mail problem never blocks a sign-up.
  */
 
-/** The Invytra logo and name for the top of platform emails (the image is served by the app). */
-export const emailBrandHeader = (origin: string) =>
-  `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px"><tr>
-<td valign="middle"><img src="${origin}/logo-128.png" width="40" height="40" alt="Invytra" style="display:block;width:40px;height:40px;border:0;border-radius:10px"></td>
-<td valign="middle" style="padding-left:10px;font-size:20px;font-weight:700;letter-spacing:-0.01em;color:#1c1917">Invytra</td>
-</tr></table>`;
+/** The Invytra logo and name for the top of platform emails. */
+export { emailBrandHeader };
 
 const esc = (s: string) => s.replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`);
 

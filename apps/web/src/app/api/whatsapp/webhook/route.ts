@@ -1,4 +1,5 @@
-import { metaApp, prisma } from "@invytra/db";
+import { metaApp, platformMailer, prisma, sendNotices } from "@invytra/db";
+import { after } from "next/server";
 import { handleWhatsappWebhook, verifyWebhook } from "@/lib/whatsapp-webhook";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,8 @@ export async function GET(req: Request) {
 /** Template reviews, number quality and (later) messages and delivery statuses. */
 export async function POST(req: Request) {
   const raw = await req.text();
-  const { status } = await handleWhatsappWebhook(prisma, raw, req.headers.get("x-hub-signature-256"), metaApp());
+  const { status } = await handleWhatsappWebhook(prisma, raw, req.headers.get("x-hub-signature-256"), metaApp(), (mails) => {
+    if (mails.length) after(() => sendNotices(platformMailer(), mails, "WhatsApp template"));
+  });
   return new Response(status === 200 ? "ok" : "", { status });
 }

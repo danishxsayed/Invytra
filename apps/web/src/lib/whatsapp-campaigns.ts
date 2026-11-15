@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@invytra/db";
+import { waCampaignStats, type PrismaClient, type WaCampaignStats } from "@invytra/db";
 import { WA_FIELDS, checkSources, templateNeeds, waTag, type WaSlot, type WaVarSource } from "@invytra/shared";
 import { z } from "zod";
 import type { Result } from "./accounts";
@@ -83,32 +83,10 @@ export async function createWaCampaign(prisma: PrismaClient, workspaceId: string
   return { ok: true, value: { id: c.id } };
 }
 
-export interface WaCampaignStats {
-  total: number;
-  queued: number;
-  sent: number;
-  delivered: number;
-  read: number;
-  replied: number;
-  failed: number;
-  skipped: number;
-}
+export type { WaCampaignStats };
 
 /** Results per campaign: sent counts everything that left (delivered and read included). */
-async function statsFor(prisma: PrismaClient, ids: string[]): Promise<Map<string, WaCampaignStats>> {
-  if (!ids.length) return new Map();
-  const rows = await prisma.$queryRaw<{ campaign_id: string; total: bigint; queued: bigint; sent: bigint; delivered: bigint; read: bigint; replied: bigint; failed: bigint; skipped: bigint }[]>`
-    SELECT campaign_id, count(*) AS total,
-      count(*) FILTER (WHERE status = 'QUEUED') AS queued,
-      count(*) FILTER (WHERE status IN ('SENT','DELIVERED','READ') OR (status = 'FAILED' AND sent_at IS NOT NULL)) AS sent,
-      count(*) FILTER (WHERE delivered_at IS NOT NULL OR read_at IS NOT NULL) AS delivered,
-      count(*) FILTER (WHERE read_at IS NOT NULL) AS read,
-      count(*) FILTER (WHERE replied_at IS NOT NULL) AS replied,
-      count(*) FILTER (WHERE status = 'FAILED') AS failed,
-      count(*) FILTER (WHERE status = 'SKIPPED') AS skipped
-    FROM whatsapp_messages WHERE campaign_id = ANY(${ids}) GROUP BY campaign_id`;
-  return new Map(rows.map((r) => [r.campaign_id, { total: Number(r.total), queued: Number(r.queued), sent: Number(r.sent), delivered: Number(r.delivered), read: Number(r.read), replied: Number(r.replied), failed: Number(r.failed), skipped: Number(r.skipped) }]));
-}
+const statsFor = waCampaignStats;
 const EMPTY: WaCampaignStats = { total: 0, queued: 0, sent: 0, delivered: 0, read: 0, replied: 0, failed: 0, skipped: 0 };
 
 export async function listWaCampaigns(prisma: PrismaClient, workspaceId: string) {

@@ -3,7 +3,7 @@
  * Meta Graph API: connecting a number, templates, the webhook.
  */
 import { createHmac } from "node:crypto";
-import { PrismaClient, openSecret, type MetaApp } from "@invytra/db";
+import { PrismaClient, openSecret, type MetaApp, type PlatformEmail } from "@invytra/db";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { chatIdentity, connectNumber, saveProfilePhoto, createTemplate, deleteTemplate, disconnectNumber, getNumber, refreshNumber, syncTemplates, type WaDeps } from "../src/lib/whatsapp";
 import { handleWhatsappWebhook, verifyWebhook } from "../src/lib/whatsapp-webhook";
@@ -146,8 +146,18 @@ d("whatsapp", () => {
     const sig = `sha256=${createHmac("sha256", "app-secret").update(payload).digest("hex")}`;
     expect(await handleWhatsappWebhook(prisma, payload, "sha256=bad", app)).toEqual({ status: 401 });
     expect(await handleWhatsappWebhook(prisma, payload, sig, null)).toEqual({ status: 503 });
-    expect(await handleWhatsappWebhook(prisma, payload, sig, app)).toEqual({ status: 200 });
+    const owner = await prisma.user.upsert({ where: { email: "owner@wa.test" }, update: {}, create: { email: "owner@wa.test", name: "Sara Khan", passwordHash: "x" } });
+    await prisma.membership.create({ data: { userId: owner.id, workspaceId: A, role: "OWNER" } });
+    const mails: PlatformEmail[] = [];
+    expect(await handleWhatsappWebhook(prisma, payload, sig, app, (m) => mails.push(...m))).toEqual({ status: 200 });
     expect(await prisma.whatsappTemplate.findFirst({ where: { metaId: "t9" } })).toMatchObject({ status: "REJECTED", rejectedReason: "PROMOTIONAL" });
+    expect(mails).toHaveLength(1);
+    expect(mails[0]).toMatchObject({ to: "owner@wa.test", subject: 'Rejected: your WhatsApp template "follow_up"' });
+    expect(mails[0]!.text).toContain("Submit it as Marketing");
+    // The same status again (Meta retries) sends nothing.
+    expect(await handleWhatsappWebhook(prisma, payload, sig, app, (m) => mails.push(...m))).toEqual({ status: 200 });
+    expect(mails).toHaveLength(1);
+    await prisma.user.delete({ where: { id: owner.id } });
     expect(await getNumber(prisma, A)).toMatchObject({ messagingTier: "TIER_250" });
     const q = new URLSearchParams({ "hub.mode": "subscribe", "hub.verify_token": "verify-me", "hub.challenge": "42" });
     expect(verifyWebhook(q, app)).toBe("42");

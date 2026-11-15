@@ -1,6 +1,7 @@
-import { metaSignatureOk, type MetaApp, type PrismaClient } from "@invytra/db";
+import { metaSignatureOk, type MetaApp, type PlatformEmail, type PrismaClient } from "@invytra/db";
 import { isOptOut, waSendError } from "@invytra/shared";
 import { recordInbound } from "./whatsapp-contacts";
+import { templateNotices } from "./whatsapp-notices";
 
 /*
  * Meta's WhatsApp webhooks (one URL for every customer: /api/whatsapp/webhook). Signed with
@@ -22,7 +23,8 @@ export function verifyWebhook(params: URLSearchParams, app: MetaApp | null): str
   return params.get("hub.mode") === "subscribe" && params.get("hub.verify_token") === app.verifyToken ? params.get("hub.challenge") : null;
 }
 
-export async function handleWhatsappWebhook(prisma: PrismaClient, raw: string, signature: string | null, app: MetaApp | null): Promise<{ status: number }> {
+/** notify gets the emails to send (template reviews); the route sends them after answering Meta. */
+export async function handleWhatsappWebhook(prisma: PrismaClient, raw: string, signature: string | null, app: MetaApp | null, notify: (mails: PlatformEmail[]) => void = () => {}): Promise<{ status: number }> {
   if (!app) return { status: 503 };
   if (!metaSignatureOk(raw, signature, app.appSecret)) return { status: 401 };
   let body: Payload;
@@ -36,7 +38,7 @@ export async function handleWhatsappWebhook(prisma: PrismaClient, raw: string, s
     const wabaId = str(entry.id);
     for (const change of entry.changes ?? []) {
       try {
-        await applyChange(prisma, wabaId, change);
+        await applyChange(prisma, wabaId, change, notify);
       } catch (e) {
         console.error("WhatsApp webhook change failed:", change.field, e instanceof Error ? e.message : e);
       }
@@ -45,7 +47,7 @@ export async function handleWhatsappWebhook(prisma: PrismaClient, raw: string, s
   return { status: 200 };
 }
 
-async function applyChange(prisma: PrismaClient, wabaId: string, { field, value = {} }: Change) {
+async function applyChange(prisma: PrismaClient, wabaId: string, { field, value = {} }: Change, notify: (mails: PlatformEmail[]) => void) {
   const byTemplate = () => {
     const id = str(value.message_template_id);
     return id ? { wabaId, metaId: id } : { wabaId, name: str(value.message_template_name), language: str(value.message_template_language) };
@@ -53,10 +55,11 @@ async function applyChange(prisma: PrismaClient, wabaId: string, { field, value 
   switch (field) {
     case "message_template_status_update": {
       const reason = str(value.reason);
-      await prisma.whatsappTemplate.updateMany({
-        where: byTemplate(),
-        data: { status: str(value.event).toUpperCase(), rejectedReason: reason && reason !== "NONE" ? reason : null },
-      });
+      const status = str(value.event).toUpperCase();
+      const rejectedReason = reason && reason !== "NONE" ? reason : null;
+      const changed = await prisma.whatsappTemplate.findMany({ where: { ...byTemplate(), status: { not: status } }, select: { workspaceId: true, name: true, language: true } });
+      await prisma.whatsappTemplate.updateMany({ where: byTemplate(), data: { status, rejectedReason } });
+      for (const t of changed) notify(await templateNotices(prisma, t, status, rejectedReason));
       return;
     }
     case "message_template_quality_update":

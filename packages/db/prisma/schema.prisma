@@ -1525,6 +1525,8 @@ model WhatsappCampaign {
   finishedAt   DateTime? @map("finished_at")
   /// Why it stopped (a paused campaign's reason)
   note         String?
+  /// When the owners were emailed its results (3 hours after it started)
+  reportSentAt DateTime? @map("report_sent_at")
   createdBy    String?   @map("created_by")
   createdAt    DateTime  @default(now()) @map("created_at")
 
