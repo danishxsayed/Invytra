@@ -17,10 +17,11 @@ import { warmupTick } from "./email/warmup.js";
 import { emailCampaignTick } from "./email/campaigns.js";
 import { whatsappCampaignTick } from "./whatsapp/campaigns.js";
 import { whatsappCampaignReports } from "./whatsapp/reports.js";
+import { checkTemplatesInReview } from "./whatsapp/templates.js";
 import { emailReplyTick } from "./email/replies.js";
 import { verifyTick } from "./email/verify.js";
 import { createRuntime } from "./runtime.js";
-import { expireDueSubscriptions, metaApp, platformMailer, syncPeople, unipileFromEnv } from "@invytra/db";
+import { expireDueSubscriptions, metaApp, platformMailer, sendNotices, syncPeople, unipileFromEnv } from "@invytra/db";
 import { invyBrainFromEnv } from "./invy/brain.js";
 import { placesFromEnv } from "./invy/places.js";
 import { requeueStuckInvySearches, runNextInvySearch } from "./invy/run.js";
@@ -186,6 +187,23 @@ async function main() {
   await runWhatsapp();
   const whatsappTimer = setInterval(runWhatsapp, 60_000);
 
+  // Templates still in review: ask Meta every 5 minutes (backs up the template webhook).
+  let checkingTemplates = false;
+  const runTemplateCheck = async () => {
+    if (checkingTemplates) return;
+    checkingTemplates = true;
+    try {
+      const r = await checkTemplatesInReview({ prisma: rt.prisma, key: rt.env.SESSION_ENCRYPTION_KEY, app: metaApp(), notify: (m) => sendNotices(platformMailer(), m, "WhatsApp template") });
+      if (r.changed) log(`WhatsApp templates: ${r.changed} review result(s) from Meta`);
+    } catch (e) {
+      log(`WhatsApp template check error: ${e instanceof Error ? e.message : e}`);
+    } finally {
+      checkingTemplates = false;
+    }
+  };
+  await runTemplateCheck();
+  const templateTimer = setInterval(runTemplateCheck, 5 * 60_000);
+
   // Contacts: link new LinkedIn leads and email contacts to one contact per person, every minute.
   let syncing = false;
   const runPeople = async () => {
@@ -289,6 +307,7 @@ async function main() {
     clearInterval(replyTimer);
     clearInterval(warmupTimer);
     clearInterval(whatsappTimer);
+    clearInterval(templateTimer);
     clearInterval(peopleTimer);
     clearInterval(verifyTimer);
     clearInterval(invyTimer);

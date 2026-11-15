@@ -1,7 +1,6 @@
-import { metaSignatureOk, type MetaApp, type PlatformEmail, type PrismaClient } from "@invytra/db";
+import { metaSignatureOk, templateNotices, type MetaApp, type PlatformEmail, type PrismaClient } from "@invytra/db";
 import { isOptOut, waSendError } from "@invytra/shared";
 import { recordInbound } from "./whatsapp-contacts";
-import { templateNotices } from "./whatsapp-notices";
 
 /*
  * Meta's WhatsApp webhooks (one URL for every customer: /api/whatsapp/webhook). Signed with

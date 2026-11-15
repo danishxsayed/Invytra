@@ -1,7 +1,9 @@
-import { appLink, noticeEmail, workspaceOwners, type PlatformEmail, type PrismaClient } from "@invytra/db";
+import type { PrismaClient } from "@prisma/client";
+import { appLink, noticeEmail, workspaceOwners, type PlatformEmail } from "./platform-mail.js";
 
 /*
  * Emails about a workspace's WhatsApp: a template Meta approved, rejected, paused or disabled.
+ * Sent from the webhook (web) and from the worker's check of templates still in review.
  * (The campaign report is sent by the worker: apps/worker/src/whatsapp/reports.ts.)
  */
 
