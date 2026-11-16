@@ -90,6 +90,14 @@ export async function waContactSummary(prisma: PrismaClient, workspaceId: string
   };
 }
 
+/** One line for the chat list: their text, or what they sent. */
+export function inboxPreview(kind: string, body: string): string {
+  const label: Record<string, string> = { IMAGE: "📷 Photo", VIDEO: "🎥 Video", AUDIO: "🎤 Voice message", DOCUMENT: "📄 Document", STICKER: "Sticker", LOCATION: "📍 Location", CONTACT: "👤 Contact", TEMPLATE: "Template", UNSUPPORTED: "Message WhatsApp can't show here" };
+  const text = body.replace(/\s+/g, " ").trim();
+  if (kind in label) return text && kind !== "LOCATION" && kind !== "CONTACT" ? `${label[kind]}: ${text}` : label[kind]!;
+  return text;
+}
+
 /* ---------- tags in bulk ---------- */
 
 /** Renames a tag on every contact (merging into an existing tag of that name) and in segment rules. */
@@ -309,13 +317,40 @@ export async function deleteWaContacts(prisma: PrismaClient, workspaceId: string
 }
 
 /** An incoming message: the sender becomes (or stays) a contact, their 24-hour window opens, and "STOP" opts them out. */
-export async function recordInbound(prisma: PrismaClient, workspaceId: string, m: { phone: string; profileName?: string; optOut: boolean; at: Date; text?: string }) {
+export async function recordInbound(
+  prisma: PrismaClient,
+  workspaceId: string,
+  m: { phone: string; profileName?: string; optOut: boolean; at: Date; text?: string; message?: { wamid: string; kind: string; body: string; replyTo?: string | null; mediaId?: string | null; mediaType?: string | null; fileName?: string | null } },
+) {
   const phone = phoneKey(m.phone);
   if (!phone) return;
-  await prisma.whatsappContact.upsert({
+  // Meta can deliver the same message twice: store it once.
+  if (m.message?.wamid && (await prisma.whatsappMessage.findUnique({ where: { wamid: m.message.wamid }, select: { id: true } }))) return;
+  const reaction = m.message?.kind === "REACTION";
+  const preview = m.message ? inboxPreview(m.message.kind, m.message.body) : (m.text ?? "");
+  const chat = reaction ? {} : { chatAt: m.at, chatPreview: preview.slice(0, 200), chatFrom: "IN", unread: { increment: 1 }, chatDoneAt: null };
+  const c = await prisma.whatsappContact.upsert({
     where: { workspaceId_phone: { workspaceId, phone } },
-    create: { workspaceId, phone, profileName: m.profileName?.slice(0, 120) || null, consentSource: "INBOUND", consentAt: m.at, lastInboundAt: m.at, waStatus: "ON" },
-    update: { lastInboundAt: m.at, waStatus: "ON", ...(m.profileName && { profileName: m.profileName.slice(0, 120) }) },
+    create: { workspaceId, phone, profileName: m.profileName?.slice(0, 120) || null, consentSource: "INBOUND", consentAt: m.at, lastInboundAt: m.at, waStatus: "ON", ...(!reaction && { chatAt: m.at, chatPreview: preview.slice(0, 200), chatFrom: "IN", unread: 1 }) },
+    update: { lastInboundAt: m.at, waStatus: "ON", ...chat, ...(m.profileName && { profileName: m.profileName.slice(0, 120) }) },
   });
+  if (m.message)
+    await prisma.whatsappMessage.create({
+      data: {
+        workspaceId,
+        contactId: c.id,
+        phone,
+        direction: "IN",
+        kind: m.message.kind,
+        body: m.message.body.slice(0, 4096),
+        wamid: m.message.wamid || null,
+        status: "RECEIVED",
+        replyTo: m.message.replyTo ?? null,
+        mediaId: m.message.mediaId ?? null,
+        mediaType: m.message.mediaType ?? null,
+        fileName: m.message.fileName?.slice(0, 200) ?? null,
+        createdAt: m.at,
+      },
+    });
   if (m.optOut) await optOutPhones(prisma, workspaceId, [phone], `Replied “${(m.text ?? "STOP").trim().slice(0, 60)}”`, null, m.at);
 }

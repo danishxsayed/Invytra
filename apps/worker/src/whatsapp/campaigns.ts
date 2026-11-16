@@ -92,7 +92,10 @@ export async function whatsappCampaignTick(d: WaTickDeps): Promise<WaTickResult>
     const meta = new MetaClient(d.app, openSecret(number.accessToken, d.key), d.fetch);
     const needs = templateNeeds(c.components);
     const map = (c.varMap ?? {}) as Partial<Record<WaSlot, WaVarSource>>;
-    const body = readMetaComponents(c.components).body;
+    const view = readMetaComponents(c.components);
+    const body = view.body;
+    // How the template looked, for the inbox (header, footer, buttons).
+    const extra = { template: c.templateName, header: view.header.type === "TEXT" ? view.header.text : view.header.type === "NONE" ? null : view.header.type, footer: view.footer || null, buttons: view.buttons.map((b) => b.text) };
     const batch = await prisma.whatsappMessage.findMany({ where: { campaignId: c.id, status: "QUEUED" }, orderBy: { createdAt: "asc" }, take: room, include: { contact: true } });
     for (const m of batch) {
       const contact = m.contact;
@@ -103,7 +106,7 @@ export async function whatsappCampaignTick(d: WaTickDeps): Promise<WaTickResult>
       }
       try {
         const wamid = await meta.sendTemplate(number.phoneNumberId, m.phone, { name: c.templateName, language: c.language, components: sendComponents(needs, map, contact, c.mediaUrl ?? "") });
-        await prisma.whatsappMessage.update({ where: { id: m.id }, data: { status: "SENT", wamid, sentAt: new Date(), body: previewBody(body, map, contact) } });
+        await prisma.whatsappMessage.update({ where: { id: m.id }, data: { status: "SENT", wamid, sentAt: new Date(), body: previewBody(body, map, contact), extra } });
         out.sent++;
       } catch (e) {
         const code = e instanceof MetaError ? e.code : undefined;

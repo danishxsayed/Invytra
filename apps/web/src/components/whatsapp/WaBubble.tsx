@@ -16,7 +16,7 @@ export interface BubbleTemplate {
 }
 
 /** WhatsApp's own formatting (*bold*, _italic_, ~strike~) and {{n}} variables. */
-function Rich({ text, values, dark }: { text: string; values?: readonly string[]; dark?: boolean }) {
+export function Rich({ text, values, dark }: { text: string; values?: readonly string[]; dark?: boolean }) {
   const parts = text.split(/(\{\{\s*\d+\s*\}\}|\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~)/g);
   return (
     <>

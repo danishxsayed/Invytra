@@ -17,14 +17,14 @@ export interface WaDeps {
   now?: Date;
 }
 
-const deps = (): WaDeps => ({ app: metaApp() });
+export const deps = (): WaDeps => ({ app: metaApp() });
 const key = () => {
   const k = process.env.SESSION_ENCRYPTION_KEY;
   if (!k) throw new Error("SESSION_ENCRYPTION_KEY is missing from .env");
   return k;
 };
-const NOT_SET_UP = "WhatsApp isn't set up on this server yet. Ask the Invytra team.";
-const failed = (e: unknown, what: string): { ok: false; error: string } => {
+export const NOT_SET_UP = "WhatsApp isn't set up on this server yet. Ask the Invytra team.";
+export const failed = (e: unknown, what: string): { ok: false; error: string } => {
   if (e instanceof MetaError) return { ok: false, error: e.message };
   console.error(`WhatsApp ${what} failed:`, e instanceof Error ? e.message : e);
   return { ok: false, error: `Couldn't ${what} right now. Please try again.` };

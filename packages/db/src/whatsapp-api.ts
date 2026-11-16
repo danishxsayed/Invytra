@@ -210,6 +210,54 @@ export class MetaClient {
     return id;
   }
 
+  /** A free-form text message (only within 24 hours of their last message) → its wamid. */
+  async sendText(phoneNumberId: string, to: string, text: string, replyTo?: string): Promise<string> {
+    return this.sendMessage(phoneNumberId, to, { type: "text", text: { body: text, preview_url: /https?:\/\//.test(text) } }, replyTo);
+  }
+
+  /** An image, video, audio or document already uploaded with uploadMedia → its wamid. */
+  async sendMedia(phoneNumberId: string, to: string, m: { kind: "image" | "video" | "audio" | "document"; id: string; caption?: string; fileName?: string }, replyTo?: string): Promise<string> {
+    const media: Record<string, string> = { id: m.id };
+    if (m.caption && m.kind !== "audio") media.caption = m.caption;
+    if (m.kind === "document" && m.fileName) media.filename = m.fileName;
+    return this.sendMessage(phoneNumberId, to, { type: m.kind, [m.kind]: media }, replyTo);
+  }
+
+  private async sendMessage(phoneNumberId: string, to: string, body: Record<string, unknown>, replyTo?: string): Promise<string> {
+    const r = await this.call<{ messages?: { id: string }[] }>("POST", `${phoneNumberId}/messages`, {
+      body: { messaging_product: "whatsapp", recipient_type: "individual", to, ...body, ...(replyTo && { context: { message_id: replyTo } }) },
+    });
+    const id = r.messages?.[0]?.id;
+    if (!id) throw new MetaError("Meta didn't return a message id.");
+    return id;
+  }
+
+  /** Marks their message as read (they see blue ticks). */
+  async markRead(phoneNumberId: string, wamid: string) {
+    await this.call("POST", `${phoneNumberId}/messages`, { body: { messaging_product: "whatsapp", status: "read", message_id: wamid } });
+  }
+
+  /** Uploads a file to send in a chat → Meta's media id. */
+  async uploadMedia(phoneNumberId: string, file: { bytes: Uint8Array; type: string; name: string }): Promise<string> {
+    const form = new FormData();
+    form.set("messaging_product", "whatsapp");
+    form.set("type", file.type);
+    form.set("file", new Blob([file.bytes], { type: file.type }), file.name);
+    const res = await this.fetchImpl(this.url(`${phoneNumberId}/media`), { method: "POST", headers: { authorization: `Bearer ${this.token}` }, body: form, signal: AbortSignal.timeout(60_000) });
+    const data = (await res.json().catch(() => ({}))) as { id?: string; error?: { message?: string; code?: number } };
+    if (!res.ok || !data.id) throw new MetaError(metaErrorText(data.error?.code, data.error?.message ?? `upload failed (HTTP ${res.status})`), data.error?.code, res.status);
+    return data.id;
+  }
+
+  /** Downloads a media file (theirs or ours) by its id: Meta gives a short-lived link that needs the token. */
+  async downloadMedia(mediaId: string): Promise<{ bytes: ArrayBuffer; type: string }> {
+    const info = await this.call<{ url?: string; mime_type?: string }>("GET", mediaId);
+    if (!info.url) throw new MetaError("Meta has no file for this message any more.");
+    const res = await this.fetchImpl(info.url, { headers: { authorization: `Bearer ${this.token}` }, signal: AbortSignal.timeout(60_000) });
+    if (!res.ok) throw new MetaError(`The file couldn't be downloaded (HTTP ${res.status}).`, undefined, res.status);
+    return { bytes: await res.arrayBuffer(), type: info.mime_type || res.headers.get("content-type") || "application/octet-stream" };
+  }
+
   /** Uploads a sample file for a template header (Resumable Upload) → its handle. */
   async uploadSample(file: { bytes: Uint8Array; type: string; name: string }): Promise<string> {
     const session = await this.call<{ id: string }>("POST", `${this.app.appId}/uploads`, {

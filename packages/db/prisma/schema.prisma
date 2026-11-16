@@ -67,6 +67,8 @@ model Workspace {
   whatsappContacts   WhatsappContact[]
   whatsappCampaigns  WhatsappCampaign[]
   whatsappSegments   WhatsappSegment[]
+  whatsappNotes      WhatsappNote[]
+  whatsappSavedReplies WhatsappSavedReply[]
   whatsappMessages   WhatsappMessage[]
 
   @@map("workspaces")
@@ -1486,6 +1488,18 @@ model WhatsappContact {
   location      String?
   /// ON (a message reached them or they wrote), NOT_FOUND (Meta: not on WhatsApp), null = not known yet
   waStatus      String?   @map("wa_status")
+  /// Inbox: a chat once they wrote or a teammate messaged them (null = not in the inbox)
+  chatAt        DateTime? @map("chat_at")
+  chatPreview   String?   @map("chat_preview")
+  /// Who wrote the last message: IN (them, waiting for a reply) or OUT
+  chatFrom      String?   @map("chat_from")
+  /// Messages from them nobody has opened yet
+  unread        Int       @default(0)
+  /// Teammate (user id) looking after the chat
+  assignedTo    String?   @map("assigned_to")
+  starred       Boolean   @default(false)
+  /// Marked done; a new message from them reopens it
+  chatDoneAt    DateTime? @map("chat_done_at")
   tags          String[]  @default([])
   /// Custom variables: { key: value }
   vars          Json      @default("{}")
@@ -1504,6 +1518,7 @@ model WhatsappContact {
 
   workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   messages  WhatsappMessage[]
+  notes     WhatsappNote[]
 
   @@unique([workspaceId, phone])
   @@index([workspaceId, createdAt])
@@ -1512,6 +1527,38 @@ model WhatsappContact {
 }
 
 /// A WhatsApp broadcast: one approved template to the contacts with some tags (or all).
+/// Internal notes on a WhatsApp chat (never sent)
+model WhatsappNote {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  contactId   String   @map("contact_id")
+  userId      String?  @map("user_id")
+  userName    String   @map("user_name")
+  body        String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  contact   WhatsappContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId, createdAt])
+  @@map("whatsapp_notes")
+}
+
+/// Saved replies for the WhatsApp inbox ("/" in the composer)
+model WhatsappSavedReply {
+  id          String   @id @default(cuid())
+  workspaceId String   @map("workspace_id")
+  /// What to type after "/", e.g. "cod"
+  shortcut    String
+  body        String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, shortcut])
+  @@map("whatsapp_saved_replies")
+}
+
 /// Saved rules over WhatsApp contacts (see packages/shared/src/whatsapp-segments.ts)
 model WhatsappSegment {
   id          String   @id @default(cuid())
@@ -1592,6 +1639,17 @@ model WhatsappMessage {
   failedAt    DateTime? @map("failed_at")
   /// They replied after this message (campaign results)
   repliedAt   DateTime? @map("replied_at")
+  /// Meta's media id (image, video, audio, document, sticker), its type and file name
+  mediaId     String?   @map("media_id")
+  mediaType   String?   @map("media_type")
+  fileName    String?   @map("file_name")
+  /// The message this one answers (Meta's context id)
+  replyTo     String?   @map("reply_to")
+  /// How a template looked (header, buttons) for the inbox: { header?, footer?, buttons?[] }
+  extra       Json?
+  /// The teammate who sent it from the inbox
+  byUserId    String?   @map("by_user_id")
+  byName      String?   @map("by_name")
   createdAt   DateTime  @default(now()) @map("created_at")
 
   workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -1601,5 +1659,6 @@ model WhatsappMessage {
   @@unique([campaignId, phone])
   @@index([campaignId, status])
   @@index([workspaceId, phone, createdAt])
+  @@index([contactId, createdAt])
   @@map("whatsapp_messages")
 }

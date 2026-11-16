@@ -109,7 +109,7 @@ async function applyChange(prisma: PrismaClient, wabaId: string, { field, value 
         const text = messageText(m);
         const ts = Number(m.timestamp);
         const at = Number.isFinite(ts) && ts > 0 ? new Date(ts * 1000) : new Date();
-        await recordInbound(prisma, n.workspaceId, { phone: from, profileName: names.get(from), text, optOut: isOptOut(text), at });
+        await recordInbound(prisma, n.workspaceId, { phone: from, profileName: names.get(from), text, optOut: isOptOut(text), at, message: readInbound(m) });
         // A reply counts for the latest campaign message they got (within two weeks).
         const last = await prisma.whatsappMessage.findFirst({
           where: { workspaceId: n.workspaceId, phone: from, direction: "OUT", campaignId: { not: null }, sentAt: { gt: new Date(at.getTime() - 14 * 86_400_000), lte: at } },
@@ -124,6 +124,41 @@ async function applyChange(prisma: PrismaClient, wabaId: string, { field, value 
     default:
       return;
   }
+}
+
+/** An incoming message as the inbox stores it. */
+export function readInbound(m: Record<string, unknown>): InboundMessage {
+  const o = (k: string) => (m[k] as Record<string, unknown> | undefined) ?? {};
+  const type = str(m.type).toLowerCase();
+  const base = { wamid: str(m.id), replyTo: str(o("context").id) || null };
+  if (type === "text") return { ...base, kind: "TEXT", body: str(o("text").body) };
+  if (type === "button" || type === "interactive") return { ...base, kind: "BUTTON", body: messageText(m) };
+  if (["image", "video", "audio", "document", "sticker"].includes(type)) {
+    const md = o(type);
+    return { ...base, kind: type.toUpperCase(), body: str(md.caption), mediaId: str(md.id) || null, mediaType: str(md.mime_type) || null, fileName: str(md.filename) || null };
+  }
+  if (type === "location") {
+    const l = o("location");
+    return { ...base, kind: "LOCATION", body: [str(l.name), str(l.address), `${l.latitude},${l.longitude}`].filter(Boolean).join(" · ") };
+  }
+  if (type === "reaction") return { ...base, kind: "REACTION", body: str(o("reaction").emoji), replyTo: str(o("reaction").message_id) || null };
+  if (type === "contacts") {
+    const c = ((m.contacts as Record<string, unknown>[] | undefined) ?? [])[0] ?? {};
+    const name = str((c.name as Record<string, unknown> | undefined)?.formatted_name);
+    const phone = str((((c.phones as Record<string, unknown>[] | undefined) ?? [])[0] ?? {}).phone);
+    return { ...base, kind: "CONTACT", body: [name, phone].filter(Boolean).join(" · ") };
+  }
+  return { ...base, kind: "UNSUPPORTED", body: "" };
+}
+
+export interface InboundMessage {
+  wamid: string;
+  kind: string;
+  body: string;
+  replyTo?: string | null;
+  mediaId?: string | null;
+  mediaType?: string | null;
+  fileName?: string | null;
 }
 
 /** The words of an incoming message: text, a tapped template button or a reply button/list choice. */
