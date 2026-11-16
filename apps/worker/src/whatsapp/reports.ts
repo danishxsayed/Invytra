@@ -1,8 +1,8 @@
-import { appLink, noticeEmail, sendNotices, waCampaignStats, workspaceOwners, type PlatformEmail, type PlatformMailer, type PrismaClient } from "@invytra/db";
+import { appLink, noticeEmail, notify, sendNotices, waCampaignStats, workspaceOwnerIds, workspaceOwners, type PlatformEmail, type PlatformMailer, type PrismaClient } from "@invytra/db";
 
 /*
  * The campaign report: 3 hours after a WhatsApp campaign starts sending, its owners (and the
- * teammate who made it) get its numbers by email: sent, delivered, read, replied, failed.
+ * teammate who made it) get its numbers by email and in the bell: sent, delivered, read, replied, failed.
  * Sent once per campaign (report_sent_at). Run every minute by the worker with the campaigns.
  */
 
@@ -24,9 +24,17 @@ export async function whatsappCampaignReports(d: { prisma: PrismaClient; send: P
   for (const c of due) {
     // Claim it first so two workers never send the same report.
     const claimed = await prisma.whatsappCampaign.updateMany({ where: { id: c.id, reportSentAt: null }, data: { reportSentAt: now } });
-    if (!claimed.count || !d.send || now.getTime() - c.startedAt!.getTime() > TOO_OLD_MS) continue;
+    if (!claimed.count || now.getTime() - c.startedAt!.getTime() > TOO_OLD_MS) continue;
     const s = (await waCampaignStats(prisma, [c.id])).get(c.id);
     if (!s || !s.sent) continue;
+    await notify(prisma, {
+      workspaceId: c.workspaceId,
+      userIds: [...(await workspaceOwnerIds(prisma, c.workspaceId)), ...(c.createdBy ? [c.createdBy] : [])],
+      kind: "CAMPAIGN",
+      title: `${c.name} after 3 hours: ${pct(s.delivered, s.sent)} delivered, ${pct(s.read, s.sent)} read, ${num(s.replied)} ${s.replied === 1 ? "reply" : "replies"}`,
+      href: `/whatsapp/campaigns/${c.id}`,
+    });
+    if (!d.send) continue;
     const people = await workspaceOwners(prisma, c.workspaceId);
     if (c.createdBy) {
       const u = await prisma.user.findFirst({ where: { id: c.createdBy, memberships: { some: { workspaceId: c.workspaceId } } }, select: { email: true, name: true } });

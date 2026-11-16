@@ -44,13 +44,13 @@ export async function sendTemplateAction(id: string, input: unknown): Promise<Re
 }
 
 export async function updateChatAction(id: string, change: { starred?: boolean; assignedTo?: string | null; done?: boolean; unread?: boolean }): Promise<Result> {
-  const { ws } = await who();
+  const { ws, me } = await who();
   return updateChat(prisma, ws, String(id), {
     ...(typeof change.starred === "boolean" && { starred: change.starred }),
     ...(change.assignedTo !== undefined && { assignedTo: change.assignedTo ? String(change.assignedTo) : null }),
     ...(typeof change.done === "boolean" && { done: change.done }),
     ...(change.unread === true && { unread: true }),
-  });
+  }, new Date(), me);
 }
 
 export async function deleteChatAction(id: string): Promise<Result> {

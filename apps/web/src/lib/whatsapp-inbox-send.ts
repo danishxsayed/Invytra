@@ -1,9 +1,9 @@
-import type { PrismaClient } from "@invytra/db";
-import { readMetaComponents, sendComponents, templateNeeds, type WaSlot, type WaVarSource } from "@invytra/shared";
+import { notify, type PrismaClient } from "@invytra/db";
+import { mentionedIn, readMetaComponents, sendComponents, templateNeeds, type WaSlot, type WaVarSource } from "@invytra/shared";
 import { z } from "zod";
 import type { Result } from "./accounts";
 import { NOT_SET_UP, clientFor, deps, failed, type WaDeps } from "./whatsapp";
-import { WINDOW_MS } from "./whatsapp-inbox";
+import { WINDOW_MS, contactName, inboxMembers } from "./whatsapp-inbox";
 import { inboxPreview } from "./whatsapp-contacts";
 
 /*
@@ -135,11 +135,16 @@ export async function markChatRead(prisma: PrismaClient, workspaceId: string, co
     .catch(() => {}); // a read receipt is a courtesy; never block opening the chat
 }
 
-export async function updateChat(prisma: PrismaClient, workspaceId: string, contactId: string, change: { starred?: boolean; assignedTo?: string | null; done?: boolean; unread?: boolean }, now = new Date()): Promise<Result> {
+const NAME = { firstName: true, lastName: true, profileName: true, phone: true } as const;
+const chatHref = (id: string) => `/whatsapp/inbox?c=${encodeURIComponent(id)}`;
+
+/** Star, assign, mark done/unread. Assigning a chat to someone else tells them in the bell. */
+export async function updateChat(prisma: PrismaClient, workspaceId: string, contactId: string, change: { starred?: boolean; assignedTo?: string | null; done?: boolean; unread?: boolean }, now = new Date(), me?: Me): Promise<Result> {
   if (change.assignedTo) {
     const member = await prisma.membership.findFirst({ where: { workspaceId, userId: change.assignedTo }, select: { userId: true } });
     if (!member) return { ok: false, error: "That person isn't in this workspace." };
   }
+  const before = change.assignedTo ? await prisma.whatsappContact.findFirst({ where: { id: contactId, workspaceId }, select: { assignedTo: true, ...NAME } }) : null;
   const r = await prisma.whatsappContact.updateMany({
     where: { id: contactId, workspaceId },
     data: {
@@ -149,7 +154,10 @@ export async function updateChat(prisma: PrismaClient, workspaceId: string, cont
       ...(change.unread && { unread: 1 }),
     },
   });
-  return r.count ? { ok: true, value: undefined } : { ok: false, error: "That chat is gone." };
+  if (!r.count) return { ok: false, error: "That chat is gone." };
+  if (before && change.assignedTo && before.assignedTo !== change.assignedTo && change.assignedTo !== me?.id)
+    await notify(prisma, { workspaceId, userIds: [change.assignedTo], kind: "ASSIGNED", title: `${me?.name ?? "A teammate"} assigned ${contactName(before)} to you`, href: chatHref(contactId), actorName: me?.name });
+  return { ok: true, value: undefined };
 }
 
 /** Takes a chat out of the inbox and deletes its messages from Invytra (campaign results stay). The contact stays. */
@@ -168,9 +176,14 @@ export async function addNote(prisma: PrismaClient, workspaceId: string, me: Me,
   const body = raw.trim();
   if (!body) return { ok: false, error: "Write the note." };
   if (body.length > 2000) return { ok: false, error: "Notes can be up to 2,000 characters." };
-  const c = await prisma.whatsappContact.findFirst({ where: { id: contactId, workspaceId }, select: { id: true } });
+  const c = await prisma.whatsappContact.findFirst({ where: { id: contactId, workspaceId }, select: { id: true, ...NAME } });
   if (!c) return { ok: false, error: "That chat is gone." };
   const n = await prisma.whatsappNote.create({ data: { workspaceId, contactId: c.id, userId: me.id, userName: me.name, body } });
+  // "@Rohan can you…": tell the teammates it mentions.
+  if (body.includes("@")) {
+    const ids = mentionedIn(body, await inboxMembers(prisma, workspaceId), me.id);
+    await notify(prisma, { workspaceId, userIds: ids, kind: "MENTION", title: `${me.name} mentioned you in a note on ${contactName(c)}`, body, href: chatHref(c.id), actorName: me.name });
+  }
   return { ok: true, value: { id: n.id } };
 }
 

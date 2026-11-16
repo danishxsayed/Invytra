@@ -32,4 +32,5 @@ export * from "./whatsapp.js";
 export * from "./whatsapp-contacts.js";
 export * from "./dial-codes.js";
 export * from "./whatsapp-segments.js";
+export * from "./mentions.js";
 export * from "./whatsapp-campaigns.js";

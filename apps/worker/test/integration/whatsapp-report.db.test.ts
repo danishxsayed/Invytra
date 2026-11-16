@@ -54,6 +54,10 @@ d("WhatsApp campaign report", () => {
     expect(m.text).toContain("1 person is waiting");
     expect(m.text).toContain("1 couldn't be delivered");
     expect(m.html).toContain("https://whatsapp.invytra.com/whatsapp/campaigns/camp-report");
+    // And in the bell, for the same two people.
+    const bell = await prisma.notification.findMany({ where: { kind: "CAMPAIGN", href: "/whatsapp/campaigns/camp-report" } });
+    expect(bell).toHaveLength(2);
+    expect(bell[0]!.title).toBe("Diwali after 3 hours: 67% delivered, 33% read, 1 reply");
     expect(await whatsappCampaignReports({ prisma, send, now: new Date(t0.getTime() + 5 * 3_600_000), env })).toBe(0);
     expect(mails).toHaveLength(2);
   });

@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { notify, workspaceOwnerIds } from "./notifications.js";
 import { appLink, noticeEmail, workspaceOwners, type PlatformEmail } from "./platform-mail.js";
 
 /*
@@ -24,12 +25,31 @@ const NOTICE: Record<string, { subject: (n: string) => string; title: string; li
   DISABLED: { subject: (n) => `Disabled: your WhatsApp template "${n}"`, title: "Your template was disabled", line: "Meta disabled it after repeated reports. It can't be used again; write a new one with a clearer opt-out.", tone: "bad", button: "See your templates" },
 };
 
-/** One email per workspace owner for a template whose review status just changed. */
+const BELL: Record<string, (n: string) => string> = {
+  APPROVED: (n) => `Meta approved your template ${n}`,
+  REJECTED: (n) => `Meta rejected your template ${n}`,
+  PAUSED: (n) => `Meta paused your template ${n}`,
+  DISABLED: (n) => `Meta disabled your template ${n}`,
+};
+
+/**
+ * A template whose review status just changed: tells the workspace owners in the bell right away,
+ * and returns one email per owner for the caller to send.
+ */
 export async function templateNotices(prisma: PrismaClient, t: { workspaceId: string; name: string; language: string }, status: string, reason: string | null): Promise<PlatformEmail[]> {
   const n = NOTICE[status];
   if (!n) return [];
   const owners = await workspaceOwners(prisma, t.workspaceId);
   const why = reason ? (REJECT_REASON[reason] ?? `Meta's reason: ${reason.replace(/_/g, " ").toLowerCase()}.`) : null;
+  await notify(prisma, {
+    workspaceId: t.workspaceId,
+    userIds: await workspaceOwnerIds(prisma, t.workspaceId),
+    kind: "TEMPLATE",
+    title: BELL[status]!(t.name),
+    body: status === "APPROVED" ? "You can use it in a campaign now." : (why ?? n.line),
+    href: "/whatsapp/templates",
+    tone: n.tone === "good" ? "good" : "bad",
+  });
   const href = appLink("whatsapp", status === "APPROVED" ? "/whatsapp/campaigns/new" : "/whatsapp/templates");
   return owners.map((o) =>
     noticeEmail({

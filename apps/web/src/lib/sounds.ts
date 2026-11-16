@@ -144,3 +144,43 @@ function playChime(): void {
     // Sound is a nicety: never let it break the page.
   }
 }
+
+/** Unlocks audio after the first click or key press on a page that may play sounds later. */
+export function unlockSound(): void {
+  const a = audio();
+  if (a && a.state === "suspended") void a.resume().catch(() => undefined);
+}
+
+/**
+ * A new WhatsApp message: a soft two-note "pop" (E6 then A6, quick and quiet), like a chat app.
+ * Plays only once audio is unlocked by a click on the page (browsers block it before that).
+ */
+export function playMessageSound(): void {
+  const a = audio();
+  if (!a || a.state !== "running") return;
+  try {
+    const t0 = a.currentTime + 0.01;
+    const master = a.createGain();
+    master.gain.value = 0.18;
+    master.connect(a.destination);
+    for (const [freq, at] of [
+      [1318.51, 0],
+      [1760, 0.09],
+    ] as [number, number][]) {
+      const g = a.createGain();
+      g.gain.setValueAtTime(0.0001, t0 + at);
+      g.gain.exponentialRampToValueAtTime(1, t0 + at + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + 0.22);
+      g.connect(master);
+      const o = a.createOscillator();
+      o.type = "sine";
+      o.frequency.setValueAtTime(freq, t0 + at);
+      o.frequency.exponentialRampToValueAtTime(freq * 1.02, t0 + at + 0.05);
+      o.connect(g);
+      o.start(t0 + at);
+      o.stop(t0 + at + 0.25);
+    }
+  } catch {
+    // Sound is a nicety: never let it break the page.
+  }
+}

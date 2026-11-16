@@ -11,7 +11,7 @@ import { cx } from "../../ui";
 import { ContactPanel } from "../contacts/ContactPanel";
 import { exclusive } from "./busy";
 import { initials } from "./ChatList";
-import type { Note } from "./Messages";
+import { NoteText, type Note } from "./Messages";
 
 const ACT_ICON: Record<WaActivity["kind"], typeof MessageCircle> = { added: UserPlus, sent: Megaphone, delivered: Megaphone, read: Eye, failed: CircleAlert, replied: MessageCircle, wrote: MessageCircle, opted_out: Ban };
 const stamp = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
@@ -118,7 +118,7 @@ export function ChatSide({ c, notes, createdAt, knownTags, me, onChanged }: { c:
         </div>
         {note !== null && (
           <div className="mt-2 space-y-2">
-            <textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[14px] outline-none" placeholder="Only your team sees notes" aria-label="Note" />
+            <textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[14px] outline-none" placeholder="Only your team sees notes. @Name tells a teammate." aria-label="Note" />
             <div className="flex justify-end gap-3 text-[14px]">
               <button type="button" onClick={() => setNote(null)} className="text-stone-500">
                 Cancel
@@ -132,7 +132,9 @@ export function ChatSide({ c, notes, createdAt, knownTags, me, onChanged }: { c:
         <div className="mt-2 space-y-2">
           {[...notes].reverse().map((n) => (
             <div key={n.id} className="group rounded-xl bg-amber-50 p-3 text-[14px] text-stone-800 ring-1 ring-amber-200">
-              <p className="whitespace-pre-wrap break-words">{n.body}</p>
+              <p className="whitespace-pre-wrap break-words">
+                <NoteText text={n.body} />
+              </p>
               <p className="mt-1.5 flex items-center gap-1.5 text-[12.5px] text-orange-700">
                 <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[9px] font-bold text-stone-700 ring-1 ring-stone-200">{initials(n.by)}</span>
                 {n.by} · {stamp(n.at)}

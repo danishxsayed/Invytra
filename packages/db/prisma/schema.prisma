@@ -70,6 +70,7 @@ model Workspace {
   whatsappNotes      WhatsappNote[]
   whatsappSavedReplies WhatsappSavedReply[]
   whatsappMessages   WhatsappMessage[]
+  notifications      Notification[]
 
   @@map("workspaces")
 }
@@ -91,6 +92,7 @@ model User {
 
   memberships    Membership[]
   passwordResets PasswordReset[]
+  notifications  Notification[]
 
   @@map("users")
 }
@@ -1661,4 +1663,33 @@ model WhatsappMessage {
   @@index([workspaceId, phone, createdAt])
   @@index([contactId, createdAt])
   @@map("whatsapp_messages")
+}
+
+/// The bell: things a teammate should see (mentioned in a note, a chat assigned to them,
+/// a campaign report, a template Meta reviewed). One row per person.
+model Notification {
+  id          String    @id @default(cuid())
+  workspaceId String    @map("workspace_id")
+  userId      String    @map("user_id")
+  /// whatsapp (later other channels)
+  channel     String    @default("whatsapp")
+  /// MENTION | ASSIGNED | CAMPAIGN | TEMPLATE
+  kind        String
+  title       String
+  /// A quote shown under the title (the note that mentioned them)
+  body        String?
+  /// Page to open, path on the channel's own address (e.g. /whatsapp/inbox?c=…)
+  href        String?
+  /// Who did it (for the initials); null for Invytra / Meta
+  actorName   String?   @map("actor_name")
+  /// good | bad (template approved / rejected), for the icon colour
+  tone        String?
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, workspaceId, createdAt])
+  @@map("notifications")
 }

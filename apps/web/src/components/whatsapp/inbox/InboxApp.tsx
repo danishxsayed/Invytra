@@ -14,6 +14,7 @@ import { ChatSide } from "./ChatSide";
 import { Composer, type SavedReply } from "./Composer";
 import type { FilterCounts } from "./FilterDialog";
 import { Messages, type Note } from "./Messages";
+import { usePulse } from "../shell/pulse";
 import { busy, exclusive } from "./busy";
 import { TemplateSend, type InboxTemplate } from "./TemplateSend";
 
@@ -79,6 +80,15 @@ export function InboxApp(p: { chats: ChatRow[]; counts: FilterCounts & { unread:
   const [pending, start] = useTransition();
   const end = useRef<HTMLDivElement>(null);
   const openId = p.chat?.id ?? null;
+  const pulse = usePulse();
+  // The contact panel starts open on wide screens only (it can always be opened with its button).
+  useEffect(() => {
+    if (window.innerWidth < 1536) setSide(false);
+  }, []);
+  // Opening a chat reads it: update the unread count on the tab and the sidebar now.
+  useEffect(() => {
+    pulse.refresh();
+  }, [openId]); // eslint-disable-line react-hooks/exhaustive-deps -- only when another chat opens
 
   useEffect(() => {
     setChats(p.chats);
@@ -137,28 +147,28 @@ export function InboxApp(p: { chats: ChatRow[]; counts: FilterCounts & { unread:
   const c = p.chat;
   const hue = c ? tagColor(c.name) : "#22c55e";
   return (
-    <div className="grid h-[calc(100vh-140px)] min-h-[560px] overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)_auto]">
+    <div className="grid h-full min-h-[480px] overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)_auto]">
       <aside className={cx("min-h-0 border-r border-stone-100", c && "hidden lg:block")}>
         <ChatList chats={chats} counts={p.counts} state={p.state} members={p.members} me={p.me} openId={openId} onState={(s) => go(s, null)} onOpen={(id) => go({}, id)} />
       </aside>
 
       {c ? (
         <section className="flex min-h-0 flex-col bg-[#f0ebe3]">
-          <header className="flex items-center gap-2 border-b border-stone-200 bg-white px-4 py-3">
+          <header className="flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-stone-200 bg-white px-4 py-3">
             <button type="button" onClick={() => go({}, null)} className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 lg:hidden" aria-label="Back to chats">
               <ArrowLeft className="h-5 w-5" aria-hidden />
             </button>
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[14px] font-bold" style={{ background: `${hue}1f`, color: hue }}>
               {initials(c.name)}
             </span>
-            <span className="min-w-[140px] flex-1">
+            <span className="min-w-[110px] flex-1">
               <span className="block truncate text-[17px] font-semibold text-stone-900">{c.name}</span>
               <span className="block truncate whitespace-nowrap text-[14px] tabular-nums text-stone-500">{c.phone}</span>
             </span>
             <span className={cx("inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium", windowEnds ? "bg-emerald-50 text-emerald-800" : "bg-stone-100 text-stone-500")} title="WhatsApp allows free-form replies for 24 hours after their last message">
               <Clock className="h-4 w-4" aria-hidden /> {windowEnds ? (
                 <>
-                  <span className="hidden 2xl:inline">Window open · </span>
+                  <span className="hidden min-[1800px]:inline">Window open · </span>
                   {left(windowEnds)}
                 </>
               ) : (
@@ -168,7 +178,7 @@ export function InboxApp(p: { chats: ChatRow[]; counts: FilterCounts & { unread:
             <button type="button" onClick={() => change({ starred: !c.starred })} className="rounded-lg p-2 hover:bg-stone-100" aria-label={c.starred ? "Remove from priority" : "Mark as priority"} title="Priority">
               <Star className={cx("h-5 w-5", c.starred ? "fill-emerald-500 text-emerald-500" : "text-stone-400")} aria-hidden />
             </button>
-            <select value={c.assignedTo ?? ""} onChange={(e) => change({ assignedTo: e.target.value || null })} className="w-[130px] shrink-0 rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-[13.5px]" aria-label="Assigned to">
+            <select value={c.assignedTo ?? ""} onChange={(e) => change({ assignedTo: e.target.value || null })} className="w-[118px] shrink-0 rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-[13.5px]" aria-label="Assigned to">
               <option value="">Unassigned</option>
               {p.members.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -211,7 +221,7 @@ export function InboxApp(p: { chats: ChatRow[]; counts: FilterCounts & { unread:
             <div ref={end} />
           </WaChatBackground>
           <div className="border-t border-stone-200 bg-[#f7f4ef] px-4 py-3">
-            <Composer chatId={c.id} firstName={c.firstName} windowOpen={!!windowEnds} optedOut={c.optedOut} replyTo={replyTo} saved={p.saved} onClearReply={() => setReplyTo(null)} onTemplate={() => setTpl(true)} onSent={refresh} />
+            <Composer chatId={c.id} firstName={c.firstName} windowOpen={!!windowEnds} optedOut={c.optedOut} replyTo={replyTo} saved={p.saved} members={p.members.filter((m) => m.id !== p.me)} onClearReply={() => setReplyTo(null)} onTemplate={() => setTpl(true)} onSent={refresh} />
           </div>
         </section>
       ) : (

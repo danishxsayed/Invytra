@@ -53,6 +53,23 @@ function Media({ m }: { m: ChatMessage }) {
   );
 }
 
+/** A note with its @mentions picked out. */
+export function NoteText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(@[\p{L}\p{N}]+)/u).map((part, i) =>
+        i % 2 ? (
+          <span key={i} className="font-semibold text-orange-700">
+            {part}
+          </span>
+        ) : (
+          <Fragment key={i}>{part}</Fragment>
+        ),
+      )}
+    </>
+  );
+}
+
 /** The conversation: day separators, their messages left, ours right (templates with buttons), notes in yellow. */
 export function Messages({ messages, notes, onReply }: { messages: ChatMessage[]; notes: Note[]; onReply: (m: ChatMessage) => void }) {
   const byWamid = new Map(messages.filter((m) => m.wamid).map((m) => [m.wamid!, m]));
@@ -76,7 +93,9 @@ export function Messages({ messages, notes, onReply }: { messages: ChatMessage[]
                 <p className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-amber-700">
                   <StickyNote className="h-3.5 w-3.5" aria-hidden /> Note · {it.n.by}
                 </p>
-                <p className="whitespace-pre-wrap break-words">{it.n.body}</p>
+                <p className="whitespace-pre-wrap break-words">
+                  <NoteText text={it.n.body} />
+                </p>
                 <p className="mt-1 text-right text-[12px] text-amber-700/80">{time(it.n.at)} · only your team sees this</p>
               </div>
             ) : (

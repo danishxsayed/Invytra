@@ -1,6 +1,7 @@
 "use client";
 
-import { FileText, Image as ImageIcon, Loader2, Lock, Paperclip, Reply, Send, StickyNote, Trash2, X, Zap } from "lucide-react";
+import { insertMention, mentionQuery } from "@invytra/shared";
+import { AtSign, FileText, Image as ImageIcon, Loader2, Lock, Paperclip, Reply, Send, StickyNote, Trash2, X, Zap } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 import { addNoteAction, deleteSavedReplyAction, saveSavedReplyAction, sendFileAction, sendTextAction } from "@/app/whatsapp/inbox/actions";
 import type { ChatMessage } from "@/lib/whatsapp-inbox";
@@ -18,6 +19,7 @@ export function Composer({
   optedOut,
   replyTo,
   saved,
+  members,
   onClearReply,
   onTemplate,
   onSent,
@@ -28,6 +30,8 @@ export function Composer({
   optedOut: boolean;
   replyTo: ChatMessage | null;
   saved: SavedReply[];
+  /** Teammates who can be @mentioned in a note (not you). */
+  members: { id: string; name: string }[];
   onClearReply: () => void;
   onTemplate: () => void;
   onSent: () => void;
@@ -42,6 +46,9 @@ export function Composer({
   const photo = useRef<HTMLInputElement>(null);
   const attach = useRef<HTMLInputElement>(null);
   const slash = mode === "reply" && /^\/\S*$/.test(text) ? saved.filter((s) => s.shortcut.startsWith(text.slice(1).toLowerCase())) : [];
+  const mq = mode === "note" ? mentionQuery(text) : null;
+  const mentions = mq === null ? [] : members.filter((m) => m.name.toLowerCase().split(/\s+/).some((w) => w.startsWith(mq.toLowerCase()))).slice(0, 6);
+  const mention = (name: string) => setText(insertMention(text, name));
   const fill = (body: string) => setText(body.replace(/\{\{\s*(first_?name|name)\s*\}\}/gi, firstName));
 
   const send = () =>
@@ -120,6 +127,17 @@ export function Composer({
               </button>
             </div>
           )}
+          {mentions.length > 0 && (
+            <div className="absolute bottom-full left-0 z-20 mb-2 w-full max-w-xs rounded-xl bg-white p-1.5 shadow-xl ring-1 ring-stone-200" role="listbox" aria-label="Mention a teammate">
+              <p className="px-2 pb-1 pt-0.5 text-[12px] font-semibold uppercase tracking-wider text-stone-400">Mention a teammate</p>
+              {mentions.map((m, i) => (
+                <button key={m.id} type="button" role="option" aria-selected={i === 0} onMouseDown={(e) => e.preventDefault()} onClick={() => mention(m.name)} className={cx("flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[14.5px] hover:bg-amber-50", i === 0 && "bg-amber-50/60")}>
+                  <AtSign className="h-4 w-4 text-amber-600" aria-hidden /> {m.name}
+                </button>
+              ))}
+              <p className="px-2 pt-1 text-[12px] text-stone-400">They&apos;ll get it in their bell.</p>
+            </div>
+          )}
           {(slash.length > 0 || showSaved) && (
             <div className="absolute bottom-full left-0 z-20 mb-2 max-h-72 w-full max-w-md overflow-y-auto rounded-xl bg-white p-2 shadow-xl ring-1 ring-stone-200">
               <p className="flex items-center justify-between px-2 pb-1 text-[12px] font-semibold uppercase tracking-wider text-stone-400">
@@ -196,11 +214,12 @@ export function Composer({
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   if (slash.length === 1) return fill(slash[0]!.body);
+                  if (mentions.length) return mention(mentions[0]!.name);
                   if ((text.trim() || file) && !pending) send();
                 }
               }}
               rows={Math.min(6, Math.max(1, text.split("\n").length))}
-              placeholder={mode === "note" ? "Write a note for your team (they don't see it)…" : `Reply to ${firstName || "them"}… type / for saved replies`}
+              placeholder={mode === "note" ? "Write a note for your team (they don't see it)… type @ to mention someone" : `Reply to ${firstName || "them"}… type / for saved replies`}
               className="min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-[15px] outline-none placeholder:text-stone-400"
               aria-label={mode === "note" ? "Note" : "Reply"}
             />
