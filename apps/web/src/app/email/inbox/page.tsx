@@ -74,7 +74,7 @@ export default async function EmailInboxPage({ searchParams }: { searchParams: P
       </div>
 
       {rows.length === 0 && !convo ? (
-        <Card className="flex items-center justify-center lg:h-[calc(100vh-160px)] lg:min-h-[480px]">
+        <Card className="flex items-center justify-center lg:h-[calc(100dvh-250px)] lg:min-h-[480px]">
           <EmptyState
             icon={view === "bounces" ? MailWarning : view === "needs" ? Reply : Inbox}
             title={view === "needs" ? "You're all caught up" : `No ${VIEW_LABEL[view].toLowerCase()} yet`}
@@ -82,7 +82,7 @@ export default async function EmailInboxPage({ searchParams }: { searchParams: P
           />
         </Card>
       ) : (
-        <div className="grid overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 lg:h-[calc(100vh-160px)] lg:min-h-[480px] lg:grid-cols-[360px_1fr]">
+        <div className="grid overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 lg:h-[calc(100dvh-250px)] lg:min-h-[480px] lg:grid-cols-[360px_1fr]">
           <ul className={cx("divide-y divide-stone-100 overflow-y-auto border-stone-200 lg:border-r", q.c && "hidden lg:block")}>
             {rows.map((r) => (
               <li key={r.leadId}>

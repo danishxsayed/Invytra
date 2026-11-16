@@ -3,7 +3,7 @@ import { Bone, Lines, RowsSkeleton } from "@/components/Skeleton";
 /** The inbox while it loads: the two panes, full height. */
 export default function Loading() {
   return (
-    <div role="status" aria-live="polite" className="h-full overflow-hidden bg-white lg:grid lg:grid-cols-[380px_1fr]">
+    <div role="status" aria-live="polite" className="h-full overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 lg:grid lg:grid-cols-[380px_1fr]">
       <span className="sr-only">Loading inbox…</span>
       <div className="flex h-full flex-col border-stone-200/80 lg:border-r">
         <div className="space-y-2 border-b border-stone-100 p-3">

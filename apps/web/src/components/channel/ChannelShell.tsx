@@ -1,50 +1,45 @@
 "use client";
 
-import { ChevronRight, CreditCard, FileText, Inbox, LayoutGrid, LogOut, Megaphone, Menu, PanelLeftClose, PanelLeftOpen, Settings, Smartphone, Users, X } from "lucide-react";
+import { ChevronRight, CreditCard, LayoutGrid, LogOut, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logout } from "@/app/(auth)/actions";
 import { SIDEBAR_COOKIE } from "@/lib/ui-prefs";
-import { ChannelLogo } from "../../ChannelLogo";
-import { CreditsChip } from "../../credits/CreditsChip";
-import { LogoMark } from "../../LogoMark";
-import { Avatar, cx } from "../../ui";
-import { Bell } from "./Bell";
-import { PulseProvider, usePulse } from "./pulse";
+import { ChannelLogo } from "../ChannelLogo";
+import { CreditsChip } from "../credits/CreditsChip";
+import { LogoMark } from "../LogoMark";
+import { Avatar, cx } from "../ui";
+import { Bell } from "../whatsapp/shell/Bell";
+import { PulseProvider, usePulse } from "../whatsapp/shell/pulse";
+import { CHANNEL_NAV, CRUMB, type NavItem, type ShellChannel } from "./nav";
 
 export interface ShellProps {
+  channel: ShellChannel;
   workspace: string;
   user: { name: string; role: string };
   collapsed: boolean;
   credits: { left: number; href: string | null };
-  links: { hub: string; settings: string; billing: string | null };
+  links: { hub: string; billing: string | null };
+  /** Replies waiting (LinkedIn, Email); WhatsApp counts unread chats live instead. */
+  inboxCount?: number;
+  /** A block under the logo (LinkedIn: the account switcher). */
+  extra?: React.ReactNode;
   /** The plan banner (server-rendered), shown above the page. */
   banner?: React.ReactNode;
   children: React.ReactNode;
 }
 
-type Item = { href: string; label: string; Icon: typeof Inbox; badge?: "unread" };
-const SECTIONS: { title: string; items: Item[] }[] = [
-  {
-    title: "WhatsApp",
-    items: [
-      { href: "/whatsapp/inbox", label: "Inbox", Icon: Inbox, badge: "unread" },
-      { href: "/whatsapp/campaigns", label: "Campaigns", Icon: Megaphone },
-      { href: "/whatsapp/templates", label: "Templates", Icon: FileText },
-      { href: "/whatsapp/contacts", label: "Contacts", Icon: Users },
-    ],
-  },
-  { title: "Setup", items: [{ href: "/whatsapp/number", label: "WhatsApp number", Icon: Smartphone }] },
-];
-const CRUMB: Record<string, string> = { inbox: "Inbox", campaigns: "Campaigns", templates: "Templates", contacts: "Contacts", number: "WhatsApp number", new: "New" };
+type Item = NavItem;
 
-function Crumbs() {
-  const parts = (usePathname() ?? "").replace(/^.*?\/whatsapp\/?/, "").split("/").filter(Boolean);
-  const trail = parts.map((p, i) => ({ label: CRUMB[p] ?? (parts[0] === "campaigns" ? "Campaign" : parts[0] === "templates" ? "Template" : "Details"), href: `/whatsapp/${parts.slice(0, i + 1).join("/")}` }));
+function Crumbs({ channel }: { channel: ShellChannel }) {
+  const c = CHANNEL_NAV[channel];
+  const rest = (usePathname() ?? "").replace(new RegExp(`^.*?${c.prefix}(?=/|$)`), "");
+  const parts = rest.split("/").filter(Boolean);
+  const trail = parts.map((p, i) => ({ label: CRUMB[p] ?? (parts[0] === "campaigns" ? "Campaign" : parts[0] === "templates" ? "Template" : parts[0] === "leads" ? "List" : parts[0] === "accounts" ? "Account" : "Details"), href: `${c.prefix}/${parts.slice(0, i + 1).join("/")}` }));
   return (
     <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-[15px]">
-      <a href="/whatsapp/inbox" className="text-stone-500 hover:text-stone-900">
-        WhatsApp
+      <a href={c.home} className={cx("hover:text-stone-900", trail.length ? "text-stone-500" : "font-medium text-stone-900")}>
+        {c.name}
       </a>
       {trail.map((t, i) => (
         <span key={t.href} className="flex min-w-0 items-center gap-1.5">
@@ -65,9 +60,10 @@ function Crumbs() {
 function Nav({ p, rail, onCollapse }: { p: ShellProps; rail: boolean; onCollapse?: (v: boolean) => void }) {
   const path = usePathname() ?? "";
   const { unreadChats } = usePulse();
+  const nav = CHANNEL_NAV[p.channel];
   const link = (it: Item, external = false) => {
-    const on = !external && (path === it.href || path.startsWith(`${it.href}/`));
-    const n = it.badge === "unread" ? unreadChats : 0;
+    const on = !external && (path === it.href || (!it.exact && path.startsWith(`${it.href}/`)));
+    const n = it.inbox ? (p.channel === "whatsapp" ? unreadChats : (p.inboxCount ?? 0)) : 0;
     return (
       <a
         key={it.href}
@@ -75,15 +71,15 @@ function Nav({ p, rail, onCollapse }: { p: ShellProps; rail: boolean; onCollapse
         title={rail ? it.label : undefined}
         aria-label={rail ? it.label : undefined}
         aria-current={on ? "page" : undefined}
-        className={cx("relative flex items-center gap-3 rounded-xl text-[15.5px] transition", rail ? "justify-center p-2.5" : "px-3 py-2.5", on ? "bg-emerald-50 font-medium text-emerald-900 ring-1 ring-emerald-200" : "text-stone-600 hover:bg-stone-100 hover:text-stone-900")}
+        className={cx("relative flex items-center gap-3 rounded-xl text-[15.5px] transition", rail ? "justify-center p-2.5" : "px-3 py-2.5", on ? "bg-brand-400 font-medium text-stone-900" : "text-stone-600 hover:bg-stone-100 hover:text-stone-900")}
       >
-        <it.Icon className={cx("h-[19px] w-[19px] shrink-0", on ? "text-emerald-700" : "text-stone-400")} aria-hidden />
+        <it.Icon className={cx("h-[19px] w-[19px] shrink-0", on ? "text-stone-900" : "text-stone-400")} aria-hidden />
         {!rail && <span className="min-w-0 flex-1 truncate">{it.label}</span>}
         {n > 0 &&
           (rail ? (
-            <span className="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-emerald-600 px-1 text-[11px] font-bold text-white">{n > 99 ? "99+" : n}</span>
+            <span className="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-stone-900 px-1 text-[11px] font-bold text-white">{n > 99 ? "99+" : n}</span>
           ) : (
-            <span className="grid h-6 min-w-6 place-items-center rounded-full bg-emerald-100 px-1.5 text-[12.5px] font-semibold text-emerald-800" aria-label={`${n} unread`}>
+            <span className={cx("grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-[12.5px] font-semibold", on ? "bg-stone-900 text-white" : "bg-brand-400 text-stone-900")} aria-label={`${n} waiting`}>
               {n > 99 ? "99+" : n}
             </span>
           ))}
@@ -92,7 +88,6 @@ function Nav({ p, rail, onCollapse }: { p: ShellProps; rail: boolean; onCollapse
   };
   const workspaceItems: Item[] = [
     { href: p.links.hub, label: "All channels", Icon: LayoutGrid },
-    { href: p.links.settings, label: "Workspace settings", Icon: Settings },
     ...(p.links.billing ? [{ href: p.links.billing, label: "Billing", Icon: CreditCard }] : []),
   ];
   const heading = (t: string) => (rail ? <span className="mx-auto my-1 block h-px w-6 bg-stone-200" /> : <p className="px-3 pb-1 pt-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-stone-400">{t}</p>);
@@ -103,18 +98,21 @@ function Nav({ p, rail, onCollapse }: { p: ShellProps; rail: boolean; onCollapse
         <span className="relative">
           <LogoMark size={rail ? 36 : 40} />
           <span className="absolute -bottom-1 -right-1 rounded-full ring-2 ring-white">
-            <ChannelLogo id="whatsapp" size="xs" />
+            <ChannelLogo id={p.channel} size="xs" />
           </span>
         </span>
         {!rail && (
           <span className="min-w-0">
             <span className="block text-[19px] font-semibold leading-tight tracking-tight text-stone-900">Invytra</span>
-            <span className="block truncate text-[13.5px] text-stone-500">WhatsApp · {p.workspace}</span>
+            <span className="block truncate text-[13.5px] text-stone-500">
+              {nav.name} · {p.workspace}
+            </span>
           </span>
         )}
       </a>
-      <nav aria-label="WhatsApp" className="mt-6 flex flex-1 flex-col gap-1 overflow-y-auto">
-        {SECTIONS.map((s) => (
+      {p.extra && !rail && <div className="mt-5">{p.extra}</div>}
+      <nav aria-label={nav.name} className="mt-6 flex flex-1 flex-col gap-1 overflow-y-auto">
+        {nav.sections.map((s) => (
           <div key={s.title} className="flex flex-col gap-1 pb-3">
             {heading(s.title)}
             {s.items.map((it) => link(it))}
@@ -164,8 +162,8 @@ function Frame(p: ShellProps) {
     setRail(v);
     document.cookie = `${SIDEBAR_COOKIE}=${v ? "collapsed" : "open"}; path=/; max-age=31536000; samesite=lax`;
   };
-  // The inbox fills the screen (its list and chat scroll on their own); other pages scroll here.
-  const fill = /\/inbox\/?$/.test(path);
+  // An inbox fills the screen (its list and chat scroll on their own); other pages scroll here.
+  const fill = CHANNEL_NAV[p.channel].fill.some((f) => path === f || path === `${f}/`);
 
   return (
     <div className="flex h-dvh overflow-hidden bg-[#faf9f5]">
@@ -192,25 +190,34 @@ function Frame(p: ShellProps) {
             <LogoMark size={30} />
           </span>
           <div className="min-w-0 flex-1">
-            <Crumbs />
+            <Crumbs channel={p.channel} />
           </div>
           <span className="hidden sm:block">
             <CreditsChip left={p.credits.left} href={p.credits.href} compact />
           </span>
-          <Bell />
+          {p.channel === "whatsapp" && <Bell />}
         </header>
         {p.banner}
-        <main className={cx("min-h-0 flex-1", fill ? "overflow-hidden p-3 sm:p-4" : "overflow-y-auto px-4 py-6 sm:px-8 sm:py-8")}>{p.children}</main>
+        <main className={cx("min-h-0 flex-1", fill ? "overflow-hidden" : "overflow-y-auto")}>
+          <div className={fill ? "h-full p-3 sm:p-4" : cx("mx-auto px-4 py-6 sm:px-8 sm:py-8 print:max-w-none print:p-0", CHANNEL_NAV[p.channel].width)}>{p.children}</div>
+        </main>
       </div>
     </div>
   );
 }
 
-/** The WhatsApp channel's frame: sidebar with the Invytra logo, breadcrumb, bell, the page across the whole width. */
-export function WhatsappShell(p: ShellProps) {
-  return (
+/**
+ * Every channel's frame (LinkedIn, Email, WhatsApp), so they all look the same: a sidebar with the
+ * Invytra logo and the channel's menu (collapsible to icons, a drawer on phones), a breadcrumb
+ * top bar with AI credits (and WhatsApp's bell), the page under it.
+ * WhatsApp also checks for new messages on every page (sound, unread count on the tab).
+ */
+export function ChannelShell(p: ShellProps) {
+  return p.channel === "whatsapp" ? (
     <PulseProvider>
       <Frame {...p} />
     </PulseProvider>
+  ) : (
+    <Frame {...p} />
   );
 }

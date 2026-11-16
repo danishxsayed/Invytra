@@ -63,7 +63,7 @@ export default async function InboxPage({
   return (
     <div className="h-full animate-fade-up">
       <h1 className="sr-only">Inbox</h1>
-      <div className="h-full overflow-hidden bg-white lg:grid lg:min-w-0 lg:grid-cols-[380px_1fr]">
+      <div className="h-full overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 lg:grid lg:min-w-0 lg:grid-cols-[380px_1fr]">
         {/* Conversation list */}
         <div className={cx("flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-stone-200/80 lg:border-r", open && "hidden lg:flex")}>
           <FilterBar accounts={options.accounts} campaigns={options.campaigns} tags={options.tags} />
