@@ -8,7 +8,16 @@ import { useEffect } from "react";
  * what went wrong (so it can be reported), and a way to try again.
  */
 export default function PageError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  useEffect(() => console.error(error), [error]);
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+  // Where it broke (file:line in the page's code), so a screenshot is enough to find the cause.
+  const where = (error.stack ?? "")
+    .split("\n")
+    .filter((l) => /\/_next\//.test(l))
+    .slice(0, 4)
+    .map((l) => l.replace(/^\s*at\s+/, "").replace(/https?:\/\/[^/]+/, ""))
+    .join("\n");
   const chunk = /Loading chunk|ChunkLoadError|Failed to fetch dynamically imported module|Importing a module script failed/i.test(error.message);
   return (
     <main className="flex min-h-[70vh] items-center justify-center px-4">
@@ -20,6 +29,7 @@ export default function PageError({ error, reset }: { error: Error & { digest?: 
           <pre className="mt-4 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-stone-50 px-3 py-2 text-[12.5px] text-stone-700 ring-1 ring-stone-200">
             {error.message || "Unknown error"}
             {error.digest ? `\n(ref ${error.digest})` : ""}
+            {where && <span className="mt-2 block text-[11.5px] text-stone-400">{where}</span>}
           </pre>
         )}
         <div className="mt-5 flex gap-2">

@@ -35,7 +35,9 @@ export function ContactPanel({ id, tags, onClose }: { id: string; tags: string[]
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const load = () => void getWaContactAction(id).then(setC);
-  useEffect(load, [id]);
+  useEffect(() => {
+    load();
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps -- reload only when another contact opens
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && !editing && onClose();
     window.addEventListener("keydown", esc);

@@ -7,6 +7,7 @@ import { sendTemplateAction } from "@/app/whatsapp/inbox/actions";
 import { btn } from "../../btn";
 import { Portal } from "../../Portal";
 import { cx } from "../../ui";
+import { exclusive } from "./busy";
 import { WaBubble } from "../WaBubble";
 
 export interface InboxTemplate {
@@ -104,8 +105,11 @@ export function TemplateSend({ chatId, templates, firstName, onClose, onSent }: 
               onClick={() =>
                 start(async () => {
                   setError(null);
-                  const r = await sendTemplateAction(chatId, { templateId: id, values: Object.fromEntries((needs?.slots ?? []).map((s) => [s.slot, val(s.slot)])), mediaUrl });
-                  if (!r.ok) return setError(r.error);
+                  const r = await exclusive(() => sendTemplateAction(chatId, { templateId: id, values: Object.fromEntries((needs?.slots ?? []).map((s) => [s.slot, val(s.slot)])), mediaUrl }));
+                  if (!r.ok) {
+                    setError(r.error);
+                    return;
+                  }
                   onSent();
                 })
               }

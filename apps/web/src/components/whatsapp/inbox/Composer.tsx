@@ -6,6 +6,7 @@ import { addNoteAction, deleteSavedReplyAction, saveSavedReplyAction, sendFileAc
 import type { ChatMessage } from "@/lib/whatsapp-inbox";
 import { btn } from "../../btn";
 import { cx } from "../../ui";
+import { exclusive } from "./busy";
 
 export type SavedReply = { id: string; shortcut: string; body: string };
 
@@ -46,16 +47,21 @@ export function Composer({
   const send = () =>
     start(async () => {
       setError(null);
-      let r;
-      if (mode === "note") r = await addNoteAction(chatId, text);
-      else if (file) {
-        const f = new FormData();
-        f.set("id", chatId);
-        f.set("file", file);
-        f.set("caption", text);
-        r = await sendFileAction(f);
-      } else r = await sendTextAction(chatId, text, replyTo?.wamid ?? undefined);
-      if (!r.ok) return setError(r.error);
+      const r = await exclusive(() => {
+        if (mode === "note") return addNoteAction(chatId, text);
+        if (file) {
+          const f = new FormData();
+          f.set("id", chatId);
+          f.set("file", file);
+          f.set("caption", text);
+          return sendFileAction(f);
+        }
+        return sendTextAction(chatId, text, replyTo?.wamid ?? undefined);
+      }).catch(() => ({ ok: false as const, error: "Couldn't reach Invytra. Check your connection and try again." }));
+      if (!r.ok) {
+        setError(r.error);
+        return;
+      }
       setText("");
       setFile(null);
       onClearReply();

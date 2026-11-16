@@ -9,6 +9,7 @@ import { addNoteAction, deleteNoteAction, tagChatAction } from "@/app/whatsapp/i
 import type { WaActivity, WaContactDetail } from "@/lib/whatsapp-contact-detail";
 import { cx } from "../../ui";
 import { ContactPanel } from "../contacts/ContactPanel";
+import { exclusive } from "./busy";
 import { initials } from "./ChatList";
 import type { Note } from "./Messages";
 
@@ -26,7 +27,7 @@ export function ChatSide({ c, notes, createdAt, knownTags, me, onChanged }: { c:
   const since = new Date(createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" });
   const run = (fn: () => Promise<{ ok: boolean }>) =>
     start(async () => {
-      if ((await fn()).ok) onChanged();
+      if ((await exclusive(fn)).ok) onChanged();
     });
   const campaign = () =>
     start(async () => {

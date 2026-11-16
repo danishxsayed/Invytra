@@ -14,6 +14,7 @@ import { ChatSide } from "./ChatSide";
 import { Composer, type SavedReply } from "./Composer";
 import type { FilterCounts } from "./FilterDialog";
 import { Messages, type Note } from "./Messages";
+import { busy, exclusive } from "./busy";
 import { TemplateSend, type InboxTemplate } from "./TemplateSend";
 
 export interface OpenChat {
@@ -79,7 +80,9 @@ export function InboxApp(p: { chats: ChatRow[]; counts: FilterCounts & { unread:
   const end = useRef<HTMLDivElement>(null);
   const openId = p.chat?.id ?? null;
 
-  useEffect(() => setChats(p.chats), [p.chats]);
+  useEffect(() => {
+    setChats(p.chats);
+  }, [p.chats]);
   useEffect(() => {
     setMsgs(p.chat?.messages ?? []);
     setNotes(p.chat?.notes ?? []);
@@ -88,26 +91,46 @@ export function InboxApp(p: { chats: ChatRow[]; counts: FilterCounts & { unread:
     setAskDelete(false);
   }, [p.chat]);
 
+  // Live updates: one poll at a time, never on top of a send, and a reply for a chat that's no longer open is dropped.
+  const current = useRef(openId);
+  current.current = openId;
   const poll = useCallback(async () => {
-    const r = await pollInboxAction(toQuery(p.state), openId);
-    setChats(r.chats);
-    if (r.chat) {
-      setMsgs(r.chat.messages);
-      setNotes(r.chat.notes);
-      setWindowEnds(r.chat.windowEnds);
+    if (busy()) return;
+    try {
+      const r = await exclusive(() => pollInboxAction(toQuery(p.state), openId));
+      if (current.current !== openId) return;
+      setChats(r.chats);
+      if (r.chat) {
+        setMsgs(r.chat.messages);
+        setNotes(r.chat.notes);
+        setWindowEnds(r.chat.windowEnds);
+      }
+    } catch {
+      // A failed poll (offline, a deploy in progress) just waits for the next one.
     }
   }, [p.state, openId]);
   useEffect(() => {
-    const t = setInterval(() => document.visibilityState === "visible" && void poll(), 5000);
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") void poll();
+    }, 5000);
     return () => clearInterval(t);
   }, [poll]);
   const count = msgs.length + notes.length;
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [count, openId]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" });
+  }, [count, openId]);
 
   const go = (s: Partial<ListState>, c: string | null = openId) => router.push(toUrl({ ...p.state, ...s }, c), { scroll: false });
-  const change = (ch: Parameters<typeof updateChatAction>[1]) => start(async () => void ((await updateChatAction(openId!, ch)).ok && router.refresh()));
+  const change = (ch: Parameters<typeof updateChatAction>[1]) =>
+    start(async () => {
+      if ((await exclusive(() => updateChatAction(openId!, ch))).ok) router.refresh();
+    });
+  // After a send: the poll brings the new message and the list; no full refresh racing it.
   const refresh = () => {
     void poll();
+  };
+  // After changing the contact (tags, details): the side panel's data comes from the page.
+  const reload = () => {
     router.refresh();
   };
 
@@ -171,7 +194,7 @@ export function InboxApp(p: { chats: ChatRow[]; counts: FilterCounts & { unread:
                 disabled={pending}
                 onClick={() =>
                   start(async () => {
-                    if ((await deleteChatAction(c.id)).ok) go({}, null);
+                    if ((await exclusive(() => deleteChatAction(c.id))).ok) go({}, null);
                   })
                 }
                 className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 font-semibold text-white"
@@ -204,7 +227,7 @@ export function InboxApp(p: { chats: ChatRow[]; counts: FilterCounts & { unread:
 
       {c && side && (
         <aside className="hidden min-h-0 w-[320px] overflow-y-auto border-l border-stone-100 xl:block">
-          <ChatSide c={c.detail} notes={notes} createdAt={c.createdAt} knownTags={p.knownTags} me={p.me} onChanged={refresh} />
+          <ChatSide c={c.detail} notes={notes} createdAt={c.createdAt} knownTags={p.knownTags} me={p.me} onChanged={reload} />
         </aside>
       )}
       {c && tpl && (
